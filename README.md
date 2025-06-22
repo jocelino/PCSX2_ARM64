@@ -1,1 +1,2 @@
-* PCSX2 - Android project - arm64
+* PCSX2 - Android project
+* EE Recompiler x86 => arm64 
