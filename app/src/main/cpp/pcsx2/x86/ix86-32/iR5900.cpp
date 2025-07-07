@@ -370,7 +370,7 @@ void recCall(void (*func)())
 {
 	iFlushCall(FLUSH_INTERPRETER);
 //	xFastCall((void*)func);
-    armEmitCall(reinterpret_cast<void*>(func));
+    armEmitCall(reinterpret_cast<void*>(func), false);
 }
 
 // =====================================================================================================

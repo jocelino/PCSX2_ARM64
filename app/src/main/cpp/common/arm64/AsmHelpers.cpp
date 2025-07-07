@@ -173,16 +173,17 @@ void armEmitJmp(const void* ptr, bool force_inline)
 //a64::RegList g_cpuList(a64::x3.GetBit() | a64::x5.GetBit() | a64::x12.GetBit() | a64::x13.GetBit() | a64::x14.GetBit() | a64::x15.GetBit());
 //a64::CPURegList g_caller_regs = a64::CPURegList(a64::CPURegister::kRegister, a64::kXRegSize, g_cpuList);
 
-void armEmitCall(const void* ptr, bool force_inline)
+void armEmitCall(const void* ptr, bool force_inline, bool reg_move)
 {
+    if(reg_move) {
 //    armAsm->PushCPURegList(g_caller_regs);
-
-    armAsm->Mov(RSTATE_x19, a64::x3);
-    armAsm->Mov(RSTATE_x20, a64::x5);
-    armAsm->Mov(RSTATE_x21, a64::x12);
-    armAsm->Mov(RSTATE_x22, a64::x13);
-    armAsm->Mov(RSTATE_x23, a64::x14);
-    armAsm->Mov(RSTATE_x24, a64::x15);
+        armAsm->Mov(RSTATE_x19, a64::x3);
+        armAsm->Mov(RSTATE_x20, a64::x5);
+        armAsm->Mov(RSTATE_x21, a64::x12);
+        armAsm->Mov(RSTATE_x22, a64::x13);
+        armAsm->Mov(RSTATE_x23, a64::x14);
+        armAsm->Mov(RSTATE_x24, a64::x15);
+    }
 
     s64 displacement = GetPCDisplacement(armGetCurrentCodePointer(), ptr);
     bool use_blr = !vixl::IsInt26(displacement);
@@ -206,14 +207,15 @@ void armEmitCall(const void* ptr, bool force_inline)
         armAsm->bl(displacement);
     }
 
+    if(reg_move) {
 //    armAsm->PopCPURegList(g_caller_regs);
-
-    armAsm->Mov(a64::x3,  RSTATE_x19);
-    armAsm->Mov(a64::x5,  RSTATE_x20);
-    armAsm->Mov(a64::x12, RSTATE_x21);
-    armAsm->Mov(a64::x13, RSTATE_x22);
-    armAsm->Mov(a64::x14, RSTATE_x23);
-    armAsm->Mov(a64::x15, RSTATE_x24);
+        armAsm->Mov(a64::x3, RSTATE_x19);
+        armAsm->Mov(a64::x5, RSTATE_x20);
+        armAsm->Mov(a64::x12, RSTATE_x21);
+        armAsm->Mov(a64::x13, RSTATE_x22);
+        armAsm->Mov(a64::x14, RSTATE_x23);
+        armAsm->Mov(a64::x15, RSTATE_x24);
+    }
 }
 
 void armEmitCbnz(const a64::Register& reg, const void* ptr)
@@ -268,29 +270,29 @@ void armMoveAddressToReg(const a64::Register& reg, const void* addr)
     // psxAsm->Mov(reg, static_cast<u64>(reinterpret_cast<uintptr_t>(addr)));
     pxAssert(reg.IsX());
 
-    const void* current_code_ptr_page = reinterpret_cast<const void*>(
-            reinterpret_cast<uintptr_t>(armGetCurrentCodePointer()) & ~static_cast<uintptr_t>(0xFFF));
-    const void* ptr_page =
-            reinterpret_cast<const void*>(reinterpret_cast<uintptr_t>(addr) & ~static_cast<uintptr_t>(0xFFF));
-    const s64 page_displacement = GetPCDisplacement(current_code_ptr_page, ptr_page) >> 10;
-    const u32 page_offset = static_cast<u32>(reinterpret_cast<uintptr_t>(addr) & 0xFFFu);
-    if (vixl::IsInt21(page_displacement) && a64::Assembler::IsImmAddSub(page_offset))
-    {
-        {
-            a64::SingleEmissionCheckScope guard(armAsm);
-            armAsm->adrp(reg, page_displacement);
-        }
-        armAsm->Add(reg, reg, page_offset);
-    }
-    else if (vixl::IsInt21(page_displacement) && a64::Assembler::IsImmLogical(page_offset, 64))
-    {
-        {
-            a64::SingleEmissionCheckScope guard(armAsm);
-            armAsm->adrp(reg, page_displacement);
-        }
-        armAsm->Orr(reg, reg, page_offset);
-    }
-    else
+//    const void* current_code_ptr_page = reinterpret_cast<const void*>(
+//            reinterpret_cast<uintptr_t>(armGetCurrentCodePointer()) & ~static_cast<uintptr_t>(0xFFF));
+//    const void* ptr_page =
+//            reinterpret_cast<const void*>(reinterpret_cast<uintptr_t>(addr) & ~static_cast<uintptr_t>(0xFFF));
+//    const s64 page_displacement = GetPCDisplacement(current_code_ptr_page, ptr_page) >> 10;
+//    const u32 page_offset = static_cast<u32>(reinterpret_cast<uintptr_t>(addr) & 0xFFFu);
+//    if (vixl::IsInt21(page_displacement) && a64::Assembler::IsImmAddSub(page_offset))
+//    {
+//        {
+//            a64::SingleEmissionCheckScope guard(armAsm);
+//            armAsm->adrp(reg, page_displacement);
+//        }
+//        armAsm->Add(reg, reg, page_offset);
+//    }
+//    else if (vixl::IsInt21(page_displacement) && a64::Assembler::IsImmLogical(page_offset, 64))
+//    {
+//        {
+//            a64::SingleEmissionCheckScope guard(armAsm);
+//            armAsm->adrp(reg, page_displacement);
+//        }
+//        armAsm->Orr(reg, reg, page_offset);
+//    }
+//    else
     {
         armAsm->Mov(reg, reinterpret_cast<uintptr_t>(addr));
     }
@@ -732,41 +734,49 @@ void armAdd(const a64::Register& p_reg, a64::MemOperand p_mop, a64::Operand p_va
 void armAdd(const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(EEX, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(EEX, memop);
     armAsm->Add(EEX, EEX, p_value);
-    armAsm->Str(EEX, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(EEX, memop);
 }
 
 void armAdd(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(p_reg, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(p_reg, memop);
     armAsm->Add(p_reg, p_reg, p_value);
-    armAsm->Str(p_reg, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(p_reg, memop);
 }
 
 void armAddh(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value, bool p_flagUpdate)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldrh(p_reg, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldrh(p_reg, memop);
     if(p_flagUpdate) {
         armAsm->Adds(p_reg, p_reg, p_value);
     } else {
         armAsm->Add(p_reg, p_reg, p_value);
     }
-    armAsm->Strh(p_reg, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Strh(p_reg, memop);
 }
 
 void armAddsh(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value, bool p_flagUpdate)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldrsh(p_reg, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldrsh(p_reg, memop);
     if(p_flagUpdate) {
         armAsm->Adds(p_reg, p_reg, p_value);
     } else {
         armAsm->Add(p_reg, p_reg, p_value);
     }
-    armAsm->Strh(p_reg, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Strh(p_reg, memop);
 }
 
 void armSub(a64::MemOperand p_mop, a64::Operand p_value, bool p_flagUpdate)
@@ -794,17 +804,21 @@ void armSub(const a64::Register& p_reg, a64::MemOperand p_mop, a64::Operand p_va
 void armSub(const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(EEX, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(EEX, memop);
     armAsm->Sub(EEX, EEX, p_value);
-    armAsm->Str(EEX, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(EEX, memop);
 }
 
 void armSub(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(p_reg, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(p_reg, memop);
     armAsm->Sub(p_reg, p_reg, p_value);
-    armAsm->Str(p_reg, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(p_reg, memop);
 }
 
 void armAnd(a64::MemOperand p_mop, a64::Operand p_value, bool p_flagUpdate)
@@ -832,17 +846,21 @@ void armAnd(const a64::Register& p_reg, a64::MemOperand p_mop, a64::Operand p_va
 void armAnd(const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(EEX, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(EEX, memop);
     armAsm->And(EEX, EEX, p_value);
-    armAsm->Str(EEX, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(EEX, memop);
 }
 
 void armAnd(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(p_reg, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(p_reg, memop);
     armAsm->And(p_reg, p_reg, p_value);
-    armAsm->Str(p_reg, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(p_reg, memop);
 }
 
 void armOrr(a64::MemOperand p_mop, a64::Operand p_value)
@@ -862,17 +880,21 @@ void armOrr(const a64::Register& p_reg, a64::MemOperand p_mop, a64::Operand p_va
 void armOrr(const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(EEX, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(EEX, memop);
     armAsm->Orr(EEX, EEX, p_value);
-    armAsm->Str(EEX, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(EEX, memop);
 }
 
 void armOrr(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(p_reg, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(p_reg, memop);
     armAsm->Orr(p_reg, p_reg, p_value);
-    armAsm->Str(p_reg, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(p_reg, memop);
 }
 
 void armEor(a64::MemOperand p_mop, a64::Operand p_value)
@@ -892,17 +914,21 @@ void armEor(const a64::Register& p_reg, a64::MemOperand p_mop, a64::Operand p_va
 void armEor(const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(EEX, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(EEX, memop);
     armAsm->Eor(EEX, EEX, p_value);
-    armAsm->Str(EEX, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(EEX, memop);
 }
 
 void armEor(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value)
 {
     armMoveAddressToReg(RSCRATCHADDR, p_mop);
-    armAsm->Ldr(p_reg, a64::MemOperand(RSCRATCHADDR));
+    auto memop = a64::MemOperand(RSCRATCHADDR);
+    ////
+    armAsm->Ldr(p_reg, memop);
     armAsm->Eor(p_reg, p_reg, p_value);
-    armAsm->Str(p_reg, a64::MemOperand(RSCRATCHADDR));
+    armAsm->Str(p_reg, memop);
 }
 
 // kArm64I32x4BitMask
@@ -952,546 +978,67 @@ void armPMOVMSKB(const a64::Register& regDst, const a64::VRegister& regSrc)
     armAsm->Mov(regDst, tmp.V8H(), 0);
 }
 
-void armPshufdPs(const a64::VRegister& dst, const a64::VRegister& src, int a, int b, int c, int d)
+void armSHUFPS(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex)
 {
-    armAsm->Mov(RQSCRATCH, src);
-    armAsm->Mov(RQSCRATCH2, dst);
-
-    armAsm->Ins(dst.V4S(), 0, RQSCRATCH2.V4S(), a);
-    armAsm->Ins(dst.V4S(), 1, RQSCRATCH2.V4S(), b);
-    armAsm->Ins(dst.V4S(), 2, RQSCRATCH.V4S(), c);
-    armAsm->Ins(dst.V4S(), 3, RQSCRATCH.V4S(), d);
-}
-
-void armSHUFPS(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex) {
-    switch (pIndex) {
-        case 0: armPshufdPs(dstreg, srcreg, 0, 0, 0, 0); break;
-        case 1: armPshufdPs(dstreg, srcreg, 1, 0, 0, 0); break;
-        case 2: armPshufdPs(dstreg, srcreg, 2, 0, 0, 0); break;
-        case 3: armPshufdPs(dstreg, srcreg, 3, 0, 0, 0); break;
-        case 4: armPshufdPs(dstreg, srcreg, 0, 1, 0, 0); break;
-        case 5: armPshufdPs(dstreg, srcreg, 1, 1, 0, 0); break;
-        case 6: armPshufdPs(dstreg, srcreg, 2, 1, 0, 0); break;
-        case 7: armPshufdPs(dstreg, srcreg, 3, 1, 0, 0); break;
-        case 8: armPshufdPs(dstreg, srcreg, 0, 2, 0, 0); break;
-        case 9: armPshufdPs(dstreg, srcreg, 1, 2, 0, 0); break;
-        case 10: armPshufdPs(dstreg, srcreg, 2, 2, 0, 0); break;
-        case 11: armPshufdPs(dstreg, srcreg, 3, 2, 0, 0); break;
-        case 12: armPshufdPs(dstreg, srcreg, 0, 3, 0, 0); break;
-        case 13: armPshufdPs(dstreg, srcreg, 1, 3, 0, 0); break;
-        case 14: armPshufdPs(dstreg, srcreg, 2, 3, 0, 0); break;
-        case 15: armPshufdPs(dstreg, srcreg, 3, 3, 0, 0); break;
-        case 16: armPshufdPs(dstreg, srcreg, 0, 0, 1, 0); break;
-        case 17: armPshufdPs(dstreg, srcreg, 1, 0, 1, 0); break;
-        case 18: armPshufdPs(dstreg, srcreg, 2, 0, 1, 0); break;
-        case 19: armPshufdPs(dstreg, srcreg, 3, 0, 1, 0); break;
-        case 20: armPshufdPs(dstreg, srcreg, 0, 1, 1, 0); break;
-        case 21: armPshufdPs(dstreg, srcreg, 1, 1, 1, 0); break;
-        case 22: armPshufdPs(dstreg, srcreg, 2, 1, 1, 0); break;
-        case 23: armPshufdPs(dstreg, srcreg, 3, 1, 1, 0); break;
-        case 24: armPshufdPs(dstreg, srcreg, 0, 2, 1, 0); break;
-        case 25: armPshufdPs(dstreg, srcreg, 1, 2, 1, 0); break;
-        case 26: armPshufdPs(dstreg, srcreg, 2, 2, 1, 0); break;
-        case 27: armPshufdPs(dstreg, srcreg, 3, 2, 1, 0); break;
-        case 28: armPshufdPs(dstreg, srcreg, 0, 3, 1, 0); break;
-        case 29: armPshufdPs(dstreg, srcreg, 1, 3, 1, 0); break;
-        case 30: armPshufdPs(dstreg, srcreg, 2, 3, 1, 0); break;
-        case 31: armPshufdPs(dstreg, srcreg, 3, 3, 1, 0); break;
-        case 32: armPshufdPs(dstreg, srcreg, 0, 0, 2, 0); break;
-        case 33: armPshufdPs(dstreg, srcreg, 1, 0, 2, 0); break;
-        case 34: armPshufdPs(dstreg, srcreg, 2, 0, 2, 0); break;
-        case 35: armPshufdPs(dstreg, srcreg, 3, 0, 2, 0); break;
-        case 36: armPshufdPs(dstreg, srcreg, 0, 1, 2, 0); break;
-        case 37: armPshufdPs(dstreg, srcreg, 1, 1, 2, 0); break;
-        case 38: armPshufdPs(dstreg, srcreg, 2, 1, 2, 0); break;
-        case 39: armPshufdPs(dstreg, srcreg, 3, 1, 2, 0); break;
-        case 40: armPshufdPs(dstreg, srcreg, 0, 2, 2, 0); break;
-        case 41: armPshufdPs(dstreg, srcreg, 1, 2, 2, 0); break;
-        case 42: armPshufdPs(dstreg, srcreg, 2, 2, 2, 0); break;
-        case 43: armPshufdPs(dstreg, srcreg, 3, 2, 2, 0); break;
-        case 44: armPshufdPs(dstreg, srcreg, 0, 3, 2, 0); break;
-        case 45: armPshufdPs(dstreg, srcreg, 1, 3, 2, 0); break;
-        case 46: armPshufdPs(dstreg, srcreg, 2, 3, 2, 0); break;
-        case 47: armPshufdPs(dstreg, srcreg, 3, 3, 2, 0); break;
-        case 48: armPshufdPs(dstreg, srcreg, 0, 0, 3, 0); break;
-        case 49: armPshufdPs(dstreg, srcreg, 1, 0, 3, 0); break;
-        case 50: armPshufdPs(dstreg, srcreg, 2, 0, 3, 0); break;
-        case 51: armPshufdPs(dstreg, srcreg, 3, 0, 3, 0); break;
-        case 52: armPshufdPs(dstreg, srcreg, 0, 1, 3, 0); break;
-        case 53: armPshufdPs(dstreg, srcreg, 1, 1, 3, 0); break;
-        case 54: armPshufdPs(dstreg, srcreg, 2, 1, 3, 0); break;
-        case 55: armPshufdPs(dstreg, srcreg, 3, 1, 3, 0); break;
-        case 56: armPshufdPs(dstreg, srcreg, 0, 2, 3, 0); break;
-        case 57: armPshufdPs(dstreg, srcreg, 1, 2, 3, 0); break;
-        case 58: armPshufdPs(dstreg, srcreg, 2, 2, 3, 0); break;
-        case 59: armPshufdPs(dstreg, srcreg, 3, 2, 3, 0); break;
-        case 60: armPshufdPs(dstreg, srcreg, 0, 3, 3, 0); break;
-        case 61: armPshufdPs(dstreg, srcreg, 1, 3, 3, 0); break;
-        case 62: armPshufdPs(dstreg, srcreg, 2, 3, 3, 0); break;
-        case 63: armPshufdPs(dstreg, srcreg, 3, 3, 3, 0); break;
-        case 64: armPshufdPs(dstreg, srcreg, 0, 0, 0, 1); break;
-        case 65: armPshufdPs(dstreg, srcreg, 1, 0, 0, 1); break;
-        case 66: armPshufdPs(dstreg, srcreg, 2, 0, 0, 1); break;
-        case 67: armPshufdPs(dstreg, srcreg, 3, 0, 0, 1); break;
-        case 68: armPshufdPs(dstreg, srcreg, 0, 1, 0, 1); break;
-        case 69: armPshufdPs(dstreg, srcreg, 1, 1, 0, 1); break;
-        case 70: armPshufdPs(dstreg, srcreg, 2, 1, 0, 1); break;
-        case 71: armPshufdPs(dstreg, srcreg, 3, 1, 0, 1); break;
-        case 72: armPshufdPs(dstreg, srcreg, 0, 2, 0, 1); break;
-        case 73: armPshufdPs(dstreg, srcreg, 1, 2, 0, 1); break;
-        case 74: armPshufdPs(dstreg, srcreg, 2, 2, 0, 1); break;
-        case 75: armPshufdPs(dstreg, srcreg, 3, 2, 0, 1); break;
-        case 76: armPshufdPs(dstreg, srcreg, 0, 3, 0, 1); break;
-        case 77: armPshufdPs(dstreg, srcreg, 1, 3, 0, 1); break;
-        case 78: armPshufdPs(dstreg, srcreg, 2, 3, 0, 1); break;
-        case 79: armPshufdPs(dstreg, srcreg, 3, 3, 0, 1); break;
-        case 80: armPshufdPs(dstreg, srcreg, 0, 0, 1, 1); break;
-        case 81: armPshufdPs(dstreg, srcreg, 1, 0, 1, 1); break;
-        case 82: armPshufdPs(dstreg, srcreg, 2, 0, 1, 1); break;
-        case 83: armPshufdPs(dstreg, srcreg, 3, 0, 1, 1); break;
-        case 84: armPshufdPs(dstreg, srcreg, 0, 1, 1, 1); break;
-        case 85: armPshufdPs(dstreg, srcreg, 1, 1, 1, 1); break;
-        case 86: armPshufdPs(dstreg, srcreg, 2, 1, 1, 1); break;
-        case 87: armPshufdPs(dstreg, srcreg, 3, 1, 1, 1); break;
-        case 88: armPshufdPs(dstreg, srcreg, 0, 2, 1, 1); break;
-        case 89: armPshufdPs(dstreg, srcreg, 1, 2, 1, 1); break;
-        case 90: armPshufdPs(dstreg, srcreg, 2, 2, 1, 1); break;
-        case 91: armPshufdPs(dstreg, srcreg, 3, 2, 1, 1); break;
-        case 92: armPshufdPs(dstreg, srcreg, 0, 3, 1, 1); break;
-        case 93: armPshufdPs(dstreg, srcreg, 1, 3, 1, 1); break;
-        case 94: armPshufdPs(dstreg, srcreg, 2, 3, 1, 1); break;
-        case 95: armPshufdPs(dstreg, srcreg, 3, 3, 1, 1); break;
-        case 96: armPshufdPs(dstreg, srcreg, 0, 0, 2, 0); break;
-        case 97: armPshufdPs(dstreg, srcreg, 1, 0, 2, 1); break;
-        case 98: armPshufdPs(dstreg, srcreg, 2, 0, 2, 1); break;
-        case 99: armPshufdPs(dstreg, srcreg, 3, 0, 2, 1); break;
-        case 100: armPshufdPs(dstreg, srcreg, 0, 1, 2, 1); break;
-        case 101: armPshufdPs(dstreg, srcreg, 1, 1, 2, 1); break;
-        case 102: armPshufdPs(dstreg, srcreg, 2, 1, 2, 1); break;
-        case 103: armPshufdPs(dstreg, srcreg, 3, 1, 2, 1); break;
-        case 104: armPshufdPs(dstreg, srcreg, 0, 2, 2, 1); break;
-        case 105: armPshufdPs(dstreg, srcreg, 1, 2, 2, 1); break;
-        case 106: armPshufdPs(dstreg, srcreg, 2, 2, 2, 1); break;
-        case 107: armPshufdPs(dstreg, srcreg, 3, 2, 2, 1); break;
-        case 108: armPshufdPs(dstreg, srcreg, 0, 3, 2, 1); break;
-        case 109: armPshufdPs(dstreg, srcreg, 1, 3, 2, 1); break;
-        case 110: armPshufdPs(dstreg, srcreg, 2, 3, 2, 1); break;
-        case 111: armPshufdPs(dstreg, srcreg, 3, 3, 2, 1); break;
-        case 112: armPshufdPs(dstreg, srcreg, 0, 0, 3, 1); break;
-        case 113: armPshufdPs(dstreg, srcreg, 1, 0, 3, 1); break;
-        case 114: armPshufdPs(dstreg, srcreg, 2, 0, 3, 1); break;
-        case 115: armPshufdPs(dstreg, srcreg, 3, 0, 3, 1); break;
-        case 116: armPshufdPs(dstreg, srcreg, 0, 1, 3, 1); break;
-        case 117: armPshufdPs(dstreg, srcreg, 1, 1, 3, 1); break;
-        case 118: armPshufdPs(dstreg, srcreg, 2, 1, 3, 1); break;
-        case 119: armPshufdPs(dstreg, srcreg, 3, 1, 3, 1); break;
-        case 120: armPshufdPs(dstreg, srcreg, 0, 2, 3, 1); break;
-        case 121: armPshufdPs(dstreg, srcreg, 1, 2, 3, 1); break;
-        case 122: armPshufdPs(dstreg, srcreg, 2, 2, 3, 1); break;
-        case 123: armPshufdPs(dstreg, srcreg, 3, 2, 3, 1); break;
-        case 124: armPshufdPs(dstreg, srcreg, 0, 3, 3, 1); break;
-        case 125: armPshufdPs(dstreg, srcreg, 1, 3, 3, 1); break;
-        case 126: armPshufdPs(dstreg, srcreg, 2, 3, 3, 1); break;
-        case 127: armPshufdPs(dstreg, srcreg, 3, 3, 3, 1); break;
-        case 128: armPshufdPs(dstreg, srcreg, 0, 0, 0, 2); break;
-        case 129: armPshufdPs(dstreg, srcreg, 1, 0, 0, 2); break;
-        case 130: armPshufdPs(dstreg, srcreg, 2, 0, 0, 2); break;
-        case 131: armPshufdPs(dstreg, srcreg, 3, 0, 0, 2); break;
-        case 132: armPshufdPs(dstreg, srcreg, 0, 1, 0, 2); break;
-        case 133: armPshufdPs(dstreg, srcreg, 1, 1, 0, 2); break;
-        case 134: armPshufdPs(dstreg, srcreg, 2, 1, 0, 2); break;
-        case 135: armPshufdPs(dstreg, srcreg, 3, 1, 0, 2); break;
-        case 136: armPshufdPs(dstreg, srcreg, 0, 2, 0, 2); break;
-        case 137: armPshufdPs(dstreg, srcreg, 1, 2, 0, 2); break;
-        case 138: armPshufdPs(dstreg, srcreg, 2, 2, 0, 2); break;
-        case 139: armPshufdPs(dstreg, srcreg, 3, 2, 0, 2); break;
-        case 140: armPshufdPs(dstreg, srcreg, 0, 3, 0, 2); break;
-        case 141: armPshufdPs(dstreg, srcreg, 1, 3, 0, 2); break;
-        case 142: armPshufdPs(dstreg, srcreg, 2, 3, 0, 2); break;
-        case 143: armPshufdPs(dstreg, srcreg, 3, 3, 0, 2); break;
-        case 144: armPshufdPs(dstreg, srcreg, 0, 0, 1, 2); break;
-        case 145: armPshufdPs(dstreg, srcreg, 1, 0, 1, 2); break;
-        case 146: armPshufdPs(dstreg, srcreg, 2, 0, 1, 2); break;
-        case 147: armPshufdPs(dstreg, srcreg, 3, 0, 1, 2); break;
-        case 148: armPshufdPs(dstreg, srcreg, 0, 1, 1, 2); break;
-        case 149: armPshufdPs(dstreg, srcreg, 1, 1, 1, 2); break;
-        case 150: armPshufdPs(dstreg, srcreg, 2, 1, 1, 2); break;
-        case 151: armPshufdPs(dstreg, srcreg, 3, 1, 1, 2); break;
-        case 152: armPshufdPs(dstreg, srcreg, 0, 2, 1, 2); break;
-        case 153: armPshufdPs(dstreg, srcreg, 1, 2, 1, 2); break;
-        case 154: armPshufdPs(dstreg, srcreg, 2, 2, 1, 2); break;
-        case 155: armPshufdPs(dstreg, srcreg, 3, 2, 1, 2); break;
-        case 156: armPshufdPs(dstreg, srcreg, 0, 3, 1, 2); break;
-        case 157: armPshufdPs(dstreg, srcreg, 1, 3, 1, 2); break;
-        case 158: armPshufdPs(dstreg, srcreg, 2, 3, 1, 2); break;
-        case 159: armPshufdPs(dstreg, srcreg, 3, 3, 1, 2); break;
-        case 160: armPshufdPs(dstreg, srcreg, 0, 0, 2, 2); break;
-        case 161: armPshufdPs(dstreg, srcreg, 1, 0, 2, 2); break;
-        case 162: armPshufdPs(dstreg, srcreg, 2, 0, 2, 2); break;
-        case 163: armPshufdPs(dstreg, srcreg, 3, 0, 2, 2); break;
-        case 164: armPshufdPs(dstreg, srcreg, 0, 1, 2, 2); break;
-        case 165: armPshufdPs(dstreg, srcreg, 1, 1, 2, 2); break;
-        case 166: armPshufdPs(dstreg, srcreg, 2, 1, 2, 2); break;
-        case 167: armPshufdPs(dstreg, srcreg, 3, 1, 2, 2); break;
-        case 168: armPshufdPs(dstreg, srcreg, 0, 2, 2, 2); break;
-        case 169: armPshufdPs(dstreg, srcreg, 1, 2, 2, 2); break;
-        case 170: armPshufdPs(dstreg, srcreg, 2, 2, 2, 2); break;
-        case 171: armPshufdPs(dstreg, srcreg, 3, 2, 2, 2); break;
-        case 172: armPshufdPs(dstreg, srcreg, 0, 3, 2, 2); break;
-        case 173: armPshufdPs(dstreg, srcreg, 1, 3, 2, 2); break;
-        case 174: armPshufdPs(dstreg, srcreg, 2, 3, 2, 2); break;
-        case 175: armPshufdPs(dstreg, srcreg, 3, 3, 2, 2); break;
-        case 176: armPshufdPs(dstreg, srcreg, 0, 0, 3, 2); break;
-        case 177: armPshufdPs(dstreg, srcreg, 1, 0, 3, 2); break;
-        case 178: armPshufdPs(dstreg, srcreg, 2, 0, 3, 2); break;
-        case 179: armPshufdPs(dstreg, srcreg, 3, 0, 3, 2); break;
-        case 180: armPshufdPs(dstreg, srcreg, 0, 1, 3, 2); break;
-        case 181: armPshufdPs(dstreg, srcreg, 1, 1, 3, 2); break;
-        case 182: armPshufdPs(dstreg, srcreg, 2, 1, 3, 2); break;
-        case 183: armPshufdPs(dstreg, srcreg, 3, 1, 3, 2); break;
-        case 184: armPshufdPs(dstreg, srcreg, 0, 2, 3, 2); break;
-        case 185: armPshufdPs(dstreg, srcreg, 1, 2, 3, 2); break;
-        case 186: armPshufdPs(dstreg, srcreg, 2, 2, 3, 2); break;
-        case 187: armPshufdPs(dstreg, srcreg, 3, 2, 3, 2); break;
-        case 188: armPshufdPs(dstreg, srcreg, 0, 3, 3, 2); break;
-        case 189: armPshufdPs(dstreg, srcreg, 1, 3, 3, 2); break;
-        case 190: armPshufdPs(dstreg, srcreg, 2, 3, 3, 2); break;
-        case 191: armPshufdPs(dstreg, srcreg, 3, 3, 3, 2); break;
-        case 192: armPshufdPs(dstreg, srcreg, 0, 0, 0, 3); break;
-        case 193: armPshufdPs(dstreg, srcreg, 1, 0, 0, 3); break;
-        case 194: armPshufdPs(dstreg, srcreg, 2, 0, 0, 3); break;
-        case 195: armPshufdPs(dstreg, srcreg, 3, 0, 0, 3); break;
-        case 196: armPshufdPs(dstreg, srcreg, 0, 1, 0, 3); break;
-        case 197: armPshufdPs(dstreg, srcreg, 1, 1, 0, 3); break;
-        case 198: armPshufdPs(dstreg, srcreg, 2, 1, 0, 3); break;
-        case 199: armPshufdPs(dstreg, srcreg, 3, 1, 0, 3); break;
-        case 200: armPshufdPs(dstreg, srcreg, 0, 2, 0, 3); break;
-        case 201: armPshufdPs(dstreg, srcreg, 1, 2, 0, 3); break;
-        case 202: armPshufdPs(dstreg, srcreg, 2, 2, 0, 3); break;
-        case 203: armPshufdPs(dstreg, srcreg, 3, 2, 0, 3); break;
-        case 204: armPshufdPs(dstreg, srcreg, 0, 3, 0, 3); break;
-        case 205: armPshufdPs(dstreg, srcreg, 1, 3, 0, 3); break;
-        case 206: armPshufdPs(dstreg, srcreg, 2, 3, 0, 3); break;
-        case 207: armPshufdPs(dstreg, srcreg, 3, 3, 0, 3); break;
-        case 208: armPshufdPs(dstreg, srcreg, 0, 0, 1, 3); break;
-        case 209: armPshufdPs(dstreg, srcreg, 1, 0, 1, 3); break;
-        case 210: armPshufdPs(dstreg, srcreg, 2, 0, 1, 3); break;
-        case 211: armPshufdPs(dstreg, srcreg, 3, 0, 1, 3); break;
-        case 212: armPshufdPs(dstreg, srcreg, 0, 1, 1, 3); break;
-        case 213: armPshufdPs(dstreg, srcreg, 1, 1, 1, 3); break;
-        case 214: armPshufdPs(dstreg, srcreg, 2, 1, 1, 3); break;
-        case 215: armPshufdPs(dstreg, srcreg, 3, 1, 1, 3); break;
-        case 216: armPshufdPs(dstreg, srcreg, 0, 2, 1, 3); break;
-        case 217: armPshufdPs(dstreg, srcreg, 1, 2, 1, 3); break;
-        case 218: armPshufdPs(dstreg, srcreg, 2, 2, 1, 3); break;
-        case 219: armPshufdPs(dstreg, srcreg, 3, 2, 1, 3); break;
-        case 220: armPshufdPs(dstreg, srcreg, 0, 3, 1, 3); break;
-        case 221: armPshufdPs(dstreg, srcreg, 1, 3, 1, 3); break;
-        case 222: armPshufdPs(dstreg, srcreg, 2, 3, 1, 3); break;
-        case 223: armPshufdPs(dstreg, srcreg, 3, 3, 1, 3); break;
-        case 224: armPshufdPs(dstreg, srcreg, 0, 0, 2, 3); break;
-        case 225: armPshufdPs(dstreg, srcreg, 1, 0, 2, 3); break;
-        case 226: armPshufdPs(dstreg, srcreg, 2, 0, 2, 3); break;
-        case 227: armPshufdPs(dstreg, srcreg, 3, 0, 2, 3); break;
-        case 228: armPshufdPs(dstreg, srcreg, 0, 1, 2, 3); break;
-        case 229: armPshufdPs(dstreg, srcreg, 1, 1, 2, 3); break;
-        case 230: armPshufdPs(dstreg, srcreg, 2, 1, 2, 3); break;
-        case 231: armPshufdPs(dstreg, srcreg, 3, 1, 2, 3); break;
-        case 232: armPshufdPs(dstreg, srcreg, 0, 2, 2, 3); break;
-        case 233: armPshufdPs(dstreg, srcreg, 1, 2, 2, 3); break;
-        case 234: armPshufdPs(dstreg, srcreg, 2, 2, 2, 3); break;
-        case 235: armPshufdPs(dstreg, srcreg, 3, 2, 2, 3); break;
-        case 236: armPshufdPs(dstreg, srcreg, 0, 3, 2, 3); break;
-        case 237: armPshufdPs(dstreg, srcreg, 1, 3, 2, 3); break;
-        case 238: armPshufdPs(dstreg, srcreg, 2, 3, 2, 3); break;
-        case 239: armPshufdPs(dstreg, srcreg, 3, 3, 2, 3); break;
-        case 240: armPshufdPs(dstreg, srcreg, 0, 0, 3, 3); break;
-        case 241: armPshufdPs(dstreg, srcreg, 1, 0, 3, 3); break;
-        case 242: armPshufdPs(dstreg, srcreg, 2, 0, 3, 3); break;
-        case 243: armPshufdPs(dstreg, srcreg, 3, 0, 3, 3); break;
-        case 244: armPshufdPs(dstreg, srcreg, 0, 1, 3, 3); break;
-        case 245: armPshufdPs(dstreg, srcreg, 1, 1, 3, 3); break;
-        case 246: armPshufdPs(dstreg, srcreg, 2, 1, 3, 3); break;
-        case 247: armPshufdPs(dstreg, srcreg, 3, 1, 3, 3); break;
-        case 248: armPshufdPs(dstreg, srcreg, 0, 2, 3, 3); break;
-        case 249: armPshufdPs(dstreg, srcreg, 1, 2, 3, 3); break;
-        case 250: armPshufdPs(dstreg, srcreg, 2, 2, 3, 3); break;
-        case 251: armPshufdPs(dstreg, srcreg, 3, 2, 3, 3); break;
-        case 252: armPshufdPs(dstreg, srcreg, 0, 3, 3, 3); break;
-        case 253: armPshufdPs(dstreg, srcreg, 1, 3, 3, 3); break;
-        case 254: armPshufdPs(dstreg, srcreg, 2, 3, 3, 3); break;
-        case 255: armPshufdPs(dstreg, srcreg, 3, 3, 3, 3); break;
-    }
-}
-
-void armPshufd(const a64::VRegister& dst, const a64::VRegister& src, int a, int b, int c, int d)
-{
-    armAsm->Mov(RQSCRATCH, src);
-
-    armAsm->Ins(dst.V4S(), 0, RQSCRATCH.V4S(), a);
-    armAsm->Ins(dst.V4S(), 1, RQSCRATCH.V4S(), b);
-    armAsm->Ins(dst.V4S(), 2, RQSCRATCH.V4S(), c);
-    armAsm->Ins(dst.V4S(), 3, RQSCRATCH.V4S(), d);
+    armShuffle(dstreg, srcreg, pIndex, true);
 }
 
 void armPSHUFD(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex)
 {
-    switch (pIndex) {
-        case 0: armPshufd(dstreg, srcreg, 0, 0, 0, 0); break;
-        case 1: armPshufd(dstreg, srcreg, 1, 0, 0, 0); break;
-        case 2: armPshufd(dstreg, srcreg, 2, 0, 0, 0); break;
-        case 3: armPshufd(dstreg, srcreg, 3, 0, 0, 0); break;
-        case 4: armPshufd(dstreg, srcreg, 0, 1, 0, 0); break;
-        case 5: armPshufd(dstreg, srcreg, 1, 1, 0, 0); break;
-        case 6: armPshufd(dstreg, srcreg, 2, 1, 0, 0); break;
-        case 7: armPshufd(dstreg, srcreg, 3, 1, 0, 0); break;
-        case 8: armPshufd(dstreg, srcreg, 0, 2, 0, 0); break;
-        case 9: armPshufd(dstreg, srcreg, 1, 2, 0, 0); break;
-        case 10: armPshufd(dstreg, srcreg, 2, 2, 0, 0); break;
-        case 11: armPshufd(dstreg, srcreg, 3, 2, 0, 0); break;
-        case 12: armPshufd(dstreg, srcreg, 0, 3, 0, 0); break;
-        case 13: armPshufd(dstreg, srcreg, 1, 3, 0, 0); break;
-        case 14: armPshufd(dstreg, srcreg, 2, 3, 0, 0); break;
-        case 15: armPshufd(dstreg, srcreg, 3, 3, 0, 0); break;
-        case 16: armPshufd(dstreg, srcreg, 0, 0, 1, 0); break;
-        case 17: armPshufd(dstreg, srcreg, 1, 0, 1, 0); break;
-        case 18: armPshufd(dstreg, srcreg, 2, 0, 1, 0); break;
-        case 19: armPshufd(dstreg, srcreg, 3, 0, 1, 0); break;
-        case 20: armPshufd(dstreg, srcreg, 0, 1, 1, 0); break;
-        case 21: armPshufd(dstreg, srcreg, 1, 1, 1, 0); break;
-        case 22: armPshufd(dstreg, srcreg, 2, 1, 1, 0); break;
-        case 23: armPshufd(dstreg, srcreg, 3, 1, 1, 0); break;
-        case 24: armPshufd(dstreg, srcreg, 0, 2, 1, 0); break;
-        case 25: armPshufd(dstreg, srcreg, 1, 2, 1, 0); break;
-        case 26: armPshufd(dstreg, srcreg, 2, 2, 1, 0); break;
-        case 27: armPshufd(dstreg, srcreg, 3, 2, 1, 0); break;
-        case 28: armPshufd(dstreg, srcreg, 0, 3, 1, 0); break;
-        case 29: armPshufd(dstreg, srcreg, 1, 3, 1, 0); break;
-        case 30: armPshufd(dstreg, srcreg, 2, 3, 1, 0); break;
-        case 31: armPshufd(dstreg, srcreg, 3, 3, 1, 0); break;
-        case 32: armPshufd(dstreg, srcreg, 0, 0, 2, 0); break;
-        case 33: armPshufd(dstreg, srcreg, 1, 0, 2, 0); break;
-        case 34: armPshufd(dstreg, srcreg, 2, 0, 2, 0); break;
-        case 35: armPshufd(dstreg, srcreg, 3, 0, 2, 0); break;
-        case 36: armPshufd(dstreg, srcreg, 0, 1, 2, 0); break;
-        case 37: armPshufd(dstreg, srcreg, 1, 1, 2, 0); break;
-        case 38: armPshufd(dstreg, srcreg, 2, 1, 2, 0); break;
-        case 39: armPshufd(dstreg, srcreg, 3, 1, 2, 0); break;
-        case 40: armPshufd(dstreg, srcreg, 0, 2, 2, 0); break;
-        case 41: armPshufd(dstreg, srcreg, 1, 2, 2, 0); break;
-        case 42: armPshufd(dstreg, srcreg, 2, 2, 2, 0); break;
-        case 43: armPshufd(dstreg, srcreg, 3, 2, 2, 0); break;
-        case 44: armPshufd(dstreg, srcreg, 0, 3, 2, 0); break;
-        case 45: armPshufd(dstreg, srcreg, 1, 3, 2, 0); break;
-        case 46: armPshufd(dstreg, srcreg, 2, 3, 2, 0); break;
-        case 47: armPshufd(dstreg, srcreg, 3, 3, 2, 0); break;
-        case 48: armPshufd(dstreg, srcreg, 0, 0, 3, 0); break;
-        case 49: armPshufd(dstreg, srcreg, 1, 0, 3, 0); break;
-        case 50: armPshufd(dstreg, srcreg, 2, 0, 3, 0); break;
-        case 51: armPshufd(dstreg, srcreg, 3, 0, 3, 0); break;
-        case 52: armPshufd(dstreg, srcreg, 0, 1, 3, 0); break;
-        case 53: armPshufd(dstreg, srcreg, 1, 1, 3, 0); break;
-        case 54: armPshufd(dstreg, srcreg, 2, 1, 3, 0); break;
-        case 55: armPshufd(dstreg, srcreg, 3, 1, 3, 0); break;
-        case 56: armPshufd(dstreg, srcreg, 0, 2, 3, 0); break;
-        case 57: armPshufd(dstreg, srcreg, 1, 2, 3, 0); break;
-        case 58: armPshufd(dstreg, srcreg, 2, 2, 3, 0); break;
-        case 59: armPshufd(dstreg, srcreg, 3, 2, 3, 0); break;
-        case 60: armPshufd(dstreg, srcreg, 0, 3, 3, 0); break;
-        case 61: armPshufd(dstreg, srcreg, 1, 3, 3, 0); break;
-        case 62: armPshufd(dstreg, srcreg, 2, 3, 3, 0); break;
-        case 63: armPshufd(dstreg, srcreg, 3, 3, 3, 0); break;
-        case 64: armPshufd(dstreg, srcreg, 0, 0, 0, 1); break;
-        case 65: armPshufd(dstreg, srcreg, 1, 0, 0, 1); break;
-        case 66: armPshufd(dstreg, srcreg, 2, 0, 0, 1); break;
-        case 67: armPshufd(dstreg, srcreg, 3, 0, 0, 1); break;
-        case 68: armPshufd(dstreg, srcreg, 0, 1, 0, 1); break;
-        case 69: armPshufd(dstreg, srcreg, 1, 1, 0, 1); break;
-        case 70: armPshufd(dstreg, srcreg, 2, 1, 0, 1); break;
-        case 71: armPshufd(dstreg, srcreg, 3, 1, 0, 1); break;
-        case 72: armPshufd(dstreg, srcreg, 0, 2, 0, 1); break;
-        case 73: armPshufd(dstreg, srcreg, 1, 2, 0, 1); break;
-        case 74: armPshufd(dstreg, srcreg, 2, 2, 0, 1); break;
-        case 75: armPshufd(dstreg, srcreg, 3, 2, 0, 1); break;
-        case 76: armPshufd(dstreg, srcreg, 0, 3, 0, 1); break;
-        case 77: armPshufd(dstreg, srcreg, 1, 3, 0, 1); break;
-        case 78: armPshufd(dstreg, srcreg, 2, 3, 0, 1); break;
-        case 79: armPshufd(dstreg, srcreg, 3, 3, 0, 1); break;
-        case 80: armPshufd(dstreg, srcreg, 0, 0, 1, 1); break;
-        case 81: armPshufd(dstreg, srcreg, 1, 0, 1, 1); break;
-        case 82: armPshufd(dstreg, srcreg, 2, 0, 1, 1); break;
-        case 83: armPshufd(dstreg, srcreg, 3, 0, 1, 1); break;
-        case 84: armPshufd(dstreg, srcreg, 0, 1, 1, 1); break;
-        case 85: armPshufd(dstreg, srcreg, 1, 1, 1, 1); break;
-        case 86: armPshufd(dstreg, srcreg, 2, 1, 1, 1); break;
-        case 87: armPshufd(dstreg, srcreg, 3, 1, 1, 1); break;
-        case 88: armPshufd(dstreg, srcreg, 0, 2, 1, 1); break;
-        case 89: armPshufd(dstreg, srcreg, 1, 2, 1, 1); break;
-        case 90: armPshufd(dstreg, srcreg, 2, 2, 1, 1); break;
-        case 91: armPshufd(dstreg, srcreg, 3, 2, 1, 1); break;
-        case 92: armPshufd(dstreg, srcreg, 0, 3, 1, 1); break;
-        case 93: armPshufd(dstreg, srcreg, 1, 3, 1, 1); break;
-        case 94: armPshufd(dstreg, srcreg, 2, 3, 1, 1); break;
-        case 95: armPshufd(dstreg, srcreg, 3, 3, 1, 1); break;
-        case 96: armPshufd(dstreg, srcreg, 0, 0, 2, 0); break;
-        case 97: armPshufd(dstreg, srcreg, 1, 0, 2, 1); break;
-        case 98: armPshufd(dstreg, srcreg, 2, 0, 2, 1); break;
-        case 99: armPshufd(dstreg, srcreg, 3, 0, 2, 1); break;
-        case 100: armPshufd(dstreg, srcreg, 0, 1, 2, 1); break;
-        case 101: armPshufd(dstreg, srcreg, 1, 1, 2, 1); break;
-        case 102: armPshufd(dstreg, srcreg, 2, 1, 2, 1); break;
-        case 103: armPshufd(dstreg, srcreg, 3, 1, 2, 1); break;
-        case 104: armPshufd(dstreg, srcreg, 0, 2, 2, 1); break;
-        case 105: armPshufd(dstreg, srcreg, 1, 2, 2, 1); break;
-        case 106: armPshufd(dstreg, srcreg, 2, 2, 2, 1); break;
-        case 107: armPshufd(dstreg, srcreg, 3, 2, 2, 1); break;
-        case 108: armPshufd(dstreg, srcreg, 0, 3, 2, 1); break;
-        case 109: armPshufd(dstreg, srcreg, 1, 3, 2, 1); break;
-        case 110: armPshufd(dstreg, srcreg, 2, 3, 2, 1); break;
-        case 111: armPshufd(dstreg, srcreg, 3, 3, 2, 1); break;
-        case 112: armPshufd(dstreg, srcreg, 0, 0, 3, 1); break;
-        case 113: armPshufd(dstreg, srcreg, 1, 0, 3, 1); break;
-        case 114: armPshufd(dstreg, srcreg, 2, 0, 3, 1); break;
-        case 115: armPshufd(dstreg, srcreg, 3, 0, 3, 1); break;
-        case 116: armPshufd(dstreg, srcreg, 0, 1, 3, 1); break;
-        case 117: armPshufd(dstreg, srcreg, 1, 1, 3, 1); break;
-        case 118: armPshufd(dstreg, srcreg, 2, 1, 3, 1); break;
-        case 119: armPshufd(dstreg, srcreg, 3, 1, 3, 1); break;
-        case 120: armPshufd(dstreg, srcreg, 0, 2, 3, 1); break;
-        case 121: armPshufd(dstreg, srcreg, 1, 2, 3, 1); break;
-        case 122: armPshufd(dstreg, srcreg, 2, 2, 3, 1); break;
-        case 123: armPshufd(dstreg, srcreg, 3, 2, 3, 1); break;
-        case 124: armPshufd(dstreg, srcreg, 0, 3, 3, 1); break;
-        case 125: armPshufd(dstreg, srcreg, 1, 3, 3, 1); break;
-        case 126: armPshufd(dstreg, srcreg, 2, 3, 3, 1); break;
-        case 127: armPshufd(dstreg, srcreg, 3, 3, 3, 1); break;
-        case 128: armPshufd(dstreg, srcreg, 0, 0, 0, 2); break;
-        case 129: armPshufd(dstreg, srcreg, 1, 0, 0, 2); break;
-        case 130: armPshufd(dstreg, srcreg, 2, 0, 0, 2); break;
-        case 131: armPshufd(dstreg, srcreg, 3, 0, 0, 2); break;
-        case 132: armPshufd(dstreg, srcreg, 0, 1, 0, 2); break;
-        case 133: armPshufd(dstreg, srcreg, 1, 1, 0, 2); break;
-        case 134: armPshufd(dstreg, srcreg, 2, 1, 0, 2); break;
-        case 135: armPshufd(dstreg, srcreg, 3, 1, 0, 2); break;
-        case 136: armPshufd(dstreg, srcreg, 0, 2, 0, 2); break;
-        case 137: armPshufd(dstreg, srcreg, 1, 2, 0, 2); break;
-        case 138: armPshufd(dstreg, srcreg, 2, 2, 0, 2); break;
-        case 139: armPshufd(dstreg, srcreg, 3, 2, 0, 2); break;
-        case 140: armPshufd(dstreg, srcreg, 0, 3, 0, 2); break;
-        case 141: armPshufd(dstreg, srcreg, 1, 3, 0, 2); break;
-        case 142: armPshufd(dstreg, srcreg, 2, 3, 0, 2); break;
-        case 143: armPshufd(dstreg, srcreg, 3, 3, 0, 2); break;
-        case 144: armPshufd(dstreg, srcreg, 0, 0, 1, 2); break;
-        case 145: armPshufd(dstreg, srcreg, 1, 0, 1, 2); break;
-        case 146: armPshufd(dstreg, srcreg, 2, 0, 1, 2); break;
-        case 147: armPshufd(dstreg, srcreg, 3, 0, 1, 2); break;
-        case 148: armPshufd(dstreg, srcreg, 0, 1, 1, 2); break;
-        case 149: armPshufd(dstreg, srcreg, 1, 1, 1, 2); break;
-        case 150: armPshufd(dstreg, srcreg, 2, 1, 1, 2); break;
-        case 151: armPshufd(dstreg, srcreg, 3, 1, 1, 2); break;
-        case 152: armPshufd(dstreg, srcreg, 0, 2, 1, 2); break;
-        case 153: armPshufd(dstreg, srcreg, 1, 2, 1, 2); break;
-        case 154: armPshufd(dstreg, srcreg, 2, 2, 1, 2); break;
-        case 155: armPshufd(dstreg, srcreg, 3, 2, 1, 2); break;
-        case 156: armPshufd(dstreg, srcreg, 0, 3, 1, 2); break;
-        case 157: armPshufd(dstreg, srcreg, 1, 3, 1, 2); break;
-        case 158: armPshufd(dstreg, srcreg, 2, 3, 1, 2); break;
-        case 159: armPshufd(dstreg, srcreg, 3, 3, 1, 2); break;
-        case 160: armPshufd(dstreg, srcreg, 0, 0, 2, 2); break;
-        case 161: armPshufd(dstreg, srcreg, 1, 0, 2, 2); break;
-        case 162: armPshufd(dstreg, srcreg, 2, 0, 2, 2); break;
-        case 163: armPshufd(dstreg, srcreg, 3, 0, 2, 2); break;
-        case 164: armPshufd(dstreg, srcreg, 0, 1, 2, 2); break;
-        case 165: armPshufd(dstreg, srcreg, 1, 1, 2, 2); break;
-        case 166: armPshufd(dstreg, srcreg, 2, 1, 2, 2); break;
-        case 167: armPshufd(dstreg, srcreg, 3, 1, 2, 2); break;
-        case 168: armPshufd(dstreg, srcreg, 0, 2, 2, 2); break;
-        case 169: armPshufd(dstreg, srcreg, 1, 2, 2, 2); break;
-        case 170: armPshufd(dstreg, srcreg, 2, 2, 2, 2); break;
-        case 171: armPshufd(dstreg, srcreg, 3, 2, 2, 2); break;
-        case 172: armPshufd(dstreg, srcreg, 0, 3, 2, 2); break;
-        case 173: armPshufd(dstreg, srcreg, 1, 3, 2, 2); break;
-        case 174: armPshufd(dstreg, srcreg, 2, 3, 2, 2); break;
-        case 175: armPshufd(dstreg, srcreg, 3, 3, 2, 2); break;
-        case 176: armPshufd(dstreg, srcreg, 0, 0, 3, 2); break;
-        case 177: armPshufd(dstreg, srcreg, 1, 0, 3, 2); break;
-        case 178: armPshufd(dstreg, srcreg, 2, 0, 3, 2); break;
-        case 179: armPshufd(dstreg, srcreg, 3, 0, 3, 2); break;
-        case 180: armPshufd(dstreg, srcreg, 0, 1, 3, 2); break;
-        case 181: armPshufd(dstreg, srcreg, 1, 1, 3, 2); break;
-        case 182: armPshufd(dstreg, srcreg, 2, 1, 3, 2); break;
-        case 183: armPshufd(dstreg, srcreg, 3, 1, 3, 2); break;
-        case 184: armPshufd(dstreg, srcreg, 0, 2, 3, 2); break;
-        case 185: armPshufd(dstreg, srcreg, 1, 2, 3, 2); break;
-        case 186: armPshufd(dstreg, srcreg, 2, 2, 3, 2); break;
-        case 187: armPshufd(dstreg, srcreg, 3, 2, 3, 2); break;
-        case 188: armPshufd(dstreg, srcreg, 0, 3, 3, 2); break;
-        case 189: armPshufd(dstreg, srcreg, 1, 3, 3, 2); break;
-        case 190: armPshufd(dstreg, srcreg, 2, 3, 3, 2); break;
-        case 191: armPshufd(dstreg, srcreg, 3, 3, 3, 2); break;
-        case 192: armPshufd(dstreg, srcreg, 0, 0, 0, 3); break;
-        case 193: armPshufd(dstreg, srcreg, 1, 0, 0, 3); break;
-        case 194: armPshufd(dstreg, srcreg, 2, 0, 0, 3); break;
-        case 195: armPshufd(dstreg, srcreg, 3, 0, 0, 3); break;
-        case 196: armPshufd(dstreg, srcreg, 0, 1, 0, 3); break;
-        case 197: armPshufd(dstreg, srcreg, 1, 1, 0, 3); break;
-        case 198: armPshufd(dstreg, srcreg, 2, 1, 0, 3); break;
-        case 199: armPshufd(dstreg, srcreg, 3, 1, 0, 3); break;
-        case 200: armPshufd(dstreg, srcreg, 0, 2, 0, 3); break;
-        case 201: armPshufd(dstreg, srcreg, 1, 2, 0, 3); break;
-        case 202: armPshufd(dstreg, srcreg, 2, 2, 0, 3); break;
-        case 203: armPshufd(dstreg, srcreg, 3, 2, 0, 3); break;
-        case 204: armPshufd(dstreg, srcreg, 0, 3, 0, 3); break;
-        case 205: armPshufd(dstreg, srcreg, 1, 3, 0, 3); break;
-        case 206: armPshufd(dstreg, srcreg, 2, 3, 0, 3); break;
-        case 207: armPshufd(dstreg, srcreg, 3, 3, 0, 3); break;
-        case 208: armPshufd(dstreg, srcreg, 0, 0, 1, 3); break;
-        case 209: armPshufd(dstreg, srcreg, 1, 0, 1, 3); break;
-        case 210: armPshufd(dstreg, srcreg, 2, 0, 1, 3); break;
-        case 211: armPshufd(dstreg, srcreg, 3, 0, 1, 3); break;
-        case 212: armPshufd(dstreg, srcreg, 0, 1, 1, 3); break;
-        case 213: armPshufd(dstreg, srcreg, 1, 1, 1, 3); break;
-        case 214: armPshufd(dstreg, srcreg, 2, 1, 1, 3); break;
-        case 215: armPshufd(dstreg, srcreg, 3, 1, 1, 3); break;
-        case 216: armPshufd(dstreg, srcreg, 0, 2, 1, 3); break;
-        case 217: armPshufd(dstreg, srcreg, 1, 2, 1, 3); break;
-        case 218: armPshufd(dstreg, srcreg, 2, 2, 1, 3); break;
-        case 219: armPshufd(dstreg, srcreg, 3, 2, 1, 3); break;
-        case 220: armPshufd(dstreg, srcreg, 0, 3, 1, 3); break;
-        case 221: armPshufd(dstreg, srcreg, 1, 3, 1, 3); break;
-        case 222: armPshufd(dstreg, srcreg, 2, 3, 1, 3); break;
-        case 223: armPshufd(dstreg, srcreg, 3, 3, 1, 3); break;
-        case 224: armPshufd(dstreg, srcreg, 0, 0, 2, 3); break;
-        case 225: armPshufd(dstreg, srcreg, 1, 0, 2, 3); break;
-        case 226: armPshufd(dstreg, srcreg, 2, 0, 2, 3); break;
-        case 227: armPshufd(dstreg, srcreg, 3, 0, 2, 3); break;
-        case 228: armPshufd(dstreg, srcreg, 0, 1, 2, 3); break;
-        case 229: armPshufd(dstreg, srcreg, 1, 1, 2, 3); break;
-        case 230: armPshufd(dstreg, srcreg, 2, 1, 2, 3); break;
-        case 231: armPshufd(dstreg, srcreg, 3, 1, 2, 3); break;
-        case 232: armPshufd(dstreg, srcreg, 0, 2, 2, 3); break;
-        case 233: armPshufd(dstreg, srcreg, 1, 2, 2, 3); break;
-        case 234: armPshufd(dstreg, srcreg, 2, 2, 2, 3); break;
-        case 235: armPshufd(dstreg, srcreg, 3, 2, 2, 3); break;
-        case 236: armPshufd(dstreg, srcreg, 0, 3, 2, 3); break;
-        case 237: armPshufd(dstreg, srcreg, 1, 3, 2, 3); break;
-        case 238: armPshufd(dstreg, srcreg, 2, 3, 2, 3); break;
-        case 239: armPshufd(dstreg, srcreg, 3, 3, 2, 3); break;
-        case 240: armPshufd(dstreg, srcreg, 0, 0, 3, 3); break;
-        case 241: armPshufd(dstreg, srcreg, 1, 0, 3, 3); break;
-        case 242: armPshufd(dstreg, srcreg, 2, 0, 3, 3); break;
-        case 243: armPshufd(dstreg, srcreg, 3, 0, 3, 3); break;
-        case 244: armPshufd(dstreg, srcreg, 0, 1, 3, 3); break;
-        case 245: armPshufd(dstreg, srcreg, 1, 1, 3, 3); break;
-        case 246: armPshufd(dstreg, srcreg, 2, 1, 3, 3); break;
-        case 247: armPshufd(dstreg, srcreg, 3, 1, 3, 3); break;
-        case 248: armPshufd(dstreg, srcreg, 0, 2, 3, 3); break;
-        case 249: armPshufd(dstreg, srcreg, 1, 2, 3, 3); break;
-        case 250: armPshufd(dstreg, srcreg, 2, 2, 3, 3); break;
-        case 251: armPshufd(dstreg, srcreg, 3, 2, 3, 3); break;
-        case 252: armPshufd(dstreg, srcreg, 0, 3, 3, 3); break;
-        case 253: armPshufd(dstreg, srcreg, 1, 3, 3, 3); break;
-        case 254: armPshufd(dstreg, srcreg, 2, 3, 3, 3); break;
-        case 255: armPshufd(dstreg, srcreg, 3, 3, 3, 3); break;
+    armShuffle(dstreg, srcreg, pIndex, false);
+}
+
+void armShuffleTblx(const a64::VRegister& p_dst, const a64::VRegister& p_src, int p_a, int p_b, int p_c, int p_d, bool p_is_tbx)
+{
+    uint8_t lanes[16];
+    int i, s, e, nIndex = 0;
+
+    int lanesTbx = 0;
+    if(p_is_tbx) {
+        lanesTbx = 16;
     }
+
+    // 0, 4, 8, 12
+    // 0 * 4 = 0, 1 * 4 = 4, 2 * 4 = 8, 3 * 4 = 12
+    // lanes 16 => 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+
+    s = p_a << 2; e = s + 4;
+    for(i=s; i<e; ++i) {
+        lanes[nIndex++] = i;
+    }
+    ////
+    s = p_b << 2; e = s + 4;
+    for(i=s; i<e; ++i) {
+        lanes[nIndex++] = i;
+    }
+    ////
+    s = p_c << 2; e = s + 4;
+    for(i=s; i<e; ++i) {
+        lanes[nIndex++] = i + lanesTbx;
+    }
+    ////
+    s = p_d << 2; e = s + 4;
+    for(i=s; i<e; ++i) {
+        lanes[nIndex++] = i + lanesTbx;
+    }
+
+    armLoadConstant128(RQSCRATCH3, lanes);
+
+    if(p_is_tbx) {
+        armAsm->Mov(RQSCRATCH, p_dst);
+        armAsm->Mov(RQSCRATCH2, p_src);
+        armAsm->Tbx(p_dst.V16B(), RQSCRATCH.V16B(), RQSCRATCH2.V16B(), RQSCRATCH3.V16B());
+    } else {
+        armAsm->Tbl(p_dst.V16B(), p_src.V16B(), RQSCRATCH3.V16B());
+    }
+}
+
+void armShuffle(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex, bool p_is_tbx)
+{
+    int shuffle_0 = (pIndex >> 0) & 0x3;
+    int shuffle_1 = (pIndex >> 2) & 0x3;
+    int shuffle_2 = (pIndex >> 4) & 0x3;
+    int shuffle_3 = (pIndex >> 6) & 0x3;
+    ////
+    armShuffleTblx(dstreg, srcreg, shuffle_0, shuffle_1, shuffle_2, shuffle_3, p_is_tbx);
 }

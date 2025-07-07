@@ -121,7 +121,7 @@ u8* armEndBlock();
 
 void armDisassembleAndDumpCode(const void* ptr, size_t size);
 void armEmitJmp(const void* ptr, bool force_inline = false);
-void armEmitCall(const void* ptr, bool force_inline = false);
+void armEmitCall(const void* ptr, bool force_inline = false, bool reg_move = true);
 void armEmitCbnz(const a64::Register& reg, const void* ptr);
 void armEmitCondBranch(a64::Condition cond, const void* ptr);
 void armMoveAddressToReg(const a64::Register& reg, const void* addr);
@@ -252,6 +252,7 @@ void armPMOVMSKB(const a64::Register& regDst, const a64::VRegister& regSrc);
 
 //////////////////////////////////////////////////////////////////////////
 
-void armPshufd(const a64::VRegister& dst, const a64::VRegister& src, int a, int b, int c, int d);
 void armSHUFPS(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex);
 void armPSHUFD(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex);
+void armShuffleTblx(const a64::VRegister& p_dst, const a64::VRegister& p_src, int p_a, int p_b, int p_c, int p_d, bool p_is_tbx);
+void armShuffle(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex, bool p_is_tbx);
