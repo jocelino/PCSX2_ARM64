@@ -347,14 +347,18 @@ public:
 
 		// mark gpr registers as usable
 		gprMap.fill({0, 0, false, false, false, false});
-		for (int i = 0; i < gprTotal; i++)
+		for (uint i = 0; i < gprTotal; i++)
 		{
 			if (i == gprT1.GetCode() || i == gprT2.GetCode() ||
-				i == gprF0.GetCode() || i == gprF1.GetCode() || i == gprF2.GetCode() || i == gprF3.GetCode() ||
-                    i == 4 //i == rsp.GetId()
+				i == gprF0.GetCode() || i == gprF1.GetCode() || i == gprF2.GetCode() || i == gprF3.GetCode()
+                || i == 4 //i == rsp.GetId()
+                || i == a64::x16.GetCode() || i == a64::x17.GetCode() || i == a64::x18.GetCode()
+                || i >= iREGCNT_GPR
             ) {
 				continue;
 			}
+
+            // 19,20,21,22,23,24 <= callee
 
 			gprMap[i].usable = true;
 		}

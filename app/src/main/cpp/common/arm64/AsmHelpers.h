@@ -71,9 +71,9 @@ namespace a64 = vixl::aarch64;
 #define RSTATE_x23 a64::x23
 #define RSTATE_x24 a64::x24
 #define RFASTMEMBASE a64::x25
-#define RSTATE_FPU a64::x26
-#define RSTATE_PSX a64::x27
-#define RSTATE_CPU a64::x28
+#define RSTATE_FPU a64::x27
+#define RSTATE_PSX a64::x28
+#define RSTATE_CPU a64::x29
 
 #define PTR_FPU(field) a64::MemOperand(RSTATE_FPU, offsetof(fpuRegisters, field))
 #define PTR_PSX(field) a64::MemOperand(RSTATE_PSX, offsetof(psxRegisters, field))
@@ -121,7 +121,7 @@ u8* armEndBlock();
 
 void armDisassembleAndDumpCode(const void* ptr, size_t size);
 void armEmitJmp(const void* ptr, bool force_inline = false);
-void armEmitCall(const void* ptr, bool force_inline = false, bool reg_move = true);
+void armEmitCall(const void* ptr, bool force_inline = false);
 void armEmitCbnz(const a64::Register& reg, const void* ptr);
 void armEmitCondBranch(a64::Condition cond, const void* ptr);
 void armMoveAddressToReg(const a64::Register& reg, const void* addr);

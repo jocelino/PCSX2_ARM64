@@ -148,11 +148,6 @@ static const char branchSTR[16][8] = {
 #define gprF2 a64::w13 // Status Flag 2
 #define gprF3 a64::w14 // Status Flag 3
 
-//#define gprF0  a64::w19 // Status Flag 0
-//#define gprF1  a64::w21 // Status Flag 1
-//#define gprF2  a64::w22 // Status Flag 2
-//#define gprF3  a64::w23 // Status Flag 3
-
 // Function Params
 #define mP microVU& mVU, int recPass
 #define mV microVU& mVU

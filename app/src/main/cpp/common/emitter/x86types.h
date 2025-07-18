@@ -9,7 +9,11 @@
 #include "common/arm64/AsmHelpers.h"
 
 static const uint iREGCNT_XMM = 16;
+#if defined(__ANDROID__)
+static const uint iREGCNT_GPR = 25;
+#else
 static const uint iREGCNT_GPR = 16;
+#endif
 
 enum XMMSSEType
 {

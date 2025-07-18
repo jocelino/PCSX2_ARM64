@@ -30,82 +30,86 @@ void _initX86regs()
 	g_x86checknext = 0;
 }
 
-std::array<int, 16> callee_saved_order{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-//std::array<int, 16> callee_saved_order{0, 1, 2, 19, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-//std::array<int, 16> callee_saved_order{0, 1, 2, 19, 4, 20, 6, 7, 8, 9, 10, 11, 21, 22, 23, 24};
-
 int _getFreeX86reg(int mode)
 {
-	int tempi = -1;
-	u32 bestcount = 0x10000;
+    int i, tempi = -1;
+    u32 bestcount = 0x10000;
 
-	for (uint i = 0; i < iREGCNT_GPR; i++)
-//    for (uint i = 0; i < 16; i++)
-	{
-		const int reg = (g_x86checknext + i) % iREGCNT_GPR;
-//        const int ii = (g_x86checknext + i) % 16;
-//        int reg = callee_saved_order[ii];
+    for (i = 0; i < iREGCNT_GPR; ++i)
+    {
+        const int reg = (g_x86checknext + i) % iREGCNT_GPR;
+        if (x86regs[reg].inuse || !_isAllocatableX86reg(reg))
+            continue;
 
-		if (x86regs[reg].inuse || !_isAllocatableX86reg(reg))
-			continue;
+//        if ((mode & MODE_CALLEESAVED) && xRegister32::IsCallerSaved(reg))
+//            continue;
 
-		if ((mode & MODE_CALLEESAVED) && armIsCallerSaved(reg))
-			continue;
+        if (mode & MODE_CALLEESAVED) {
+            if(!armIsCalleeSavedRegister(reg)) {
+                continue;
+            }
+        } else {
+            if(!armIsCallerSaved(reg)) {
+                continue;
+            }
+        }
 
-		if ((mode & MODE_COP2) && mVUIsReservedCOP2(reg))
-			continue;
+        if ((mode & MODE_COP2) && mVUIsReservedCOP2(reg))
+            continue;
 
-		if (x86regs[reg].inuse == 0)
-		{
-			g_x86checknext = (reg + 1) % iREGCNT_GPR;
-//            g_x86checknext = (ii + 1) % 16;
-//            if(reg == 23) {
-//                reg = reg;
-//            }
-			return reg;
-		}
-	}
+        if (x86regs[reg].inuse == 0)
+        {
+            g_x86checknext = (reg + 1) % iREGCNT_GPR;
+            return reg;
+        }
+    }
 
-	for (uint i = 0; i < iREGCNT_GPR; i++)
-//    for (uint i2 = 0; i2 < 16; i2++)
-	{
-//        int i = callee_saved_order[i2];
+    for (i = 0; i < iREGCNT_GPR; ++i)
+    {
+        if (!_isAllocatableX86reg(i))
+            continue;
 
-		if (!_isAllocatableX86reg(i))
-			continue;
+//        if ((mode & MODE_CALLEESAVED) && xRegister32::IsCallerSaved(i))
+//            continue;
 
-		if ((mode & MODE_CALLEESAVED) && armIsCallerSaved(i))
-			continue;
+        if (mode & MODE_CALLEESAVED) {
+            if(!armIsCalleeSavedRegister(i)) {
+                continue;
+            }
+        } else {
+            if(!armIsCallerSaved(i)) {
+                continue;
+            }
+        }
 
-		if ((mode & MODE_COP2) && mVUIsReservedCOP2(i))
-			continue;
+        if ((mode & MODE_COP2) && mVUIsReservedCOP2(i))
+            continue;
 
-		// should have checked inuse in the previous loop.
-		pxAssert(x86regs[i].inuse);
+        // should have checked inuse in the previous loop.
+        pxAssert(x86regs[i].inuse);
 
-		if (x86regs[i].needed)
-			continue;
+        if (x86regs[i].needed)
+            continue;
 
-		if (x86regs[i].type != X86TYPE_TEMP)
-		{
+        if (x86regs[i].type != X86TYPE_TEMP)
+        {
+            if (x86regs[i].counter < bestcount)
+            {
+                tempi = static_cast<int>(i);
+                bestcount = x86regs[i].counter;
+            }
+            continue;
+        }
 
-			if (x86regs[i].counter < bestcount)
-			{
-				tempi = static_cast<int>(i);
-				bestcount = x86regs[i].counter;
-			}
-			continue;
-		}
+        _freeX86reg(i);
+        return i;
+    }
 
-		_freeX86reg(i);
-		return i;
-	}
-
-	if (tempi != -1)
-	{
-		_freeX86reg(tempi);
-		return tempi;
-	}
+    if (tempi != -1)
+    {
+        _freeX86reg(tempi);
+        return tempi;
+    }
 
 	pxFailRel("x86 register allocation error");
 	return -1;

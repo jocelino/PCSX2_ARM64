@@ -46,9 +46,9 @@ bool _isAllocatableX86reg(int x86reg)
 //	if (x86reg == arg1reg.GetId() || x86reg == arg2reg.GetId())
 //		return false;
 
-	// arg3reg is also used for dispatching without fastmem
-	if (!CHECK_FASTMEM && x86reg == R8X.GetCode())
-		return false;
+//	// arg3reg is also used for dispatching without fastmem
+//	if (!CHECK_FASTMEM && x86reg == R8X.GetCode())
+//		return false;
 
 	// rbp is used as the fastmem base
 	if (CHECK_FASTMEM && x86reg == 5)

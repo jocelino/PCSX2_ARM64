@@ -170,21 +170,8 @@ void armEmitJmp(const void* ptr, bool force_inline)
     }
 }
 
-//a64::RegList g_cpuList(a64::x3.GetBit() | a64::x5.GetBit() | a64::x12.GetBit() | a64::x13.GetBit() | a64::x14.GetBit() | a64::x15.GetBit());
-//a64::CPURegList g_caller_regs = a64::CPURegList(a64::CPURegister::kRegister, a64::kXRegSize, g_cpuList);
-
-void armEmitCall(const void* ptr, bool force_inline, bool reg_move)
+void armEmitCall(const void* ptr, bool force_inline)
 {
-    if(reg_move) {
-//    armAsm->PushCPURegList(g_caller_regs);
-        armAsm->Mov(RSTATE_x19, a64::x3);
-        armAsm->Mov(RSTATE_x20, a64::x5);
-        armAsm->Mov(RSTATE_x21, a64::x12);
-        armAsm->Mov(RSTATE_x22, a64::x13);
-        armAsm->Mov(RSTATE_x23, a64::x14);
-        armAsm->Mov(RSTATE_x24, a64::x15);
-    }
-
     s64 displacement = GetPCDisplacement(armGetCurrentCodePointer(), ptr);
     bool use_blr = !vixl::IsInt26(displacement);
     if (use_blr && armConstantPool && !force_inline)
@@ -205,16 +192,6 @@ void armEmitCall(const void* ptr, bool force_inline, bool reg_move)
     {
         a64::SingleEmissionCheckScope guard(armAsm);
         armAsm->bl(displacement);
-    }
-
-    if(reg_move) {
-//    armAsm->PopCPURegList(g_caller_regs);
-        armAsm->Mov(a64::x3, RSTATE_x19);
-        armAsm->Mov(a64::x5, RSTATE_x20);
-        armAsm->Mov(a64::x12, RSTATE_x21);
-        armAsm->Mov(a64::x13, RSTATE_x22);
-        armAsm->Mov(a64::x14, RSTATE_x23);
-        armAsm->Mov(a64::x15, RSTATE_x24);
     }
 }
 
@@ -355,12 +332,17 @@ bool armIsCalleeSavedRegister(int reg)
 
 bool armIsCallerSaved(int id)
 {
-#ifdef _WIN32
-    // The x64 ABI considers the registers RAX, RCX, RDX, R8, R9, R10, R11, and XMM0-XMM5 volatile.
-		return (id <= 2 || (id >= 8 && id <= 11));
+#if defined(__ANDROID__)
+    // 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+    return (id <= 15);
 #else
+    #ifdef _WIN32
+    // The x64 ABI considers the registers RAX, RCX, RDX, R8, R9, R10, R11, and XMM0-XMM5 volatile.
+    return (id <= 2 || (id >= 8 && id <= 11));
+    #else
     // rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11 are scratch registers.
     return (id <= 2 || id == 6 || id == 7 || (id >= 8 && id <= 11));
+    #endif
 #endif
 }
 
