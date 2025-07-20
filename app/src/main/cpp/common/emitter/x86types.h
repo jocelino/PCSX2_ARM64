@@ -27,6 +27,7 @@ extern thread_local XMMSSEType g_xmmtypes[iREGCNT_XMM];
 #if defined(__ANDROID__)
 
 static const int wordsize = sizeof(sptr);
+static constexpr int SHADOW_STACK_SIZE = 0;
 
 extern const a64::VRegister
     xmm0, xmm1, xmm2, xmm3,

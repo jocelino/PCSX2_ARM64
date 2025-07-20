@@ -653,8 +653,7 @@ static void recResetRaw()
 	EE::Profiler.Reset();
 
 //	xSetPtr(SysMemory::GetEERec());
-//    armSetAsmPtr(SysMemory::GetEERec(), __pagesize, nullptr);
-    armSetAsmPtr(SysMemory::GetEERec(), recPtrEnd - SysMemory::GetEERec(), nullptr);
+    armSetAsmPtr(recPtr, recPtrEnd - recPtr, nullptr);
     armStartBlock();
 
 	_DynGen_Dispatchers();

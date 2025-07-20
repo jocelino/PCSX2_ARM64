@@ -938,8 +938,7 @@ void recResetIOP()
 	DevCon.WriteLn("iR3000A Recompiler reset.");
 
 //	xSetPtr(SysMemory::GetIOPRec());
-//    armSetAsmPtr(SysMemory::GetIOPRec(), __pagesize, nullptr);
-    armSetAsmPtr(SysMemory::GetIOPRec(), SysMemory::GetIOPRecEnd() - SysMemory::GetIOPRec(), nullptr);
+    armSetAsmPtr(recPtr, recPtrEnd - recPtr, nullptr);
     armStartBlock();
 
 	_DynGen_Dispatchers();
@@ -1670,7 +1669,6 @@ static void PreBlockCheck(u32 blockpc)
 }
 #endif
 
-int kktt002 = 0;
 static void iopRecRecompile(const u32 startpc)
 {
 	u32 i;
@@ -1704,7 +1702,7 @@ static void iopRecRecompile(const u32 startpc)
 	}
 
 //	xSetPtr(recPtr);
-    armSetAsmPtr(recPtr, SysMemory::GetIOPRecEnd() - recPtr, armConstantPool);
+    armSetAsmPtr(recPtr, recPtrEnd - recPtr, nullptr);
 //	recPtr = xGetAlignedCallTarget();
     recPtr = armStartBlock();
 

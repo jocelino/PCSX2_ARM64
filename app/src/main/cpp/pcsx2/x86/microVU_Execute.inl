@@ -195,94 +195,83 @@ static void mVUGenerateWaitMTVU(mV)
 {
     mVU.waitMTVU = armStartBlock();
 
-    armBeginStackFrame();
-    armEmitCall(reinterpret_cast<void *>(mVUwaitMTVU));
-    armEndStackFrame();
+    int i, num_xmms = 0, num_gprs = 0;
 
-//    int num_xmms = 0, num_gprs = 0;
-//
-//    a64::CPURegList regListX1(a64::CPURegister::RegisterType::kRegister, a64::kXRegSize, 0);
-//    for (uint i = 0; i < static_cast<int>(iREGCNT_GPR); i++)
-//    {
-//        if (!armIsCallerSaved(i) || i == 4)
-//            continue;
-//
-//        // T1 often contains the address we're loading when waiting for VU1.
-//        // T2 isn't used until afterwards, so don't bother saving it.
-//        if (i == gprT2.GetCode())
-//            continue;
-//
-////		xPUSH(xRegister64(i));
-//        regListX1.Combine(a64::XRegister(i));
-//        num_gprs++;
-//    }
-//    armAsm->PushCPURegList(regListX1);
-//
-//    for (int i = 0; i < static_cast<int>(iREGCNT_XMM); i++)
-//    {
-//        if (!armIsCallerSavedXmm(i))
-//            continue;
-//
-//        num_xmms++;
-//    }
-//
-//    // We need 16 byte alignment on the stack.
-//    // Since the stack is unaligned at entry to this function, we add 8 when it's even, not odd.
-//    const int stack_size = (num_xmms * sizeof(u128)) + ((~num_gprs & 1) * sizeof(u128)) + SHADOW_STACK_SIZE;
-//    int stack_offset = SHADOW_STACK_SIZE;
-//
-//    if (stack_size > 0)
-//    {
-////		xSUB(rsp, stack_size);
-//        armAsm->Sub(a64::sp, a64::sp, stack_size);
-//        for (int i = 0; i < static_cast<int>(iREGCNT_XMM); i++)
-//        {
-//            if (!armIsCallerSavedXmm(i))
-//                continue;
-//
-////			xMOVAPS(ptr128[rsp + stack_offset], xRegisterSSE(i));
-//            armAsm->Str(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-//            stack_offset += sizeof(u128);
-//        }
-//    }
-//
-//////	xFastCall((void*)mVUwaitMTVU);
-//    const a64::Register old_stack_pointer = armAsm->StackPointer();
-//    armAsm->SetStackPointer(a64::sp);
-//    armAsm->Str(a64::lr, a64::MemOperand(a64::sp, 8));
-//
-//    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<intptr_t>(mVUwaitMTVU));
-//    armAsm->Blr(RXVIXLSCRATCH);
-//
-//    armAsm->Ldr(a64::lr, a64::MemOperand(a64::sp, 8));
-//    armAsm->SetStackPointer(old_stack_pointer);
-//
-//    stack_offset = (num_xmms - 1) * sizeof(u128) + SHADOW_STACK_SIZE;
-//    for (int i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; i--)
-//    {
-//        if (!armIsCallerSavedXmm(i))
-//            continue;
-//
-////		xMOVAPS(xRegisterSSE(i), ptr128[rsp + stack_offset]);
-//        armAsm->Ldr(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-//        stack_offset -= sizeof(u128);
-//    }
-////	xADD(rsp, stack_size);
-//    armAsm->Add(a64::sp, a64::sp, stack_size);
-//
-//    a64::CPURegList regListX2(a64::CPURegister::RegisterType::kRegister, a64::kXRegSize, 0);
-//    for (int i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; i--)
-//    {
-//        if (!armIsCallerSaved(i) || i == 4)
-//            continue;
-//
-//        if (i == gprT2.GetCode())
-//            continue;
-//
-////		xPOP(xRegister64(i));
-//        regListX2.Combine(a64::XRegister(i));
-//    }
-//    armAsm->PopCPURegList(regListX2);
+    for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
+    {
+        if (!armIsCallerSaved(i) || i == 4)
+            continue;
+
+        // T1 often contains the address we're loading when waiting for VU1.
+        // T2 isn't used until afterwards, so don't bother saving it.
+        if (i == gprT2.GetCode())
+            continue;
+
+//		xPUSH(xRegister64(i));
+        armAsm->Push(a64::xzr, a64::Register(i, a64::kXRegSize));
+        num_gprs++;
+    }
+
+    for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+    {
+        if (!armIsCallerSavedXmm(i))
+            continue;
+
+        num_xmms++;
+    }
+
+    // We need 16 byte alignment on the stack.
+    // Since the stack is unaligned at entry to this function, we add 8 when it's even, not odd.
+    const int stack_size = (num_xmms * sizeof(u128)) + ((~num_gprs & 1) * sizeof(u128)) + SHADOW_STACK_SIZE;
+    int stack_offset = SHADOW_STACK_SIZE;
+
+    if (stack_size > 0)
+    {
+//		xSUB(rsp, stack_size);
+        armAsm->Sub(a64::sp, a64::sp, stack_size);
+        for (i = 0; i < static_cast<int>(iREGCNT_XMM); i++)
+        {
+            if (!armIsCallerSavedXmm(i))
+                continue;
+
+//			xMOVAPS(ptr128[rsp + stack_offset], xRegisterSSE(i));
+            armAsm->Str(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
+            stack_offset += sizeof(u128);
+        }
+    }
+
+    ////
+//	xFastCall((void*)mVUwaitMTVU);
+    armAsm->Push(a64::xzr, a64::lr);
+    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<intptr_t>(mVUwaitMTVU));
+    armAsm->Blr(RXVIXLSCRATCH);
+    armAsm->Pop(a64::lr, a64::xzr);
+    ////
+
+    stack_offset = (num_xmms - 1) * sizeof(u128) + SHADOW_STACK_SIZE;
+    for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
+    {
+        if (!armIsCallerSavedXmm(i))
+            continue;
+
+//		xMOVAPS(xRegisterSSE(i), ptr128[rsp + stack_offset]);
+        armAsm->Ldr(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
+        stack_offset -= sizeof(u128);
+    }
+//	xADD(rsp, stack_size);
+    armAsm->Add(a64::sp, a64::sp, stack_size);
+
+    for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
+    {
+        if (!armIsCallerSaved(i) || i == 4)
+            continue;
+
+        if (i == gprT2.GetCode())
+            continue;
+
+//		xPOP(xRegister64(i));
+        armAsm->Pop(a64::Register(i, a64::kXRegSize), a64::xzr);
+    }
 
 //	xRET();
     armAsm->Ret();

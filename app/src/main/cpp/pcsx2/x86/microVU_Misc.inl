@@ -255,10 +255,9 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
 {
     if (toMemory)
     {
-        int num_xmms = 0, num_gprs = 0;
+        int i, num_xmms = 0, num_gprs = 0;
 
-        a64::CPURegList regListX1(a64::CPURegister::RegisterType::kRegister, a64::kXRegSize, 0);
-        for (uint i = 0; i < static_cast<int>(iREGCNT_GPR); i++)
+        for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
         {
             if (!armIsCallerSaved(i) || i == 4)
                 continue;
@@ -267,15 +266,14 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
             {
                 num_gprs++;
 //				xPUSH(xRegister64(i));
-                regListX1.Combine(a64::XRegister(i));
+                armAsm->Push(a64::xzr, a64::Register(i, a64::kXRegSize));
             }
         }
-        armAsm->PushCPURegList(regListX1);
 
         ////
 
         std::bitset<iREGCNT_XMM> save_xmms;
-        for (uint i = 0; i < static_cast<int>(iREGCNT_XMM); i++)
+        for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
@@ -295,7 +293,7 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
         {
 //			xSUB(rsp, stack_size);
             armAsm->Sub(a64::sp, a64::sp, stack_size);
-            for (int i = 0; i < static_cast<int>(iREGCNT_XMM); i++)
+            for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
             {
                 if (save_xmms[i])
                 {
@@ -320,10 +318,10 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
 {
     if (fromMemory)
     {
-        int num_xmms = 0, num_gprs = 0;
+        int i, num_xmms = 0, num_gprs = 0;
 
         std::bitset<iREGCNT_GPR> save_gprs;
-        for (uint i = 0; i < static_cast<int>(iREGCNT_GPR); i++)
+        for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
         {
             if (!armIsCallerSaved(i)  || i == 4)
                 continue;
@@ -336,7 +334,7 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
         }
 
         std::bitset<iREGCNT_XMM> save_xmms;
-        for (uint i = 0; i < static_cast<int>(iREGCNT_XMM); i++)
+        for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
@@ -353,7 +351,7 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
         if (num_xmms > 0)
         {
             int stack_offset = (num_xmms - 1) * sizeof(u128) + stack_extra;
-            for (int i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; i--)
+            for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
             {
                 if (!save_xmms[i])
                     continue;
@@ -368,15 +366,13 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
             armAsm->Add(a64::sp, a64::sp, stack_size);
         }
 
-        a64::CPURegList regListX2(a64::CPURegister::RegisterType::kRegister, a64::kXRegSize, 0);
-        for (int i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; i--)
+        for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
         {
             if (save_gprs[i]) {
 //                xPOP(xRegister64(i));
-                regListX2.Combine(a64::XRegister(i));
+                armAsm->Pop(a64::Register(i, a64::kXRegSize), a64::xzr);
             }
         }
-        armAsm->PopCPURegList(regListX2);
     }
     else
     {
