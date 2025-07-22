@@ -2707,10 +2707,21 @@ StartRecomp:
 	{
 		if (s_nInstCacheSize < (s_nEndBlock - startpc) / 4 + 1)
 		{
+			const u32 required_size = (s_nEndBlock - startpc) / 4 + 10;
+			const u32 new_size = std::max(required_size, s_nInstCacheSize * 2);
+			
+			EEINST* new_cache = (EEINST*)malloc(sizeof(EEINST) * new_size);
+			if (!new_cache)
+				pxFailRel("Failed to allocate R5900 InstCache array");
+			
+			if (s_pInstCache && s_nInstCacheSize > 0)
+			{
+				memcpy(new_cache, s_pInstCache, sizeof(EEINST) * s_nInstCacheSize);
+			}
+			
 			free(s_pInstCache);
-			s_nInstCacheSize = (s_nEndBlock - startpc) / 4 + 10;
-			s_pInstCache = (EEINST*)malloc(sizeof(EEINST) * s_nInstCacheSize);
-			pxAssert(s_pInstCache != NULL);
+			s_pInstCache = new_cache;
+			s_nInstCacheSize = new_size;
 		}
 
 		EEINST* pcur = s_pInstCache + (s_nEndBlock - startpc) / 4;
