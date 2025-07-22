@@ -77,21 +77,7 @@ void VifUnpackNEON_Base::xUPK_S_32() const
 	if (IsInputMasked())
 		return;
 
-	switch (UnpkLoopIteration)
-	{
-		case 0:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 0);
-			break;
-		case 1:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 1);
-			break;
-		case 2:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 2);
-			break;
-		case 3:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 3);
-			break;
-	}
+	armAsm->Dup(destReg.V4S(), workReg.V4S(), UnpkLoopIteration);
 }
 
 void VifUnpackNEON_Base::xUPK_S_16() const
@@ -102,21 +88,7 @@ void VifUnpackNEON_Base::xUPK_S_16() const
 	if (IsInputMasked())
 		return;
 
-	switch (UnpkLoopIteration)
-	{
-		case 0:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 0);
-			break;
-		case 1:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 1);
-			break;
-		case 2:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 2);
-			break;
-		case 3:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 3);
-			break;
-	}
+	armAsm->Dup(destReg.V4S(), workReg.V4S(), UnpkLoopIteration);
 }
 
 void VifUnpackNEON_Base::xUPK_S_8() const
@@ -127,21 +99,7 @@ void VifUnpackNEON_Base::xUPK_S_8() const
 	if (IsInputMasked())
 		return;
 
-	switch (UnpkLoopIteration)
-	{
-		case 0:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 0);
-			break;
-		case 1:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 1);
-			break;
-		case 2:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 2);
-			break;
-		case 3:
-			armAsm->Dup(destReg.V4S(), workReg.V4S(), 3);
-			break;
-	}
+	armAsm->Dup(destReg.V4S(), workReg.V4S(), UnpkLoopIteration);
 }
 
 // The V2 + V3 unpacks have freaky behaviour, the manual claims "indeterminate".
@@ -291,8 +249,7 @@ void VifUnpackNEON_Base::xUPK_V4_5() const
 	armAsm->Lsr(workGprW, workGprW, 8); // A
 	armAsm->Lsl(workGprW, workGprW, 7); // A.0000000
 	armAsm->Ins(destReg.V4S(), 3, workGprW); // A|B|G|R
-	armAsm->Shl(destReg.V4S(), destReg.V4S(), 24); // can optimize to
-	armAsm->Ushr(destReg.V4S(), destReg.V4S(), 24); // single AND...
+	armAsm->And(destReg.V16B(), destReg.V16B(), vdupq_n_u8(0xFF));
 }
 
 void VifUnpackNEON_Base::xUnpack(int upknum) const
