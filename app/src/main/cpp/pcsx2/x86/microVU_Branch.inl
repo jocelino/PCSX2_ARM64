@@ -14,7 +14,7 @@ __fi int getLastFlagInst(microRegInfo& pState, int* xFlag, int flagType, int isE
 	return (((pState.flagInfo >> (2 * flagType + 2)) & 3) - 1) & 3;
 }
 
-void mVU0clearlpStateJIT() { if (!microVU0.prog.cleared) std::memset(&microVU0.prog.lpState, 0, sizeof(microVU1.prog.lpState)); }
+void mVU0clearlpStateJIT() { if (!microVU0.prog.cleared) std::memset(&microVU0.prog.lpState, 0, sizeof(microVU0.prog.lpState)); }
 void mVU1clearlpStateJIT() { if (!microVU1.prog.cleared) std::memset(&microVU1.prog.lpState, 0, sizeof(microVU1.prog.lpState)); }
 
 void mVUDTendProgram(mV, microFlagCycles* mFC, int isEbit)
@@ -197,8 +197,7 @@ void mVUendProgram(mV, microFlagCycles* mFC, int isEbit)
 
 	if (isEbit && isEbit != 3)
 	{
-		std::memset(&mVUinfo, 0, sizeof(mVUinfo));
-		std::memset(&mVUregsTemp, 0, sizeof(mVUregsTemp));
+		std::memset(&mVUinfo, 0, sizeof(mVUinfo) + sizeof(mVUregsTemp));
 		mVUincCycles(mVU, 100); // Ensures Valid P/Q instances (And sets all cycle data to 0)
 		mVUcycles -= 100;
 		qInst = mVU.q;

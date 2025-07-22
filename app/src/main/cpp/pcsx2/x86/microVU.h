@@ -185,9 +185,39 @@ public:
 			else
 				qListI++;
 
-			microBlockLink*& blockList = fullCmp ? fBlockList : qBlockList;
-			microBlockLink*& blockEnd  = fullCmp ? fBlockEnd  : qBlockEnd;
-			microBlockLink*  newBlock  = (microBlockLink*)_aligned_malloc(sizeof(microBlockLink), 32);
+		microBlockLink*& blockList = fullCmp ? fBlockList : qBlockList;
+		microBlockLink*& blockEnd  = fullCmp ? fBlockEnd  : qBlockEnd;
+		
+		static microBlockLink* s_blockPool = nullptr;
+		static u32 s_blockPoolSize = 32;
+		static u32 s_blockPoolUsed = 0;
+		
+		microBlockLink* newBlock = nullptr;
+		if (s_blockPool && s_blockPoolUsed < s_blockPoolSize)
+		{
+			newBlock = &s_blockPool[s_blockPoolUsed++];
+		}
+		else
+		{
+			if (!s_blockPool || s_blockPoolUsed >= s_blockPoolSize)
+			{
+				const u32 new_size = s_blockPoolSize * 2;
+				microBlockLink* new_pool = (microBlockLink*)_aligned_malloc(sizeof(microBlockLink) * new_size, 32);
+				if (new_pool)
+				{
+					if (s_blockPool && s_blockPoolUsed > 0)
+					{
+						memcpy(new_pool, s_blockPool, sizeof(microBlockLink) * s_blockPoolUsed);
+					}
+					safe_aligned_free(s_blockPool);
+					s_blockPool = new_pool;
+					s_blockPoolSize = new_size;
+					newBlock = &s_blockPool[s_blockPoolUsed++];
+				}
+			}
+			if (!newBlock)
+				newBlock = (microBlockLink*)_aligned_malloc(sizeof(microBlockLink), 32);
+		}
 			newBlock->block.jumpCache  = nullptr;
 			newBlock->next             = nullptr;
 

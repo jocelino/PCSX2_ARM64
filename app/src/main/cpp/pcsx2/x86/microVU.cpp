@@ -67,7 +67,8 @@ void mVUreset(microVU& mVU, bool resetReserve)
     armAlignAsmPtr();
 	mVU.prog.x86ptr   = mVU.prog.x86start;
 
-	for (u32 i = 0; i < (mVU.progSize / 2); i++)
+	const u32 progArraySize = mVU.progSize / 2;
+	for (u32 i = 0; i < progArraySize; i++)
 	{
 		if (!mVU.prog.prog[i])
 		{
@@ -80,16 +81,16 @@ void mVUreset(microVU& mVU, bool resetReserve)
 			mVUdeleteProg(mVU, it[0]);
 		}
 		mVU.prog.prog[i]->clear();
-		mVU.prog.quick[i].block = NULL;
-		mVU.prog.quick[i].prog = NULL;
 	}
+	std::memset(mVU.prog.quick, 0, progArraySize * sizeof(microProgramQuick));
 }
 
 // Free Allocated Resources
 void mVUclose(microVU& mVU)
 {
 	// Delete Programs and Block Managers
-	for (u32 i = 0; i < (mVU.progSize / 2); i++)
+	const u32 progArraySize = mVU.progSize / 2;
+	for (u32 i = 0; i < progArraySize; i++)
 	{
 		if (!mVU.prog.prog[i])
 			continue;
@@ -109,11 +110,7 @@ __fi void mVUclear(mV, u32 addr, u32 size)
 	{
 		mVU.prog.cleared = 1; // Next execution searches/creates a new microprogram
 		std::memset(&mVU.prog.lpState, 0, sizeof(mVU.prog.lpState)); // Clear pipeline state
-		for (u32 i = 0; i < (mVU.progSize / 2); i++)
-		{
-			mVU.prog.quick[i].block = NULL; // Clear current quick-reference block
-			mVU.prog.quick[i].prog = NULL; // Clear current quick-reference prog
-		}
+		std::memset(mVU.prog.quick, 0, (mVU.progSize / 2) * sizeof(microProgramQuick));
 	}
 }
 
@@ -132,10 +129,31 @@ __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 	safe_aligned_free(prog);
 }
 
-// Creates a new Micro Program
+// Creates a new Micro Program with optimized memory pool allocation
 __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 {
-	microProgram* prog = (microProgram*)_aligned_malloc(sizeof(microProgram), 64);
+	static u32 s_progPoolSize = 16;
+	static microProgram* s_progPool = nullptr;
+	static u32 s_progPoolUsed = 0;
+	
+	if (!s_progPool || s_progPoolUsed >= s_progPoolSize)
+	{
+		const u32 new_size = s_progPoolSize * 2;
+		microProgram* new_pool = (microProgram*)_aligned_malloc(sizeof(microProgram) * new_size, 64);
+		if (!new_pool)
+			pxFailRel("Failed to allocate microProgram pool");
+		
+		if (s_progPool && s_progPoolUsed > 0)
+		{
+			memcpy(new_pool, s_progPool, sizeof(microProgram) * s_progPoolUsed);
+		}
+		
+		safe_aligned_free(s_progPool);
+		s_progPool = new_pool;
+		s_progPoolSize = new_size;
+	}
+	
+	microProgram* prog = &s_progPool[s_progPoolUsed++];
 	memset(prog, 0, sizeof(microProgram));
 	prog->idx = mVU.prog.total++;
 	prog->ranges = new std::deque<microRange>();
