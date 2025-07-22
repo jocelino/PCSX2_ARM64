@@ -151,16 +151,13 @@ vec4 sample_c(vec2 uv)
 #if PS_AUTOMATIC_LOD == 1
 	return texture(TextureSampler, uv);
 #elif PS_MANUAL_LOD == 1
-	// FIXME add LOD: K - ( LOG2(Q) * (1 << L))
 	float K = LODParams.x;
 	float L = LODParams.y;
 	float bias = LODParams.z;
 	float max_lod = LODParams.w;
 
 	float gs_lod = K - log2(abs(PSin.t_float.w)) * L;
-	// FIXME max useful ?
-	//float lod = max(min(gs_lod, max_lod) - bias, 0.0f);
-	float lod = min(gs_lod, max_lod) - bias;
+	float lod = clamp(gs_lod - bias, 0.0f, max_lod);
 
 	return textureLod(TextureSampler, uv, lod);
 #else
@@ -523,14 +520,13 @@ vec4 fetch_gXbY()
 vec4 sample_color(vec2 st)
 {
 #if (PS_TCOFFSETHACK == 1)
-	st += TC_OffsetHack.xy;
+	st = clamp(st + TC_OffsetHack.xy, vec2(0.0), vec2(1.0));
 #endif
 
 	vec4 t;
 	mat4 c;
 	vec2 dd;
 
-	// FIXME I'm not sure this condition is useful (I think code will be optimized)
 #if (PS_LTF == 0 && PS_AEM_FMT == FMT_32 && PS_PAL_FMT == 0 && PS_REGION_RECT == 0 && PS_WMS < 2 && PS_WMT < 2)
 	// No software LTF and pure 32 bits RGBA texure without special texture wrapping
 	c[0] = sample_c(st);
@@ -664,7 +660,6 @@ void fog(inout vec4 C, float f)
 
 vec4 ps_color()
 {
-	//FIXME: maybe we can set gl_Position.w = q in VS
 #if (PS_FST == 0)
 	vec2 st = PSin.t_float.xy / vec2(PSin.t_float.w);
 	vec2 st_int = PSin.t_int.zw / vec2(PSin.t_float.w);
@@ -721,7 +716,6 @@ vec4 ps_color()
 
 void ps_fbmask(inout vec4 C)
 {
-	// FIXME do I need special case for 16 bits
 #if PS_FBMASK
 	#if PS_COLCLIP_HW == 1
 		vec4 RT = trunc(sample_from_rt() * 65535.0f);
@@ -778,8 +772,7 @@ void ps_color_clamp_wrap(inout vec3 C)
 	C = clamp(C, vec3(0.0f), vec3(255.0f));
 #endif
 
-	// FIXME rouding of negative float?
-	// compiler uses trunc but it might need floor
+	C = mix(floor(C), trunc(C), step(0.0, C));
 
 	// Warning: normally blending equation is mult(A, B) = A * B >> 7. GPU have the full accuracy
 	// GS: Color = 1, Alpha = 255 => output 1

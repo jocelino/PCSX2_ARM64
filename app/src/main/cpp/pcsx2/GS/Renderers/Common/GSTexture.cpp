@@ -14,6 +14,23 @@
 
 GSTexture::GSTexture() = default;
 
+bool GSTexture::ValidateFormat(Format format, Type type)
+{
+	switch (type) {
+		case Type::RenderTarget:
+			return format == Format::Color || format == Format::ColorHQ || 
+				   format == Format::ColorHDR || format == Format::ColorClip;
+		case Type::DepthStencil:
+			return format == Format::DepthStencil;
+		case Type::Texture:
+			return format != Format::Invalid && format != Format::DepthStencil;
+		case Type::RWTexture:
+			return format == Format::Color || format == Format::UInt32;
+		default:
+			return false;
+	}
+}
+
 GSTexture::~GSTexture() = default;
 
 bool GSTexture::Save(const std::string& fn)
