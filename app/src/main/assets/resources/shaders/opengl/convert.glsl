@@ -10,7 +10,6 @@ layout(location = 0) in vec2 POSITION;
 layout(location = 1) in vec2 TEXCOORD0;
 layout(location = 7) in vec4 COLOR;
 
-// FIXME set the interpolation (don't know what dx do)
 // flat means that there is no interpolation. The value given to the fragment shader is based on the provoking vertex conventions.
 //
 // noperspective means that there will be linear interpolation in window-space. This is usually not what you want, but it can have its uses.

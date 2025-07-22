@@ -391,7 +391,6 @@ vec4 sample_c(vec2 uv)
 #if PS_AUTOMATIC_LOD == 1
 	return texture(Texture, uv);
 #elif PS_MANUAL_LOD == 1
-	// FIXME add LOD: K - ( LOG2(Q) * (1 << L))
 	float K = LODParams.x;
 	float L = LODParams.y;
 	float bias = LODParams.z;
@@ -780,7 +779,7 @@ vec4 fetch_gXbY(ivec2 xy)
 vec4 sample_color(vec2 st)
 {
 	#if PS_TCOFFSETHACK
-	st += TC_OffsetHack.xy;
+	st = clamp(st + TC_OffsetHack.xy, vec2(0.0), vec2(1.0));
 	#endif
 
 	vec4 t;

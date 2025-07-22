@@ -49,11 +49,12 @@ __fi static constexpr bool PreferReusedLabelledTexture()
 
 GSTextureCache::GSTextureCache()
 {
-	// In theory 4MB is enough but 9MB is safer for overflow (8MB
-	// isn't enough in custom resolution)
 	// Test: onimusha 3 PAL 60Hz
-	s_unswizzle_buffer = (u8*)_aligned_malloc(9 * 1024 * 1024, VECTOR_ALIGNMENT);
-	pxAssertRel(s_unswizzle_buffer, "Failed to allocate unswizzle buffer");
+	s_unswizzle_buffer = (u8*)_aligned_malloc(12 * 1024 * 1024, VECTOR_ALIGNMENT);
+	if (!s_unswizzle_buffer) {
+		Console.Error("GSTextureCache: Failed to allocate unswizzle buffer");
+		throw std::bad_alloc();
+	}
 
 	m_surface_offset_cache.reserve(S_SURFACE_OFFSET_CACHE_MAX_SIZE);
 }
