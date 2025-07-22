@@ -348,12 +348,18 @@ bool armIsCallerSaved(int id)
 
 bool armIsCallerSavedXmm(int id)
 {
-#ifdef _WIN32
-    // XMM6 through XMM15 are saved. Upper 128 bits is always volatile.
-		return (id < 6);
+#if defined(__ANDROID__)
+    // v9,v10,v11,v12,v13,v14,v15
+    return (id < 9);
+//    return true;
 #else
+    #ifdef _WIN32
+    // XMM6 through XMM15 are saved. Upper 128 bits is always volatile.
+        return (id < 6);
+    #else
     // All vector registers are volatile.
     return true;
+    #endif
 #endif
 }
 
