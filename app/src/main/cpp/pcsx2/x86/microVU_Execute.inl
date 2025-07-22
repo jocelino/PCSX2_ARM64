@@ -195,50 +195,27 @@ static void mVUGenerateWaitMTVU(mV)
 {
     mVU.waitMTVU = armStartBlock();
 
-    int i, num_xmms = 0, num_gprs = 0;
-
-    for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
-    {
-        if (!armIsCallerSaved(i) || i == 4)
-            continue;
-
-        // T1 often contains the address we're loading when waiting for VU1.
-        // T2 isn't used until afterwards, so don't bother saving it.
-        if (i == gprT2.GetCode())
-            continue;
-
-//		xPUSH(xRegister64(i));
-        armAsm->Push(a64::xzr, a64::Register(i, a64::kXRegSize));
-        num_gprs++;
-    }
-
-    for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
-    {
-        if (!armIsCallerSavedXmm(i))
-            continue;
-
-        num_xmms++;
-    }
-
-    // We need 16 byte alignment on the stack.
-    // Since the stack is unaligned at entry to this function, we add 8 when it's even, not odd.
-    const int stack_size = (num_xmms * sizeof(u128)) + ((~num_gprs & 1) * sizeof(u128)) + SHADOW_STACK_SIZE;
-    int stack_offset = SHADOW_STACK_SIZE;
-
-    if (stack_size > 0)
-    {
-//		xSUB(rsp, stack_size);
-        armAsm->Sub(a64::sp, a64::sp, stack_size);
-        for (i = 0; i < static_cast<int>(iREGCNT_XMM); i++)
-        {
-            if (!armIsCallerSavedXmm(i))
-                continue;
-
-//			xMOVAPS(ptr128[rsp + stack_offset], xRegisterSSE(i));
-            armAsm->Str(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-            stack_offset += sizeof(u128);
-        }
-    }
+//    int i;
+//    for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
+//    {
+//        if (!armIsCallerSaved(i) || i == 4)
+//            continue;
+//
+//        // T1 often contains the address we're loading when waiting for VU1.
+//        // T2 isn't used until afterwards, so don't bother saving it.
+//        if (i == gprT2.GetCode())
+//            continue;
+//
+//        armAsm->Push(a64::xzr, a64::XRegister(i));
+//    }
+    ////
+//    for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+//    {
+//        if (!armIsCallerSavedXmm(i))
+//            continue;
+//
+//        armAsm->Push(a64::xzr, a64::DRegister(i));
+//    }
 
     ////
 //	xFastCall((void*)mVUwaitMTVU);
@@ -248,30 +225,24 @@ static void mVUGenerateWaitMTVU(mV)
     armAsm->Pop(a64::lr, a64::xzr);
     ////
 
-    stack_offset = (num_xmms - 1) * sizeof(u128) + SHADOW_STACK_SIZE;
-    for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
-    {
-        if (!armIsCallerSavedXmm(i))
-            continue;
-
-//		xMOVAPS(xRegisterSSE(i), ptr128[rsp + stack_offset]);
-        armAsm->Ldr(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-        stack_offset -= sizeof(u128);
-    }
-//	xADD(rsp, stack_size);
-    armAsm->Add(a64::sp, a64::sp, stack_size);
-
-    for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
-    {
-        if (!armIsCallerSaved(i) || i == 4)
-            continue;
-
-        if (i == gprT2.GetCode())
-            continue;
-
-//		xPOP(xRegister64(i));
-        armAsm->Pop(a64::Register(i, a64::kXRegSize), a64::xzr);
-    }
+//    for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
+//    {
+//        if (!armIsCallerSavedXmm(i))
+//            continue;
+//
+//        armAsm->Pop(a64::DRegister(i), a64::xzr);
+//    }
+    ////
+//    for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
+//    {
+//        if (!armIsCallerSaved(i) || i == 4)
+//            continue;
+//
+//        if (i == gprT2.GetCode())
+//            continue;
+//
+//        armAsm->Pop(a64::XRegister(i), a64::xzr);
+//    }
 
 //	xRET();
     armAsm->Ret();
@@ -346,18 +317,13 @@ static void mVUGenerateCompareState(mV)
         armAsm->And(xmm0.V16B(), xmm0.V16B(), xmm1.V16B());
 
 //		xMOVMSKPS(eax, xmm0);
-        armMOVMSKPS(EEX, xmm0);
+        armMOVMSKPS(EDX, xmm0);
 //		xXOR     (eax, 0xf);
-        armAsm->Eor(EEX, EEX, 0xf);
-
-//        armAsm->Cmp(EEX, 0xf); // Eor or Cmp
-
-        // flag test
-        armAsm->Tst(EEX, EEX);
+        armAsm->Eor(EDX, EDX, 0xf);
 
 //		xForwardJNZ8 exitPoint;
         a64::Label exitPoint;
-        armAsm->B(&exitPoint, a64::Condition::ne);
+        armAsm->Cbnz(EDX, &exitPoint);
 
 //		xMOVAPS  (xmm0, ptr32[arg1reg + 0x20]);
         armAsm->Ldr(xmm0, a64::MemOperand(RAX, 0x20));
@@ -384,15 +350,15 @@ static void mVUGenerateCompareState(mV)
         armAsm->And(xmm0.V16B(), xmm0.V16B(), xmm1.V16B());
 
 //		xMOVMSKPS(eax, xmm0);
-        armMOVMSKPS(EEX, xmm0);
+        armMOVMSKPS(EDX, xmm0);
 //		xXOR(eax, 0xf);
-        armAsm->Eor(EEX, EEX, 0xf);
+        armAsm->Eor(EDX, EDX, 0xf);
 
 //		exitPoint.SetTarget();
         armBind(&exitPoint);
 
-        // 결과값
-        armAsm->Mov(EAX, EEX);
+        // Result
+        armAsm->Mov(EAX, EDX);
     }
 
 //	xRET();

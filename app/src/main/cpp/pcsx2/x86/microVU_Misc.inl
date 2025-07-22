@@ -255,52 +255,26 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
 {
     if (toMemory)
     {
-        int i, num_xmms = 0, num_gprs = 0;
-
+        int i;
         for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
         {
             if (!armIsCallerSaved(i) || i == 4)
                 continue;
 
-            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i))
-            {
-                num_gprs++;
-//				xPUSH(xRegister64(i));
-                armAsm->Push(a64::xzr, a64::Register(i, a64::kXRegSize));
+            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i)) {
+                armAsm->Push(a64::xzr, a64::XRegister(i));
             }
         }
 
         ////
 
-        std::bitset<iREGCNT_XMM> save_xmms;
         for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
 
-            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i)
-            {
-                save_xmms[i] = true;
-                num_xmms++;
-            }
-        }
-
-        // we need 16 byte alignment on the stack
-        const int stack_size = (num_xmms * sizeof(u128)) + ((num_gprs & 1) * sizeof(u128)) + 32;
-        int stack_offset = 32;
-
-        if (stack_size > 0)
-        {
-//			xSUB(rsp, stack_size);
-            armAsm->Sub(a64::sp, a64::sp, stack_size);
-            for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
-            {
-                if (save_xmms[i])
-                {
-//					xMOVAPS(ptr128[rsp + stack_offset], xRegisterSSE(i));
-                    armAsm->Str(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-                    stack_offset += sizeof(u128);
-                }
+            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i) {
+                armAsm->Push(a64::xzr, a64::DRegister(i));
             }
         }
     }
@@ -318,59 +292,24 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
 {
     if (fromMemory)
     {
-        int i, num_xmms = 0, num_gprs = 0;
-
-        std::bitset<iREGCNT_GPR> save_gprs;
-        for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
-        {
-            if (!armIsCallerSaved(i)  || i == 4)
-                continue;
-
-            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i))
-            {
-                save_gprs[i] = true;
-                num_gprs++;
-            }
-        }
-
-        std::bitset<iREGCNT_XMM> save_xmms;
+        int i;
         for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
 
-            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i)
-            {
-                save_xmms[i] = true;
-                num_xmms++;
+            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i) {
+                armAsm->Pop(a64::DRegister(i), a64::xzr);
             }
         }
 
-        const int stack_extra = 32;
-        const int stack_size = (num_xmms * sizeof(u128)) + ((num_gprs & 1) * sizeof(u128)) + stack_extra;
-        if (num_xmms > 0)
+        for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
         {
-            int stack_offset = (num_xmms - 1) * sizeof(u128) + stack_extra;
-            for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
-            {
-                if (!save_xmms[i])
-                    continue;
+            if (!armIsCallerSaved(i)  || i == 4)
+                continue;
 
-//				xMOVAPS(xRegisterSSE(i), ptr128[rsp + stack_offset]);
-                armAsm->Ldr(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-                stack_offset -= sizeof(u128);
-            }
-        }
-        if (stack_size > 0) {
-//            xADD(rsp, stack_size);
-            armAsm->Add(a64::sp, a64::sp, stack_size);
-        }
-
-        for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
-        {
-            if (save_gprs[i]) {
-//                xPOP(xRegister64(i));
-                armAsm->Pop(a64::Register(i, a64::kXRegSize), a64::xzr);
+            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i)) {
+                armAsm->Pop(a64::XRegister(i), a64::xzr);
             }
         }
     }

@@ -666,12 +666,9 @@ void FPU_MUL(int regd, int regt, bool reverseOperands)
 //		xOR(edx, ecx);
         armAsm->Orr(EDX, EDX, ECX);
 
-        // flag test
-        armAsm->Tst(EDX, EDX);
-
 //		u8* noHack = JNZ8(0);
         a64::Label noHack;
-        armAsm->B(&noHack, a64::Condition::ne);
+        armAsm->Cbnz(EDX, &noHack);
 //			xMOVAPS(xRegisterSSE(regd), ptr128[result]);
             armAsm->Ldr(regD.Q(), armMemOperandPtr(result));
 //			endMul = JMP8(0);
