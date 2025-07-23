@@ -12,9 +12,24 @@ void OptimizeVertexProcessing_NEON(GSVertex* vertices, u32 count) {
 	const u32 simd_count = count & ~3;
 	
 	for (u32 i = 0; i < simd_count; i += 4) {
-		float32x4_t x_vals = {vertices[i].XYZ.X, vertices[i+1].XYZ.X, vertices[i+2].XYZ.X, vertices[i+3].XYZ.X};
-		float32x4_t y_vals = {vertices[i].XYZ.Y, vertices[i+1].XYZ.Y, vertices[i+2].XYZ.Y, vertices[i+3].XYZ.Y};
-		float32x4_t z_vals = {vertices[i].XYZ.Z, vertices[i+1].XYZ.Z, vertices[i+2].XYZ.Z, vertices[i+3].XYZ.Z};
+        float32x4_t x_vals = {
+                static_cast<float>(vertices[i  ].XYZ.X),
+                static_cast<float>(vertices[i+1].XYZ.X),
+                static_cast<float>(vertices[i+2].XYZ.X),
+                static_cast<float>(vertices[i+3].XYZ.X)
+        };
+        float32x4_t y_vals = {
+                static_cast<float>(vertices[i  ].XYZ.Y),
+                static_cast<float>(vertices[i+1].XYZ.Y),
+                static_cast<float>(vertices[i+2].XYZ.Y),
+                static_cast<float>(vertices[i+3].XYZ.Y)
+        };
+        float32x4_t z_vals = {
+                static_cast<float>(vertices[i  ].XYZ.Z),
+                static_cast<float>(vertices[i+1].XYZ.Z),
+                static_cast<float>(vertices[i+2].XYZ.Z),
+                static_cast<float>(vertices[i+3].XYZ.Z)
+        };
 		
 		x_vals = vmaxq_f32(x_vals, vdupq_n_f32(-32768.0f));
 		x_vals = vminq_f32(x_vals, vdupq_n_f32(32767.0f));
@@ -40,9 +55,20 @@ void OptimizeVertexProcessing_NEON(GSVertex* vertices, u32 count) {
 	}
 	
 	for (u32 i = simd_count; i < count; i++) {
-		vertices[i].XYZ.X = std::clamp(vertices[i].XYZ.X, -32768.0f, 32767.0f);
-		vertices[i].XYZ.Y = std::clamp(vertices[i].XYZ.Y, -32768.0f, 32767.0f);
-		vertices[i].XYZ.Z = std::clamp(vertices[i].XYZ.Z, 0.0f, 65535.0f);
+        // X
+        float xf = std::clamp(static_cast<float>(vertices[i].XYZ.X),
+                              -32768.0f, 32767.0f);
+        vertices[i].XYZ.X = static_cast<u16>(xf);
+
+        // Y
+        float yf = std::clamp(static_cast<float>(vertices[i].XYZ.Y),
+                              -32768.0f, 32767.0f);
+        vertices[i].XYZ.Y = static_cast<u16>(yf);
+
+        // Z
+        float zf = std::clamp(static_cast<float>(vertices[i].XYZ.Z),
+                              0.0f, 65535.0f);
+        vertices[i].XYZ.Z = static_cast<u16>(zf);
 	}
 }
 
@@ -52,8 +78,18 @@ void OptimizeTextureCoordinates_NEON(GSVertex* vertices, u32 count, float scale_
 	float32x4_t scale_v_vec = vdupq_n_f32(scale_v);
 	
 	for (u32 i = 0; i < simd_count; i += 4) {
-		float32x4_t u_vals = {vertices[i].U, vertices[i+1].U, vertices[i+2].U, vertices[i+3].U};
-		float32x4_t v_vals = {vertices[i].V, vertices[i+1].V, vertices[i+2].V, vertices[i+3].V};
+        float32x4_t u_vals = {
+                static_cast<float>(vertices[i  ].U),
+                static_cast<float>(vertices[i+1].U),
+                static_cast<float>(vertices[i+2].U),
+                static_cast<float>(vertices[i+3].U)
+        };
+        float32x4_t v_vals = {
+                static_cast<float>(vertices[i  ].V),
+                static_cast<float>(vertices[i+1].V),
+                static_cast<float>(vertices[i+2].V),
+                static_cast<float>(vertices[i+3].V)
+        };
 		
 		u_vals = vmulq_f32(u_vals, scale_u_vec);
 		v_vals = vmulq_f32(v_vals, scale_v_vec);

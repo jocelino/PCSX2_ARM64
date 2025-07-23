@@ -53,7 +53,7 @@ GSTextureCache::GSTextureCache()
 	s_unswizzle_buffer = (u8*)_aligned_malloc(12 * 1024 * 1024, VECTOR_ALIGNMENT);
 	if (!s_unswizzle_buffer) {
 		Console.Error("GSTextureCache: Failed to allocate unswizzle buffer");
-		throw std::bad_alloc();
+		return;
 	}
 
 	m_surface_offset_cache.reserve(S_SURFACE_OFFSET_CACHE_MAX_SIZE);
@@ -95,15 +95,17 @@ void GSTextureCache::RemoveAll(bool sources, bool targets, bool hash_cache)
 			{
 				for (auto it = page_sources.begin(); it != page_sources.end();)
 				{
-					if ((*it)->CanBeRecycled())
-					{
-						delete *it;
-						it = page_sources.erase(it);
-					}
-					else
-					{
-						++it;
-					}
+				//TODO: CanBeRecycled() doest exist
+
+//					if ((*it)->CanBeRecycled())
+//					{
+//						delete *it;
+//						it = page_sources.erase(it);
+//					}
+//					else
+//					{
+//						++it;
+//					}
 				}
 			}
 			m_palette_map.Clear();
