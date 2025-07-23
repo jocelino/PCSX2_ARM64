@@ -82,7 +82,7 @@ void mVUreset(microVU& mVU, bool resetReserve)
 		}
 		mVU.prog.prog[i]->clear();
 	}
-	std::memset(mVU.prog.quick, 0, progArraySize * sizeof(microProgramQuick));
+	//std::memset(mVU.prog.quick, 0, progArraySize * sizeof(microProgramQuick));
 }
 
 // Free Allocated Resources
@@ -132,28 +132,7 @@ __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 // Creates a new Micro Program with optimized memory pool allocation
 __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 {
-	static u32 s_progPoolSize = 16;
-	static microProgram* s_progPool = nullptr;
-	static u32 s_progPoolUsed = 0;
-	
-	if (!s_progPool || s_progPoolUsed >= s_progPoolSize)
-	{
-		const u32 new_size = s_progPoolSize * 2;
-		microProgram* new_pool = (microProgram*)_aligned_malloc(sizeof(microProgram) * new_size, 64);
-		if (!new_pool)
-			pxFailRel("Failed to allocate microProgram pool");
-		
-		if (s_progPool && s_progPoolUsed > 0)
-		{
-			memcpy(new_pool, s_progPool, sizeof(microProgram) * s_progPoolUsed);
-		}
-		
-		safe_aligned_free(s_progPool);
-		s_progPool = new_pool;
-		s_progPoolSize = new_size;
-	}
-	
-	microProgram* prog = &s_progPool[s_progPoolUsed++];
+    microProgram* prog = (microProgram*)_aligned_malloc(sizeof(microProgram), 64);
 	memset(prog, 0, sizeof(microProgram));
 	prog->idx = mVU.prog.total++;
 	prog->ranges = new std::deque<microRange>();
