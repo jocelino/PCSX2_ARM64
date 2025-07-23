@@ -522,13 +522,6 @@ set(pcsx2GSSources
 	GS/Renderers/SW/GSTextureCacheSW.cpp
 	)
 
-if(_M_ARM64)
-	list(APPEND pcsx2GSSources
-			GS/Renderers/Common/GSRendererNEON.cpp
-			GS/Renderers/Common/GSTextureNEON.cpp
-	)
-endif()
-
 # GS headers
 set(pcsx2GSHeaders
 	GS/GSAlignedClass.h
@@ -590,7 +583,6 @@ elseif(_M_ARM64)
 	list(APPEND pcsx2GSHeaders
 		GS/GSVector4_arm64.h
 		GS/GSVector4i_arm64.h
-		GS/Renderers/Common/GSTextureNEON.h
 	)
 endif()
 

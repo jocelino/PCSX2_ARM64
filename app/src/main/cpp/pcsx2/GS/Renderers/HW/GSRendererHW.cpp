@@ -2849,12 +2849,7 @@ void GSRendererHW::Draw()
 		{
 			// Clamp to the UVs of the texture. We could align this to something, but it ends up working better to just duplicate
 			// for different sizes in the hash cache, rather than hashing more and duplicating based on local memory.
-#ifdef _M_ARM64
-			const GSVector4 linear_offset = GSVector4(m_vt.IsLinear() ? 0.5f : 0.0f);
-			const GSVector4i maxt = GSVector4i(m_vt.m_max.t + linear_offset);
-#else
 			const GSVector4i maxt(m_vt.m_max.t + GSVector4(m_vt.IsLinear() ? 0.5f : 0.0f));
-#endif
 			MIP_CLAMP.WMS = CLAMP_REGION_CLAMP;
 			MIP_CLAMP.WMT = CLAMP_REGION_CLAMP;
 			MIP_CLAMP.MINU = 0;
