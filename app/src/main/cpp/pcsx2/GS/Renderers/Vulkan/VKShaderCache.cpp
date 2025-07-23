@@ -245,8 +245,12 @@ std::optional<VKShaderCache::SPIRVCodeVector> VKShaderCache::CompileShaderToSPV(
     if (debug)
         shaderc_compile_options_set_generate_debug_info(options);
 #endif
-    shaderc_compile_options_set_optimization_level(
-            options, debug ? shaderc_optimization_level_zero : shaderc_optimization_level_performance);
+    shaderc_optimization_level opt_level = debug ? shaderc_optimization_level_zero : shaderc_optimization_level_performance;
+#ifdef _M_ARM64
+    if (!debug)
+        opt_level = shaderc_optimization_level_performance;
+#endif
+    shaderc_compile_options_set_optimization_level(options, opt_level);
 
     const shaderc_compilation_result_t result = shaderc_compile_into_spv(
             s_compiler, source.data(), source.length(), static_cast<shaderc_shader_kind>(stage), "source",
@@ -292,8 +296,12 @@ std::optional<VKShaderCache::SPIRVCodeVector> VKShaderCache::CompileShaderToSPV(
 	if (debug)
 		dyn_shaderc::shaderc_compile_options_set_generate_debug_info(options);
 #endif
-	dyn_shaderc::shaderc_compile_options_set_optimization_level(
-		options, debug ? shaderc_optimization_level_zero : shaderc_optimization_level_performance);
+	shaderc_optimization_level opt_level = debug ? shaderc_optimization_level_zero : shaderc_optimization_level_performance;
+#ifdef _M_ARM64
+	if (!debug)
+		opt_level = shaderc_optimization_level_performance;
+#endif
+	dyn_shaderc::shaderc_compile_options_set_optimization_level(options, opt_level);
 
 	const shaderc_compilation_result_t result = dyn_shaderc::shaderc_compile_into_spv(
 		dyn_shaderc::s_compiler, source.data(), source.length(), static_cast<shaderc_shader_kind>(stage), "source",
