@@ -1023,9 +1023,11 @@ bool GSRendererSW::GetScanlineGlobalData(SharedData* data)
             {
                 gd.sel.tlu = 1;
 
-                gd.clut = (u32*)m_vertex_heap.alloc(sizeof(u32) * 256, VECTOR_ALIGNMENT); // FIXME: might address uninitialized data of the texture (0xCD) that is not in 0-15 range for 4-bpp formats
+                const u32 pal_size = GSLocalMemory::m_psm[context->TEX0.PSM].pal;
+                gd.clut = (u32*)m_vertex_heap.alloc(sizeof(u32) * pal_size, VECTOR_ALIGNMENT);
 
-                memcpy(gd.clut, (const u32*)m_mem.m_clut, sizeof(u32) * GSLocalMemory::m_psm[context->TEX0.PSM].pal);
+                memset(gd.clut, 0, sizeof(u32) * pal_size);
+                memcpy(gd.clut, (const u32*)m_mem.m_clut, sizeof(u32) * pal_size);
             }
 
             gd.sel.wms = context->CLAMP.WMS;
