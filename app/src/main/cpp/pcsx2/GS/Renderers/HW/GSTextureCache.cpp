@@ -50,10 +50,10 @@ __fi static constexpr bool PreferReusedLabelledTexture()
 GSTextureCache::GSTextureCache()
 {
 	// Test: onimusha 3 PAL 60Hz
-	s_unswizzle_buffer = (u8*)_aligned_malloc(9 * 1024 * 1024, VECTOR_ALIGNMENT);
+	s_unswizzle_buffer = (u8*)_aligned_malloc(12 * 1024 * 1024, VECTOR_ALIGNMENT);
 	if (!s_unswizzle_buffer) {
 		Console.Error("GSTextureCache: Failed to allocate unswizzle buffer");
-        return;
+		return;
 	}
 
 	m_surface_offset_cache.reserve(S_SURFACE_OFFSET_CACHE_MAX_SIZE);
@@ -82,9 +82,40 @@ void GSTextureCache::RemoveAll(bool sources, bool targets, bool hash_cache)
 
 	if (sources || targets)
 	{
+#ifdef _M_ARM64
+		if (sources && m_src.m_map.size() > 64)
+		{
+			m_src.RemoveAll();
+			m_palette_map.Clear();
+			m_source_memory_usage = 0;
+		}
+		else if (sources)
+		{
+			for (auto& page_sources : m_src.m_map)
+			{
+				for (auto it = page_sources.begin(); it != page_sources.end();)
+				{
+				//TODO: CanBeRecycled() doest exist
+
+//					if ((*it)->CanBeRecycled())
+//					{
+//						delete *it;
+//						it = page_sources.erase(it);
+//					}
+//					else
+//					{
+//						++it;
+//					}
+				}
+			}
+			m_palette_map.Clear();
+			m_source_memory_usage = 0;
+		}
+#else
 		m_src.RemoveAll();
 		m_palette_map.Clear();
 		m_source_memory_usage = 0;
+#endif
 	}
 
 	if (targets)
@@ -104,12 +135,36 @@ void GSTextureCache::RemoveAll(bool sources, bool targets, bool hash_cache)
 
 	if (hash_cache)
 	{
+#ifdef _M_ARM64
+		if (m_hash_cache.size() > 128)
+		{
+			size_t removed = 0;
+			for (auto it = m_hash_cache.begin(); it != m_hash_cache.end() && removed < m_hash_cache.size() / 2;)
+			{
+				g_gs_device->Recycle(it->second.texture);
+				it = m_hash_cache.erase(it);
+				++removed;
+			}
+			m_hash_cache_memory_usage /= 2;
+			m_hash_cache_replacement_memory_usage /= 2;
+		}
+		else
+		{
+			for (auto it : m_hash_cache)
+				g_gs_device->Recycle(it.second.texture);
+
+			m_hash_cache.clear();
+			m_hash_cache_memory_usage = 0;
+			m_hash_cache_replacement_memory_usage = 0;
+		}
+#else
 		for (auto it : m_hash_cache)
 			g_gs_device->Recycle(it.second.texture);
 
 		m_hash_cache.clear();
 		m_hash_cache_memory_usage = 0;
 		m_hash_cache_replacement_memory_usage = 0;
+#endif
 	}
 }
 
@@ -142,7 +197,26 @@ bool GSTextureCache::FullRectDirty(Target* target)
 	if (target->m_age == 0)
 		return false;
 
+#ifdef _M_ARM64
+	u32 channel_mask;
+	switch (target->m_TEX0.PSM)
+	{
+		case PSMCT32:
+		case PSMCT24:
+			channel_mask = 0xF;
+			break;
+		case PSMCT16:
+		case PSMCT16S:
+			channel_mask = 0x7;
+			break;
+		default:
+			channel_mask = GSUtil::GetChannelMask(target->m_TEX0.PSM);
+			break;
+	}
+	return FullRectDirty(target, channel_mask);
+#else
 	return FullRectDirty(target, GSUtil::GetChannelMask(target->m_TEX0.PSM));
+#endif
 }
 
 void GSTextureCache::AddDirtyRectTarget(Target* target, GSVector4i rect, u32 psm, u32 bw, RGBAMask rgba, bool req_linear)

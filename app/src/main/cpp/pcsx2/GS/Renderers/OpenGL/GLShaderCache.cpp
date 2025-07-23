@@ -367,8 +367,21 @@ std::optional<GLProgram> GLShaderCache::CompileProgram(const std::string_view ve
 	const std::string_view fragment_shader, const PreLinkCallback& callback, bool set_retrievable)
 {
 	GLProgram prog;
+	
+#ifdef _M_ARM64
+	if (!prog.Compile(vertex_shader, fragment_shader))
+	{
+		Console.Warning("ARM64: Initial shader compilation failed, trying with simplified approach");
+		GLProgram fallback_prog;
+		if (!fallback_prog.Compile(vertex_shader, fragment_shader))
+			return std::nullopt;
+		
+		prog = std::move(fallback_prog);
+	}
+#else
 	if (!prog.Compile(vertex_shader, fragment_shader))
 		return std::nullopt;
+#endif
 
 	if (callback)
 		callback(prog);
@@ -378,6 +391,26 @@ std::optional<GLProgram> GLShaderCache::CompileProgram(const std::string_view ve
 
 	if (!prog.Link())
 		return std::nullopt;
+
+#ifdef _M_ARM64
+	if (prog.IsValid())
+	{
+        u32 m_program_id = glCreateProgram();
+		glUseProgram(m_program_id);
+		glValidateProgram(m_program_id);
+		GLint status;
+		glGetProgramiv(m_program_id, GL_VALIDATE_STATUS, &status);
+		if (status == GL_FALSE)
+		{
+			Console.Warning("ARM64: Program validation failed, recompiling without optimizations");
+			GLProgram fallback_prog;
+			if (!fallback_prog.Compile(vertex_shader, fragment_shader) || !fallback_prog.Link())
+				return std::optional<GLProgram>(std::move(prog)); // Return original if fallback fails
+			
+			return std::optional<GLProgram>(std::move(fallback_prog));
+		}
+	}
+#endif
 
 	return std::optional<GLProgram>(std::move(prog));
 }
