@@ -249,8 +249,8 @@ void VifUnpackNEON_Base::xUPK_V4_5() const
 	armAsm->Lsr(workGprW, workGprW, 8); // A
 	armAsm->Lsl(workGprW, workGprW, 7); // A.0000000
 	armAsm->Ins(destReg.V4S(), 3, workGprW); // A|B|G|R
-	armAsm->Movi(a64::v31.V16B(), 0xFF);
-	armAsm->And(destReg.V16B(), destReg.V16B(), a64::v31.V16B());
+    armAsm->Movi(a64::v31.V16B(), 0xFF);
+    armAsm->And(destReg.V16B(), destReg.V16B(), a64::v31.V16B());
 }
 
 void VifUnpackNEON_Base::xUnpack(int upknum) const

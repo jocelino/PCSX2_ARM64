@@ -18,8 +18,8 @@ GSClut::GSClut(GSLocalMemory* mem)
 	if (!m_clut)
 		pxFailRel("Failed to allocate CLUT storage.");
 
-	m_buff32 = reinterpret_cast<u32*>(reinterpret_cast<u8*>(m_clut) + 2048); // 1k
-	m_buff64 = reinterpret_cast<u64*>(reinterpret_cast<u8*>(m_clut) + 4096); // 2k
+    m_buff32 = reinterpret_cast<u32*>(reinterpret_cast<u8*>(m_clut) + 2048); // 1k
+    m_buff64 = reinterpret_cast<u64*>(reinterpret_cast<u8*>(m_clut) + 4096); // 2k
 	m_write.dirty = 1;
 	m_read.dirty = true;
 
@@ -272,7 +272,7 @@ void GSClut::WriteCLUT32_CSM2(const GIFRegTEX0& TEX0, const GIFRegTEXCLUT& TEXCL
 		u32 c = vm[pa.value(i)];
 
 		clut[i] = (u16)(c & 0xffff);
-		clut[i + 256] = (u16)(c >> 16);
+		clut[i + n] = (u16)(c >> 16);
 	}
 }
 
@@ -396,7 +396,7 @@ void GSClut::Read32(const GIFRegTEX0& TEX0, const GIFRegTEXA& TEXA)
 				case PSMT8:
 				case PSMT8H:
 					clut += TEX0.CSA << 4;
-					Expand16(clut, m_buff32, 256, TEXA);
+                    Expand16(clut, m_buff32, GSLocalMemory::m_psm[TEX0.PSM].pal, TEXA);
 					break;
 				case PSMT4:
 				case PSMT4HL:
@@ -625,7 +625,7 @@ void GSClut::ReadCLUT_T32_I8(const u16* RESTRICT clut, u32* RESTRICT dst, int of
 	// but it turns out this is incorrect, the address doesn't mirror, it clamps to to the last offset,
 	// probably though some sort of addressing mechanism then picks the color from the lower 0xF of the requested CLUT entry.
 	// if we don't do this, the dirt on GTA SA goes transparent and actually cleans the car driving through dirt.
-	for (int i = 0; i < 256; i += 16)
+    for (int i = 0; i < 256; i += 16)
 	{
 		// Min value + offet or Last CSA * 16 (240)
 		ReadCLUT_T32_I4(&clut[std::min((i + offset), 240)], &dst[i]);

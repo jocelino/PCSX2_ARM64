@@ -50,10 +50,10 @@ __fi static constexpr bool PreferReusedLabelledTexture()
 GSTextureCache::GSTextureCache()
 {
 	// Test: onimusha 3 PAL 60Hz
-	s_unswizzle_buffer = (u8*)_aligned_malloc(12 * 1024 * 1024, VECTOR_ALIGNMENT);
+	s_unswizzle_buffer = (u8*)_aligned_malloc(9 * 1024 * 1024, VECTOR_ALIGNMENT);
 	if (!s_unswizzle_buffer) {
 		Console.Error("GSTextureCache: Failed to allocate unswizzle buffer");
-		throw std::bad_alloc();
+        return;
 	}
 
 	m_surface_offset_cache.reserve(S_SURFACE_OFFSET_CACHE_MAX_SIZE);
