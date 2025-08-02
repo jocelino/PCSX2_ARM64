@@ -32,7 +32,7 @@ static constexpr uint iopWaitCycles = 384; // Keep inline with EE wait cycle max
 
 bool iopEventTestIsActive = false;
 
-alignas(16) psxRegisters psxRegs;
+//alignas(16) psxRegisters psxRegs;
 
 void psxReset()
 {

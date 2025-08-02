@@ -55,7 +55,7 @@ static void recSetBranchEQ(int bne, int process, a64::Label *pj32Ptr)
         }
 		else {
 //            xImm64Op(xCMP, ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]], rax, g_cpuConstRegs[_Rs_].UD[0]);
-            armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rt_].UD[0])), g_cpuConstRegs[_Rs_].UD[0]);
+            armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])), g_cpuConstRegs[_Rs_].UD[0]);
         }
 	}
 	else if (process & PROCESS_CONSTT)
@@ -70,7 +70,7 @@ static void recSetBranchEQ(int bne, int process, a64::Label *pj32Ptr)
         }
 		else {
 //            xImm64Op(xCMP, ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], rax, g_cpuConstRegs[_Rt_].UD[0]);
-            armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), g_cpuConstRegs[_Rt_].UD[0]);
+            armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), g_cpuConstRegs[_Rt_].UD[0]);
         }
 	}
 	else
@@ -87,7 +87,7 @@ static void recSetBranchEQ(int bne, int process, a64::Label *pj32Ptr)
         }
 		else {
 //            xCMP(xRegister64(regs), ptr64[&cpuRegs.GPR.r[_Rt_]]);
-            armAsm->Cmp(a64::XRegister(regs), armLoad64(PTR_CPU(GPR.r[_Rt_])));
+            armAsm->Cmp(a64::XRegister(regs), armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_])));
         }
 	}
 
@@ -132,7 +132,7 @@ static void recSetBranchL(int ltz, a64::Label *pj32Ptr)
     }
 	else {
 //        xCMP(ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], 0);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), 0);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), 0);
     }
 
 	if (ltz) {
@@ -397,7 +397,7 @@ void recBLTZAL()
 //	xMOV64(rax, pc + 4);
     armAsm->Mov(RAX, pc + 4);
 //	xMOV(ptr64[&cpuRegs.GPR.n.ra.UD[0]], rax);
-    armStore(PTR_CPU(GPR.n.ra.UD[0]), RAX);
+    armStore(PTR_CPU(cpuRegs.GPR.n.ra.UD[0]), RAX);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -450,7 +450,7 @@ void recBGEZAL()
 //	xMOV64(rax, pc + 4);
     armAsm->Mov(RAX, pc + 4);
 //	xMOV(ptr64[&cpuRegs.GPR.n.ra.UD[0]], rax);
-    armStore(PTR_CPU(GPR.n.ra.UD[0]), RAX);
+    armStore(PTR_CPU(cpuRegs.GPR.n.ra.UD[0]), RAX);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -503,7 +503,7 @@ void recBLTZALL()
 //	xMOV64(rax, pc + 4);
     armAsm->Mov(RAX, pc + 4);
 //	xMOV(ptr64[&cpuRegs.GPR.n.ra.UD[0]], rax);
-    armStore(PTR_CPU(GPR.n.ra.UD[0]), RAX);
+    armStore(PTR_CPU(cpuRegs.GPR.n.ra.UD[0]), RAX);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -545,7 +545,7 @@ void recBGEZALL()
 //	xMOV64(rax, pc + 4);
     armAsm->Mov(RAX, pc + 4);
 //	xMOV(ptr64[&cpuRegs.GPR.n.ra.UD[0]], rax);
-    armStore(PTR_CPU(GPR.n.ra.UD[0]), RAX);
+    armStore(PTR_CPU(cpuRegs.GPR.n.ra.UD[0]), RAX);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -600,7 +600,7 @@ void recBLEZ()
         armAsm->Cmp(a64::XRegister(regs), 0);
 	else
 //		xCMP(ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], 0);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), 0);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), 0);
 
 //	j32Ptr[0] = JG32(0);
     a64::Label j32Ptr;
@@ -655,7 +655,7 @@ void recBGTZ()
     }
 	else {
 //		xCMP(ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], 0);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), 0);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), 0);
     }
 
 //	j32Ptr[0] = JLE32(0);
@@ -880,7 +880,7 @@ void recBLEZL()
     }
 	else {
 //        xCMP(ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], 0);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), 0);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), 0);
     }
 
 //	j32Ptr[0] = JG32(0);
@@ -927,7 +927,7 @@ void recBGTZL()
     }
 	else {
 //        xCMP(ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], 0);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), 0);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), 0);
     }
 
 //	j32Ptr[0] = JLE32(0);

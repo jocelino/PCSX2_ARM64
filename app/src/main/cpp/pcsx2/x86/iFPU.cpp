@@ -117,7 +117,7 @@ void recCFC1(void)
         auto reg32 = a64::WRegister(regt);
 
 //		xMOV(xRegister32(regt), ptr32[&fpuRegs.fprc[31]]);
-        armLoad(reg32, PTR_FPU(fprc[31]));
+        armLoad(reg32, PTR_CPU(fpuRegs.fprc[31]));
 //		xAND(xRegister32(regt), 0x0083c078); //remove always-zero bits
         armAsm->And(reg32, reg32, 0x0083c078);
 //		xOR(xRegister32(regt), 0x01000001); //set always-one bits
@@ -128,7 +128,7 @@ void recCFC1(void)
 	else
 	{
 //		xMOVSX(xRegister64(regt), ptr32[&fpuRegs.fprc[0]]);
-        armLoadsw(a64::XRegister(regt), PTR_FPU(fprc[0]));
+        armLoadsw(a64::XRegister(regt), PTR_CPU(fpuRegs.fprc[0]));
 	}
 }
 
@@ -141,7 +141,7 @@ void recCTC1()
 	if (GPR_IS_CONST1(_Rt_))
 	{
 //		xMOV(ptr32[&fpuRegs.fprc[_Fs_]], g_cpuConstRegs[_Rt_].UL[0]);
-        armStore(PTR_FPU(fprc[_Fs_]), g_cpuConstRegs[_Rt_].UL[0]);
+        armStore(PTR_CPU(fpuRegs.fprc[_Fs_]), g_cpuConstRegs[_Rt_].UL[0]);
 	}
 	else
 	{
@@ -150,21 +150,21 @@ void recCTC1()
 		if (mmreg >= 0)
 		{
 //			xMOVSS(ptr[&fpuRegs.fprc[_Fs_]], xRegisterSSE(mmreg));
-            armStore(PTR_FPU(fprc[_Fs_]), a64::QRegister(mmreg).S());
+            armStore(PTR_CPU(fpuRegs.fprc[_Fs_]), a64::QRegister(mmreg).S());
 		}
 		else if ((mmreg = _checkX86reg(X86TYPE_GPR, _Rt_, MODE_READ)) >= 0)
 		{
 //			xMOV(ptr32[&fpuRegs.fprc[_Fs_]], xRegister32(mmreg));
-            armStore(PTR_FPU(fprc[_Fs_]), a64::WRegister(mmreg));
+            armStore(PTR_CPU(fpuRegs.fprc[_Fs_]), a64::WRegister(mmreg));
 		}
 		else
 		{
 			_deleteGPRtoXMMreg(_Rt_, 1);
 
 //			xMOV(eax, ptr[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-            armLoad(EAX, PTR_CPU(GPR.r[_Rt_].UL[0]));
+            armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0]));
 //			xMOV(ptr[&fpuRegs.fprc[_Fs_]], eax);
-            armStore(PTR_FPU(fprc[_Fs_]), EAX);
+            armStore(PTR_CPU(fpuRegs.fprc[_Fs_]), EAX);
 		}
 	}
 }
@@ -223,7 +223,7 @@ void recMFC1()
 	{
 		// mem -> gpr
 //		xMOVSX(xRegister64(regt), ptr32[&fpuRegs.fpr[_Fs_].UL]);
-        armLoadsw(a64::XRegister(regt), PTR_FPU(fpr[_Fs_].UL));
+        armLoadsw(a64::XRegister(regt), PTR_CPU(fpuRegs.fpr[_Fs_].UL));
 	}
 }
 
@@ -261,7 +261,7 @@ void recMTC1()
 		{
 			pxAssert(!_hasXMMreg(XMMTYPE_FPREG, _Fs_));
 //			xMOV(ptr32[&fpuRegs.fpr[_Fs_].UL], g_cpuConstRegs[_Rt_].UL[0]);
-            armStore(PTR_FPU(fpr[_Fs_].UL), g_cpuConstRegs[_Rt_].UL[0]);
+            armStore(PTR_CPU(fpuRegs.fpr[_Fs_].UL), g_cpuConstRegs[_Rt_].UL[0]);
 		}
 	}
 	else
@@ -286,7 +286,7 @@ void recMTC1()
                 }
 				else {
 //                    xMOVSS(ptr[&fpuRegs.fpr[_Fs_].UL], xRegisterSSE(xmmgpr));
-                    armStore(PTR_FPU(fpr[_Fs_].UL), regQ.S());
+                    armStore(PTR_CPU(fpuRegs.fpr[_Fs_].UL), regQ.S());
                 }
 			}
 		}
@@ -306,7 +306,7 @@ void recMTC1()
 			else
 			{
 //				xMOV(ptr32[&fpuRegs.fpr[_Fs_].UL], xRegister32(regt));
-                armStore(PTR_FPU(fpr[_Fs_].UL), reg32);
+                armStore(PTR_CPU(fpuRegs.fpr[_Fs_].UL), reg32);
 			}
 		}
 	}
@@ -430,7 +430,7 @@ void recABS_S_xmm(int info)
     }
 	else {
 //        xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-        armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+        armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
     }
 
 //	xAND.PS(xRegisterSSE(EEREC_D), ptr[&s_pos[0]]);
@@ -666,12 +666,9 @@ void FPU_MUL(int regd, int regt, bool reverseOperands)
 //		xOR(edx, ecx);
         armAsm->Orr(EDX, EDX, ECX);
 
-        // flag test
-        armAsm->Tst(EDX, EDX);
-
 //		u8* noHack = JNZ8(0);
         a64::Label noHack;
-        armAsm->B(&noHack, a64::Condition::ne);
+        armAsm->Cbnz(EDX, &noHack);
 //			xMOVAPS(xRegisterSSE(regd), ptr128[result]);
             armAsm->Ldr(regD.Q(), armMemOperandPtr(result));
 //			endMul = JMP8(0);
@@ -726,7 +723,7 @@ int recCommutativeOp(int info, int regd, int op)
 			if (regd == EEREC_S)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW /*&& !CHECK_FPUCLAMPHACK */ || (op >= 2))
 				{
 					fpuFloat2(regd);
@@ -737,7 +734,7 @@ int recCommutativeOp(int info, int regd, int op)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW || (op >= 2))
 				{
 					fpuFloat2(regd);
@@ -750,7 +747,7 @@ int recCommutativeOp(int info, int regd, int op)
 			if (regd == EEREC_T)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW || (op >= 2))
 				{
 					fpuFloat2(regd);
@@ -761,7 +758,7 @@ int recCommutativeOp(int info, int regd, int op)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW || (op >= 2))
 				{
 					fpuFloat2(regd);
@@ -795,9 +792,9 @@ int recCommutativeOp(int info, int regd, int op)
 		default:
 			Console.WriteLn(Color_Magenta, "FPU: recCommutativeOp case 4");
 //			xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+            armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 			if (CHECK_FPU_EXTRA_OVERFLOW || (op >= 2))
 			{
 				fpuFloat2(regd);
@@ -849,7 +846,7 @@ static void _setupBranchTest()
 	// BC2F checks if the statement is false, BC2T checks if the statement is true.
 
 //	xMOV(eax, ptr[&fpuRegs.fprc[31]]);
-    armLoad(EAX, PTR_FPU(fprc[31]));
+    armLoad(EAX, PTR_CPU(fpuRegs.fprc[31]));
 //	xTEST(eax, FPUflagC);
     armAsm->Tst(EAX, FPUflagC);
 }
@@ -928,7 +925,7 @@ void recC_EQ_xmm(int info)
                 auto regT0 = a64::QRegister(t0reg);
 
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				fpuFloat3(t0reg);
 
 //				xUCOMI.SS(xRegisterSSE(regs), xRegisterSSE(t0reg));
@@ -948,7 +945,7 @@ void recC_EQ_xmm(int info)
                 auto regT0 = a64::QRegister(t0reg);
 
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				fpuFloat3(t0reg);
 
 //				xUCOMI.SS(xRegisterSSE(t0reg), xRegisterSSE(regt));
@@ -978,20 +975,20 @@ void recC_EQ_xmm(int info)
 		default:
 			Console.WriteLn(Color_Magenta, "recC_EQ_xmm: Default");
 //			xMOV(eax, ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(EAX, PTR_FPU(fpr[_Fs_]));
+            armLoad(EAX, PTR_CPU(fpuRegs.fpr[_Fs_]));
 //			xCMP(eax, ptr[&fpuRegs.fpr[_Ft_]]);
-            armAsm->Cmp(EAX, armLoad(PTR_FPU(fpr[_Ft_])));
+            armAsm->Cmp(EAX, armLoad(PTR_CPU(fpuRegs.fpr[_Ft_])));
 
 //			j8Ptr[0] = JZ8(0);
             armAsm->B(&j8Ptr0, a64::Condition::eq);
 //				xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-                armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+                armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //				j8Ptr[1] = JMP8(0);
                 armAsm->B(&j8Ptr1);
 //			x86SetJ8(j8Ptr[0]);
             armBind(&j8Ptr0);
 //				xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-                armOrr(PTR_FPU(fprc[31]), FPUflagC);
+                armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //			x86SetJ8(j8Ptr[1]);
             armBind(&j8Ptr1);
 			return;
@@ -1000,13 +997,13 @@ void recC_EQ_xmm(int info)
 //	j8Ptr[0] = JZ8(0);
     armAsm->B(&j8Ptr0, a64::Condition::eq);
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-        armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //		j8Ptr[1] = JMP8(0);
         armAsm->B(&j8Ptr1);
 //	x86SetJ8(j8Ptr[0]);
     armBind(&j8Ptr0);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-        armOrr(PTR_FPU(fprc[31]), FPUflagC);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //	x86SetJ8(j8Ptr[1]);
     armBind(&j8Ptr1);
 }
@@ -1018,7 +1015,7 @@ void recC_F()
 {
 	EE::Profiler.EmitOp(eeOpcode::CF_F);
 //	xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-    armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+    armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 }
 //REC_FPUFUNC(C_F);
 
@@ -1041,7 +1038,7 @@ void recC_LE_xmm(int info)
             auto regT0 = a64::QRegister(t0reg);
 
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 			fpuFloat3(t0reg);
 
 //			xUCOMI.SS(xRegisterSSE(regs), xRegisterSSE(t0reg));
@@ -1061,7 +1058,7 @@ void recC_LE_xmm(int info)
             auto regT0 = a64::QRegister(t0reg);
 
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 			fpuFloat3(t0reg);
 
 //			xUCOMI.SS(xRegisterSSE(t0reg), xRegisterSSE(regt));
@@ -1091,20 +1088,20 @@ void recC_LE_xmm(int info)
 		default: // Untested and incorrect, but this case is never reached AFAIK (cottonvibes)
 			Console.WriteLn(Color_Magenta, "recC_LE_xmm: Default");
 //			xMOV(eax, ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(EAX, PTR_FPU(fpr[_Fs_]));
+            armLoad(EAX, PTR_CPU(fpuRegs.fpr[_Fs_]));
 //			xCMP(eax, ptr[&fpuRegs.fpr[_Ft_]]);
-            armAsm->Cmp(EAX, armLoad(PTR_FPU(fpr[_Ft_])));
+            armAsm->Cmp(EAX, armLoad(PTR_CPU(fpuRegs.fpr[_Ft_])));
 
 //			j8Ptr[0] = JLE8(0);
             armAsm->B(&j8Ptr0, a64::Condition::le);
 //				xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-                armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+                armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //				j8Ptr[1] = JMP8(0);
                 armAsm->B(&j8Ptr1);
 //			x86SetJ8(j8Ptr[0]);
             armBind(&j8Ptr0);
 //				xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-                armOrr(PTR_FPU(fprc[31]), FPUflagC);
+                armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //			x86SetJ8(j8Ptr[1]);
             armBind(&j8Ptr1);
 			return;
@@ -1113,13 +1110,13 @@ void recC_LE_xmm(int info)
 //	j8Ptr[0] = JBE8(0);
     armAsm->B(&j8Ptr0, a64::Condition::ls);
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-        armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //		j8Ptr[1] = JMP8(0);
         armAsm->B(&j8Ptr1);
 //	x86SetJ8(j8Ptr[0]);
     armBind(&j8Ptr0);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-        armOrr(PTR_FPU(fprc[31]), FPUflagC);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //	x86SetJ8(j8Ptr[1]);
     armBind(&j8Ptr1);
 }
@@ -1146,7 +1143,7 @@ void recC_LT_xmm(int info)
             auto regT0 = a64::QRegister(t0reg);
 
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 			fpuFloat3(t0reg);
 
 //			xUCOMI.SS(xRegisterSSE(regs), xRegisterSSE(t0reg));
@@ -1166,7 +1163,7 @@ void recC_LT_xmm(int info)
             auto regT0 = a64::QRegister(t0reg);
 
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 			fpuFloat3(t0reg);
 
 //			xUCOMI.SS(xRegisterSSE(t0reg), xRegisterSSE(regt));
@@ -1196,20 +1193,20 @@ void recC_LT_xmm(int info)
 		default:
 			Console.WriteLn(Color_Magenta, "recC_LT_xmm: Default");
 //			xMOV(eax, ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(EAX, PTR_FPU(fpr[_Fs_]));
+            armLoad(EAX, PTR_CPU(fpuRegs.fpr[_Fs_]));
 //			xCMP(eax, ptr[&fpuRegs.fpr[_Ft_]]);
-            armAsm->Cmp(EAX, armLoad(PTR_FPU(fpr[_Ft_])));
+            armAsm->Cmp(EAX, armLoad(PTR_CPU(fpuRegs.fpr[_Ft_])));
 
 //			j8Ptr[0] = JL8(0);
             armAsm->B(&j8Ptr0, a64::Condition::lt);
 //				xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-                armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+                armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //				j8Ptr[1] = JMP8(0);
                 armAsm->B(&j8Ptr1);
 //			x86SetJ8(j8Ptr[0]);
             armBind(&j8Ptr0);
 //				xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-                armOrr(PTR_FPU(fprc[31]), FPUflagC);
+                armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //			x86SetJ8(j8Ptr[1]);
             armBind(&j8Ptr1);
 			return;
@@ -1218,13 +1215,13 @@ void recC_LT_xmm(int info)
 //	j8Ptr[0] = JB8(0);
     armAsm->B(&j8Ptr0, a64::Condition::cc);
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-        armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //		j8Ptr[1] = JMP8(0);
         armAsm->B(&j8Ptr1);
 //	x86SetJ8(j8Ptr[0]);
     armBind(&j8Ptr0);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-        armOrr(PTR_FPU(fprc[31]), FPUflagC);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //	x86SetJ8(j8Ptr[1]);
     armBind(&j8Ptr1);
 }
@@ -1250,7 +1247,7 @@ void recCVT_S_xmm(int info)
         }
 		else {
 //            xCVTSI2SS(xRegisterSSE(EEREC_D), ptr32[&fpuRegs.fpr[_Fs_]]);
-            armAsm->Scvtf(regED.S(), armLoad(PTR_FPU(fpr[_Fs_])));
+            armAsm->Scvtf(regED.S(), armLoad(PTR_CPU(fpuRegs.fpr[_Fs_])));
         }
 	}
 	else
@@ -1259,9 +1256,9 @@ void recCVT_S_xmm(int info)
         auto regTemp = a64::QRegister(temp);
 
 //		xCVTSI2SS(xRegisterSSE(temp), ptr32[&fpuRegs.fpr[_Fs_]]);
-        armAsm->Scvtf(regTemp.S(), armLoad(PTR_FPU(fpr[_Fs_])));
+        armAsm->Scvtf(regTemp.S(), armLoad(PTR_CPU(fpuRegs.fpr[_Fs_])));
 //		xMOVSS(ptr32[&fpuRegs.fpr[_Fd_]], xRegisterSSE(temp));
-        armStore(PTR_FPU(fpr[_Fd_]), regTemp.S());
+        armStore(PTR_CPU(fpuRegs.fpr[_Fd_]), regTemp.S());
 		_freeXMMreg(temp);
 	}
 }
@@ -1292,9 +1289,9 @@ void recCVT_W()
 	else
 	{
 //		xCVTTSS2SI(eax, ptr32[&fpuRegs.fpr[_Fs_]]);
-        armAsm->Fcvtzs(EAX, armLoadPtrV(PTR_FPU(fpr[_Fs_])).S());
+        armAsm->Fcvtzs(EAX, armLoadPtrV(PTR_CPU(fpuRegs.fpr[_Fs_])).S());
 //		xMOV(edx, ptr[&fpuRegs.fpr[_Fs_]]);
-        armLoad(EDX, PTR_FPU(fpr[_Fs_]));
+        armLoad(EDX, PTR_CPU(fpuRegs.fpr[_Fs_]));
 	}
 
 	//kill register allocation for dst because we write directly to fpuRegs.fpr[_Fd_]
@@ -1311,7 +1308,7 @@ void recCVT_W()
 
 	//Write the result
 //	xMOV(ptr[&fpuRegs.fpr[_Fd_]], eax);
-    armStore(PTR_FPU(fpr[_Fd_]), EAX);
+    armStore(PTR_CPU(fpuRegs.fpr[_Fd_]), EAX);
 }
 //------------------------------------------------------------------
 
@@ -1333,7 +1330,7 @@ void recDIVhelper1(int regd, int regt) // Sets flags
     auto regT1 = a64::QRegister(t1reg);
 
 //	xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagI | FPUflagD)); // Clear I and D flags
-    armAnd(PTR_FPU(fprc[31]), ~(FPUflagI | FPUflagD));
+    armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagI | FPUflagD));
 
 	/*--- Check for divide by zero ---*/
 //	xXOR.PS(xRegisterSSE(t1reg), xRegisterSSE(t1reg));
@@ -1359,13 +1356,13 @@ void recDIVhelper1(int regd, int regt) // Sets flags
 //		pjmp1 = JZ8(0); //Skip if not set
         armAsm->B(&pjmp1, a64::Condition::eq);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags ( 0/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //			pjmp2 = JMP8(0);
             armAsm->B(&pjmp2);
 //		x86SetJ8(pjmp1); //x/0 but not 0/0
         armBind(&pjmp1);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagD | FPUflagSD); // Set D and SD flags ( x/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagD | FPUflagSD);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagD | FPUflagSD);
 //		x86SetJ8(pjmp2);
         armBind(&pjmp2);
 
@@ -1427,7 +1424,7 @@ void recDIV_S_xmm(int info)
 //			xMOVSS(xRegisterSSE(EEREC_D), xRegisterSSE(EEREC_S));
             armAsm->Mov(regED.S(), 0, a64::QRegister(EEREC_S).S(), 0);
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 			if (CHECK_FPU_EXTRA_FLAGS)
 				recDIVhelper1(EEREC_D, t0reg);
 			else
@@ -1440,7 +1437,7 @@ void recDIV_S_xmm(int info)
 //				xMOVSS(xRegisterSSE(t0reg), xRegisterSSE(EEREC_T));
                 armAsm->Mov(regT0.S(), 0, a64::QRegister(EEREC_T).S(), 0);
 //				xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_FLAGS)
 					recDIVhelper1(EEREC_D, t0reg);
 				else
@@ -1449,7 +1446,7 @@ void recDIV_S_xmm(int info)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_FLAGS)
 					recDIVhelper1(EEREC_D, EEREC_T);
 				else
@@ -1482,9 +1479,9 @@ void recDIV_S_xmm(int info)
 		default:
 			//Console.WriteLn("FPU: DIV case 4");
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 //			xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+            armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 			if (CHECK_FPU_EXTRA_FLAGS)
 				recDIVhelper1(EEREC_D, t0reg);
 			else
@@ -1521,7 +1518,7 @@ void recMADDtemp(int info, int regd)
 			if (regd == EEREC_S)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(t0reg));
                 armAsm->Fmul(regD.S(), regD.S(), regT0.S());
@@ -1533,7 +1530,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(EEREC_ACC); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1541,7 +1538,7 @@ void recMADDtemp(int info, int regd)
 			else if ((info & PROCESS_EE_ACC) && regd == EEREC_ACC)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(EEREC_S); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(t0reg), xRegisterSSE(EEREC_S));
                 armAsm->Fmul(regT0.S(), regT0.S(), a64::QRegister(EEREC_S).S());
@@ -1551,7 +1548,7 @@ void recMADDtemp(int info, int regd)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(EEREC_S); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(EEREC_S));
                 armAsm->Fmul(regD.S(), regD.S(), a64::QRegister(EEREC_S).S());
@@ -1563,7 +1560,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(EEREC_ACC); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1573,7 +1570,7 @@ void recMADDtemp(int info, int regd)
 			if (regd == EEREC_T)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(t0reg));
                 armAsm->Fmul(regD.S(), regD.S(), regT0.S());
@@ -1585,7 +1582,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(EEREC_ACC); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1593,7 +1590,7 @@ void recMADDtemp(int info, int regd)
 			else if ((info & PROCESS_EE_ACC) && regd == EEREC_ACC)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(EEREC_T); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(t0reg), xRegisterSSE(EEREC_T));
                 armAsm->Fmul(regT0.S(), regT0.S(), a64::QRegister(EEREC_T).S());
@@ -1603,7 +1600,7 @@ void recMADDtemp(int info, int regd)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(EEREC_T); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(EEREC_T));
                 armAsm->Fmul(regD.S(), regD.S(), a64::QRegister(EEREC_T).S());
@@ -1615,7 +1612,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(EEREC_ACC); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1635,7 +1632,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1653,7 +1650,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1683,7 +1680,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1694,9 +1691,9 @@ void recMADDtemp(int info, int regd)
 			{
 				const int t1reg = _allocTempXMMreg(XMMT_FPS);
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 //				xMOVSSZX(xRegisterSSE(t1reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(a64::QRegister(t1reg).S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(a64::QRegister(t1reg).S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(t0reg); fpuFloat2(t1reg); }
 //				xMUL.SS(xRegisterSSE(t0reg), xRegisterSSE(t1reg));
                 armAsm->Fmul(regT0.S(), regT0.S(), a64::QRegister(t1reg).S());
@@ -1707,9 +1704,9 @@ void recMADDtemp(int info, int regd)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(t0reg));
                 armAsm->Fmul(regD.S(), regD.S(), regT0.S());
@@ -1721,7 +1718,7 @@ void recMADDtemp(int info, int regd)
 				else
 				{
 //					xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
 					if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 					FPU_ADD(regd, t0reg);
 				}
@@ -1791,7 +1788,7 @@ void recMOV_S_xmm(int info)
     }
 	else {
 //        xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-        armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+        armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
     }
 }
 
@@ -1815,7 +1812,7 @@ void recMSUBtemp(int info, int regd)
 			if (regd == EEREC_S)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(t0reg));
                 armAsm->Fmul(regD.S(), regD.S(), regT0.S());
@@ -1825,7 +1822,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -1835,7 +1832,7 @@ void recMSUBtemp(int info, int regd)
 			else if ((info & PROCESS_EE_ACC) && regd == EEREC_ACC)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(EEREC_S); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(t0reg), xRegisterSSE(EEREC_S));
                 armAsm->Fmul(regT0.S(), regT0.S(), a64::QRegister(EEREC_S).S());
@@ -1845,7 +1842,7 @@ void recMSUBtemp(int info, int regd)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(EEREC_S); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(EEREC_S));
                 armAsm->Fmul(regD.S(), regD.S(), a64::QRegister(EEREC_S).S());
@@ -1855,7 +1852,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -1867,7 +1864,7 @@ void recMSUBtemp(int info, int regd)
 			if (regd == EEREC_T)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(t0reg));
                 armAsm->Fmul(regD.S(), regD.S(), regT0.S());
@@ -1877,7 +1874,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -1887,7 +1884,7 @@ void recMSUBtemp(int info, int regd)
 			else if ((info & PROCESS_EE_ACC) && regd == EEREC_ACC)
 			{
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(EEREC_T); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(t0reg), xRegisterSSE(EEREC_T));
                 armAsm->Fmul(regT0.S(), regT0.S(), a64::QRegister(EEREC_T).S());
@@ -1897,7 +1894,7 @@ void recMSUBtemp(int info, int regd)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(EEREC_T); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(EEREC_T));
                 armAsm->Fmul(regD.S(), regD.S(), a64::QRegister(EEREC_T).S());
@@ -1907,7 +1904,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -1927,7 +1924,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -1945,7 +1942,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -1975,7 +1972,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -1988,9 +1985,9 @@ void recMSUBtemp(int info, int regd)
 			{
 				const int t1reg = _allocTempXMMreg(XMMT_FPS);
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 //				xMOVSSZX(xRegisterSSE(t1reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(a64::QRegister(t1reg).S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(a64::QRegister(t1reg).S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(t0reg); fpuFloat2(t1reg); }
 //				xMUL.SS(xRegisterSSE(t0reg), xRegisterSSE(t1reg));
                 armAsm->Fmul(regT0.S(), regT0.S(), a64::QRegister(t1reg).S());
@@ -2001,9 +1998,9 @@ void recMSUBtemp(int info, int regd)
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 //				xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-                armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+                armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat2(regd); fpuFloat2(t0reg); }
 //				xMUL.SS(xRegisterSSE(regd), xRegisterSSE(t0reg));
                 armAsm->Fmul(regD.S(), regD.S(), regT0.S());
@@ -2013,7 +2010,7 @@ void recMSUBtemp(int info, int regd)
                 }
 				else {
 //                    xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.ACC]);
-                    armLoad(regT0.S(), PTR_FPU(ACC));
+                    armLoad(regT0.S(), PTR_CPU(fpuRegs.ACC));
                 }
 				if (CHECK_FPU_EXTRA_OVERFLOW) { fpuFloat(regd); fpuFloat(t0reg); }
 				FPU_SUB(t0reg, regd);
@@ -2085,7 +2082,7 @@ void recNEG_S_xmm(int info)
     }
 	else {
 //        xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-        armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+        armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
     }
 
 	//xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagO|FPUflagU)); // Clear O and U flags
@@ -2128,7 +2125,7 @@ void recSUBop(int info, int regd)
                 armAsm->Mov(regD.S(), 0, a64::QRegister(EEREC_S).S(), 0);
             }
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 			recSUBhelper(regd, t0reg);
 			break;
 		case PROCESS_EE_T:
@@ -2138,13 +2135,13 @@ void recSUBop(int info, int regd)
 //				xMOVSS(xRegisterSSE(t0reg), xRegisterSSE(EEREC_T));
                 armAsm->Mov(regT0.S(), 0, a64::QRegister(EEREC_T).S(), 0);
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				recSUBhelper(regd, t0reg);
 			}
 			else
 			{
 //				xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-                armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+                armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 				recSUBhelper(regd, EEREC_T);
 			}
 			break;
@@ -2168,9 +2165,9 @@ void recSUBop(int info, int regd)
 		default:
 			Console.Warning("FPU: SUB case 4");
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 //			xMOVSSZX(xRegisterSSE(regd), ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(regD.S(), PTR_FPU(fpr[_Fs_]));
+            armLoad(regD.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 			recSUBhelper(regd, t0reg);
 			break;
 	}
@@ -2226,13 +2223,13 @@ void recSQRT_S_xmm(int info)
     }
 	else {
 //        xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Ft_]]);
-        armLoad(regED.S(), PTR_FPU(fpr[_Ft_]));
+        armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
     }
 
 	if (CHECK_FPU_EXTRA_FLAGS)
 	{
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagI | FPUflagD)); // Clear I and D flags
-        armAnd(PTR_FPU(fprc[31]), ~(FPUflagI | FPUflagD));
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagI | FPUflagD));
 
 		/*--- Check for negative SQRT ---*/
 //		xMOVMSKPS(eax, xRegisterSSE(EEREC_D));
@@ -2243,7 +2240,7 @@ void recSQRT_S_xmm(int info)
         a64::Label pjmp;
         armAsm->B(&pjmp, a64::Condition::eq);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags
-            armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //			xAND.PS(xRegisterSSE(EEREC_D), ptr[&s_pos[0]]); // Make EEREC_D Positive
             armAsm->And(regED.V16B(), regED.V16B(), armLoadPtrV(&s_pos[0]).V16B());
 //		x86SetJ8(pjmp);
@@ -2291,7 +2288,7 @@ void recRSQRThelper1(int regd, int t0reg) // Preforms the RSQRT function when re
 	int t1reg = _allocTempXMMreg(XMMT_FPS);
 
 //	xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagI | FPUflagD)); // Clear I and D flags
-    armAnd(PTR_FPU(fprc[31]), ~(FPUflagI | FPUflagD));
+    armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagI | FPUflagD));
 
 	/*--- (first) Check for negative SQRT ---*/
 //	xMOVMSKPS(eax, xRegisterSSE(t0reg));
@@ -2301,7 +2298,7 @@ void recRSQRThelper1(int regd, int t0reg) // Preforms the RSQRT function when re
 //	pjmp2 = JZ8(0); //Skip if not set
     armAsm->B(&pjmp2, a64::Condition::eq);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags
-        armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //		xAND.PS(xRegisterSSE(t0reg), ptr[&s_pos[0]]); // Make t0reg Positive
         armAsm->And(regT0.V16B(), regT0.V16B(), armLoadPtrV(&s_pos[0]).V16B()); // Make t0reg Positive
 //	x86SetJ8(pjmp2);
@@ -2330,13 +2327,13 @@ void recRSQRThelper1(int regd, int t0reg) // Preforms the RSQRT function when re
 //		qjmp1 = JZ8(0); //Skip if not set
         armAsm->B(&qjmp1, a64::Condition::eq);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags ( 0/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //			qjmp2 = JMP8(0);
             armAsm->B(&qjmp2);
 //		x86SetJ8(qjmp1); //x/0 but not 0/0
         armBind(&qjmp1);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagD | FPUflagSD); // Set D and SD flags ( x/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagD | FPUflagSD);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagD | FPUflagSD);
 //		x86SetJ8(qjmp2);
         armBind(&qjmp2);
 
@@ -2407,7 +2404,7 @@ void recRSQRT_S_xmm(int info)
 //			xMOVSS(xRegisterSSE(EEREC_D), xRegisterSSE(EEREC_S));
             armAsm->Mov(regED.S(), 0, a64::QRegister(EEREC_S).S(), 0);
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 			if (CHECK_FPU_EXTRA_FLAGS)
 				recRSQRThelper1(EEREC_D, t0reg);
 			else
@@ -2418,7 +2415,7 @@ void recRSQRT_S_xmm(int info)
 //			xMOVSS(xRegisterSSE(t0reg), xRegisterSSE(EEREC_T));
             armAsm->Mov(regT0.S(), 0, a64::QRegister(EEREC_T).S(), 0);
 //			xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+            armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 			if (CHECK_FPU_EXTRA_FLAGS)
 				recRSQRThelper1(EEREC_D, t0reg);
 			else
@@ -2438,9 +2435,9 @@ void recRSQRT_S_xmm(int info)
 		default:
 			//Console.WriteLn("FPU: RSQRT case 4");
 //			xMOVSSZX(xRegisterSSE(t0reg), ptr[&fpuRegs.fpr[_Ft_]]);
-            armLoad(regT0.S(), PTR_FPU(fpr[_Ft_]));
+            armLoad(regT0.S(), PTR_CPU(fpuRegs.fpr[_Ft_]));
 //			xMOVSSZX(xRegisterSSE(EEREC_D), ptr[&fpuRegs.fpr[_Fs_]]);
-            armLoad(regED.S(), PTR_FPU(fpr[_Fs_]));
+            armLoad(regED.S(), PTR_CPU(fpuRegs.fpr[_Fs_]));
 			if (CHECK_FPU_EXTRA_FLAGS)
 				recRSQRThelper1(EEREC_D, t0reg);
 			else

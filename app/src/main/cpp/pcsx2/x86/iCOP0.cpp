@@ -136,7 +136,7 @@ void recDI()
 		recompileNextInstruction(false, false); // DI execution is delayed by one instruction
 
 //	xMOV(eax, ptr[&cpuRegs.CP0.n.Status]);
-    armLoad(EAX, PTR_CPU(CP0.n.Status));
+    armLoad(EAX, PTR_CPU(cpuRegs.CP0.n.Status));
 //	xTEST(eax, 0x20006); // EXL | ERL | EDI
     armAsm->Tst(EAX, 0x20006);
 //	xForwardJNZ8 iHaveNoIdea;
@@ -152,7 +152,7 @@ void recDI()
 //	xAND(eax, ~(u32)0x10000); // EIE
     armAsm->And(EAX, EAX, ~(u32)0x10000);
 //	xMOV(ptr[&cpuRegs.CP0.n.Status], eax);
-    armStore(PTR_CPU(CP0.n.Status), EAX);
+    armStore(PTR_CPU(cpuRegs.CP0.n.Status), EAX);
 //	inUserMode.SetTarget();
     armBind(&inUserMode);
 }
@@ -173,22 +173,22 @@ void recMFC0()
 //		xMOV(ecx, ptr32[&cpuRegs.cycle]);
 //		xADD(ecx, scaleblockcycles_clear());
 //		xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
-        armAdd(ECX, PTR_CPU(cycle), scaleblockcycles_clear());
+        armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //		xMOV(eax, ecx);
         armAsm->Mov(EAX, ECX);
 //		xSUB(eax, ptr[&cpuRegs.lastCOP0Cycle]);
-        armAsm->Sub(EAX, EAX, armLoad(PTR_CPU(lastCOP0Cycle)));
+        armAsm->Sub(EAX, EAX, armLoad(PTR_CPU(cpuRegs.lastCOP0Cycle)));
 //		xADD(ptr[&cpuRegs.CP0.n.Count], eax);
-        armAdd(PTR_CPU(CP0.n.Count), EAX);
+        armAdd(PTR_CPU(cpuRegs.CP0.n.Count), EAX);
 //		xMOV(ptr[&cpuRegs.lastCOP0Cycle], ecx);
-        armStore(PTR_CPU(lastCOP0Cycle), ECX);
+        armStore(PTR_CPU(cpuRegs.lastCOP0Cycle), ECX);
 
 		if (!_Rt_)
 			return;
 
 		const int regt = _Rt_ ? _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE) : -1;
 //		xMOVSX(xRegister64(regt), ptr32[&cpuRegs.CP0.r[_Rd_]]);
-        armLoadsw(a64::XRegister(regt), PTR_CPU(CP0.r[_Rd_]));
+        armLoadsw(a64::XRegister(regt), PTR_CPU(cpuRegs.CP0.r[_Rd_]));
 		return;
 	}
 
@@ -201,7 +201,7 @@ void recMFC0()
 		{
 			const int regt = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE);
 //			xMOVSX(xRegister64(regt), ptr32[&cpuRegs.PERF.n.pccr]);
-            armLoadsw(a64::XRegister(regt), PTR_CPU(PERF.n.pccr));
+            armLoadsw(a64::XRegister(regt), PTR_CPU(cpuRegs.PERF.n.pccr));
 		}
 		else if (0 == (_Imm_ & 2)) // MFPC 0, only LSB of register matters
 		{
@@ -209,13 +209,13 @@ void recMFC0()
 //			xMOV(eax, ptr32[&cpuRegs.cycle]);
 //			xADD(eax, scaleblockcycles_clear());
 //			xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-            armAdd(PTR_CPU(cycle), scaleblockcycles_clear());
+            armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //			xFastCall((void*)COP0_UpdatePCCR);
             armEmitCall(reinterpret_cast<void*>(COP0_UpdatePCCR));
 
 			const int regt = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE);
 //			xMOVSX(xRegister64(regt), ptr32[&cpuRegs.PERF.n.pcr0]);
-            armLoadsw(a64::XRegister(regt), PTR_CPU(PERF.n.pcr0));
+            armLoadsw(a64::XRegister(regt), PTR_CPU(cpuRegs.PERF.n.pcr0));
 		}
 		else // MFPC 1
 		{
@@ -223,13 +223,13 @@ void recMFC0()
 //			xMOV(eax, ptr32[&cpuRegs.cycle]);
 //			xADD(eax, scaleblockcycles_clear());
 //			xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-            armAdd(PTR_CPU(cycle), scaleblockcycles_clear());
+            armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //			xFastCall((void*)COP0_UpdatePCCR);
             armEmitCall(reinterpret_cast<void*>(COP0_UpdatePCCR));
 
 			const int regt = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE);
 //			xMOVSX(xRegister64(regt), ptr32[&cpuRegs.PERF.n.pcr1]);
-            armLoadsw(a64::XRegister(regt), PTR_CPU(PERF.n.pcr1));
+            armLoadsw(a64::XRegister(regt), PTR_CPU(cpuRegs.PERF.n.pcr1));
 		}
 
 		return;
@@ -242,7 +242,7 @@ void recMFC0()
 
 	const int regt = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE);
 //	xMOVSX(xRegister64(regt), ptr32[&cpuRegs.CP0.r[_Rd_]]);
-    armLoadsw(a64::XRegister(regt), PTR_CPU(CP0.r[_Rd_]));
+    armLoadsw(a64::XRegister(regt), PTR_CPU(cpuRegs.CP0.r[_Rd_]));
 }
 
 void recMTC0()
@@ -256,7 +256,7 @@ void recMTC0()
 //				xMOV(eax, ptr32[&cpuRegs.cycle]);
 //				xADD(eax, scaleblockcycles_clear());
 //				xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-                armAdd(PTR_CPU(cycle), scaleblockcycles_clear());
+                armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //				xFastCall((void*)WriteCP0Status, g_cpuConstRegs[_Rt_].UL[0]);
                 armAsm->Mov(EAX, g_cpuConstRegs[_Rt_].UL[0]);
                 armEmitCall(reinterpret_cast<void*>(WriteCP0Status));
@@ -273,11 +273,11 @@ void recMTC0()
 //				xMOV(ecx, ptr32[&cpuRegs.cycle]);
 //				xADD(ecx, scaleblockcycles_clear());
 //				xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
-                armAdd(ECX, PTR_CPU(cycle), scaleblockcycles_clear());
+                armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //				xMOV(ptr[&cpuRegs.lastCOP0Cycle], ecx);
-                armStore(PTR_CPU(lastCOP0Cycle), ECX);
+                armStore(PTR_CPU(cpuRegs.lastCOP0Cycle), ECX);
 //				xMOV(ptr32[&cpuRegs.CP0.r[9]], g_cpuConstRegs[_Rt_].UL[0]);
-                armStore(PTR_CPU(CP0.r[9]), g_cpuConstRegs[_Rt_].UL[0]);
+                armStore(PTR_CPU(cpuRegs.CP0.r[9]), g_cpuConstRegs[_Rt_].UL[0]);
 				break;
 
 			case 25:
@@ -290,11 +290,11 @@ void recMTC0()
 //					xMOV(eax, ptr32[&cpuRegs.cycle]);
 //					xADD(eax, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-                    armAdd(PTR_CPU(cycle), scaleblockcycles_clear());
+                    armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //					xFastCall((void*)COP0_UpdatePCCR);
                     armEmitCall(reinterpret_cast<void*>(COP0_UpdatePCCR));
 //					xMOV(ptr32[&cpuRegs.PERF.n.pccr], g_cpuConstRegs[_Rt_].UL[0]);
-                    armStore(PTR_CPU(PERF.n.pccr), g_cpuConstRegs[_Rt_].UL[0]);
+                    armStore(PTR_CPU(cpuRegs.PERF.n.pccr), g_cpuConstRegs[_Rt_].UL[0]);
 //					xFastCall((void*)COP0_DiagnosticPCCR);
                     armEmitCall(reinterpret_cast<void*>(COP0_DiagnosticPCCR));
 				}
@@ -303,22 +303,22 @@ void recMTC0()
 //					xMOV(eax, ptr32[&cpuRegs.cycle]);
 //					xADD(eax, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-                    armAdd(EAX, PTR_CPU(cycle), scaleblockcycles_clear());
+                    armAdd(EAX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.PERF.n.pcr0], g_cpuConstRegs[_Rt_].UL[0]);
-                    armStore(PTR_CPU(PERF.n.pcr0), g_cpuConstRegs[_Rt_].UL[0]);
+                    armStore(PTR_CPU(cpuRegs.PERF.n.pcr0), g_cpuConstRegs[_Rt_].UL[0]);
 //					xMOV(ptr[&cpuRegs.lastPERFCycle[0]], eax);
-                    armStore(PTR_CPU(lastPERFCycle[0]), EAX);
+                    armStore(PTR_CPU(cpuRegs.lastPERFCycle[0]), EAX);
 				}
 				else // MTPC 1
 				{
 //					xMOV(eax, ptr32[&cpuRegs.cycle]);
 //					xADD(eax, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-                    armAdd(EAX, PTR_CPU(cycle), scaleblockcycles_clear());
+                    armAdd(EAX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.PERF.n.pcr1], g_cpuConstRegs[_Rt_].UL[0]);
-                    armStore(PTR_CPU(PERF.n.pcr1), g_cpuConstRegs[_Rt_].UL[0]);
+                    armStore(PTR_CPU(cpuRegs.PERF.n.pcr1), g_cpuConstRegs[_Rt_].UL[0]);
 //					xMOV(ptr[&cpuRegs.lastPERFCycle[1]], eax);
-                    armStore(PTR_CPU(lastPERFCycle[1]), EAX);
+                    armStore(PTR_CPU(cpuRegs.lastPERFCycle[1]), EAX);
 				}
 				break;
 
@@ -328,7 +328,7 @@ void recMTC0()
 
 			default:
 //				xMOV(ptr32[&cpuRegs.CP0.r[_Rd_]], g_cpuConstRegs[_Rt_].UL[0]);
-                armStore(PTR_CPU(CP0.r[_Rd_]), g_cpuConstRegs[_Rt_].UL[0]);
+                armStore(PTR_CPU(cpuRegs.CP0.r[_Rd_]), g_cpuConstRegs[_Rt_].UL[0]);
 				break;
 		}
 	}
@@ -342,7 +342,7 @@ void recMTC0()
 //				xMOV(eax, ptr32[&cpuRegs.cycle]);
 //				xADD(eax, scaleblockcycles_clear());
 //				xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-                armAdd(PTR_CPU(cycle), scaleblockcycles_clear());
+                armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //				xFastCall((void*)WriteCP0Status);
                 armEmitCall(reinterpret_cast<void*>(WriteCP0Status));
 				break;
@@ -358,10 +358,10 @@ void recMTC0()
 //				xMOV(ecx, ptr32[&cpuRegs.cycle]);
 //				xADD(ecx, scaleblockcycles_clear());
 //				xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
-                armAdd(ECX, PTR_CPU(cycle), scaleblockcycles_clear());
+                armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 				_eeMoveGPRtoM((uptr)&cpuRegs.CP0.r[9], _Rt_);
 //				xMOV(ptr[&cpuRegs.lastCOP0Cycle], ecx);
-                armStore(PTR_CPU(lastCOP0Cycle), ECX);
+                armStore(PTR_CPU(cpuRegs.lastCOP0Cycle), ECX);
 				break;
 
 			case 25:
@@ -373,7 +373,7 @@ void recMTC0()
 //					xMOV(eax, ptr32[&cpuRegs.cycle]);
 //					xADD(eax, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-                    armAdd(PTR_CPU(cycle), scaleblockcycles_clear());
+                    armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //					xFastCall((void*)COP0_UpdatePCCR);
                     armEmitCall(reinterpret_cast<void*>(COP0_UpdatePCCR));
 					_eeMoveGPRtoM((uptr)&cpuRegs.PERF.n.pccr, _Rt_);
@@ -385,20 +385,20 @@ void recMTC0()
 //					xMOV(ecx, ptr32[&cpuRegs.cycle]);
 //					xADD(ecx, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
-                    armAdd(ECX, PTR_CPU(cycle), scaleblockcycles_clear());
+                    armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 					_eeMoveGPRtoM((uptr)&cpuRegs.PERF.n.pcr0, _Rt_);
 //					xMOV(ptr[&cpuRegs.lastPERFCycle[0]], ecx);
-                    armStore(PTR_CPU(lastPERFCycle[0]), ECX);
+                    armStore(PTR_CPU(cpuRegs.lastPERFCycle[0]), ECX);
 				}
 				else // MTPC 1
 				{
 //					xMOV(ecx, ptr32[&cpuRegs.cycle]);
 //					xADD(ecx, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
-                    armAdd(ECX, PTR_CPU(cycle), scaleblockcycles_clear());
+                    armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 					_eeMoveGPRtoM((uptr)&cpuRegs.PERF.n.pcr1, _Rt_);
 //					xMOV(ptr[&cpuRegs.lastPERFCycle[1]], ecx);
-                    armStore(PTR_CPU(lastPERFCycle[1]), ECX);
+                    armStore(PTR_CPU(cpuRegs.lastPERFCycle[1]), ECX);
 				}
 				break;
 

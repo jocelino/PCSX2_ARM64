@@ -41,7 +41,7 @@ static void recMoveStoT(int info)
     }
 	else {
 //        xMOV(xRegister32(EEREC_T), ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(a64::WRegister(EEREC_T), PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(a64::WRegister(EEREC_T), PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
     }
 }
 
@@ -53,7 +53,7 @@ static void recMoveStoT64(int info)
     }
 	else {
 //        xMOV(xRegister64(EEREC_T), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armLoad(a64::XRegister(EEREC_T), PTR_CPU(GPR.r[_Rs_].UD[0]));
+        armLoad(a64::XRegister(EEREC_T), PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0]));
     }
 }
 
@@ -124,7 +124,7 @@ static void recSLTIU_(int info)
     }
 	else {
 //        xCMP(ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], _Imm_);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), _Imm_);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), _Imm_);
     }
 
 //	xSETB(xRegister8(dreg));
@@ -157,7 +157,7 @@ static void recSLTI_(int info)
     }
 	else {
 //        xCMP(ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], _Imm_);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])), _Imm_);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])), _Imm_);
     }
 
 //	xSETL(xRegister8(dreg));

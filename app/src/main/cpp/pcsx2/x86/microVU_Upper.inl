@@ -23,13 +23,15 @@ alignas(16) const u32 sse4_compvals[2][4] = {
 	{0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1111
 };
 
+const std::array<u16, 16> flipMask{0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
+
 // Note: If modXYZW is true, then it adjusts XYZW for Single Scalar operations
 static void mVUupdateFlags(mV, const xmm& reg, const xmm& regT1in = a64::NoVReg, const xmm& regT2in = a64::NoVReg, bool modXYZW = 1)
 {
 	const x32& mReg = gprT1;
 	const x32& sReg = getFlagReg(sFLAG.write);
 	bool regT1b = regT1in.IsNone(), regT2b = false;
-	static const u16 flipMask[16] = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
+//	static const u16 flipMask[16] = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
 
 	//SysPrintf("Status = %d; Mac = %d\n", sFLAG.doFlag, mFLAG.doFlag);
 	if (!sFLAG.doFlag && !mFLAG.doFlag)

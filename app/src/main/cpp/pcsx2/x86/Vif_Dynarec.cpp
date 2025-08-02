@@ -492,7 +492,7 @@ _vifT __fi void dVifUnpack(const u8* data, bool isFill)
 		b = dVifCompile<idx>(block, isFill);
 
 	{ // Execute the block
-		const VURegs& VU = vuRegs[idx];
+		const VURegs& VU = g_cpuRegistersPack.vuRegs[idx];
 		constexpr uint vuMemLimit = idx ? 0x4000 : 0x1000;
 
 		u8* startmem = VU.Mem + (vif.tag.addr & (vuMemLimit - 0x10));

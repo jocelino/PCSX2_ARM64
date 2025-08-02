@@ -25,7 +25,7 @@ namespace R5900::Dynarec::OpcodeImpl
 * Load and store for GPR                                 *
 * Format:  OP rt, offset(base)                           *
 *********************************************************/
-#ifndef LOADSTORE_RECOMPILE2
+#ifndef LOADSTORE_RECOMPILE
 
 namespace Interp = R5900::Interpreter::OpcodeImpl;
 
@@ -79,15 +79,19 @@ static void recLoadQuad(u32 bits, bool sign)
 	else
 	{
 		// Load ECX with the source memory address that we're reading from.
-		_freeX86reg(arg1regd);
-		_eeMoveGPRtoR(arg1reg, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+        _freeX86reg(ECX);
+//		_eeMoveGPRtoR(arg1reg, _Rs_);
+        _eeMoveGPRtoR(a64::XRegister(RCX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
 		// force 16 byte alignment on 128 bit reads
-		xAND(arg1regd, ~0x0F);
+//		xAND(arg1regd, ~0x0F);
+        armAsm->And(ECX, ECX, ~0x0F);
 
-		xmmreg = vtlb_DynGenReadQuad(bits, arg1regd.GetId(), _Rt_ ? alloc_cb : nullptr);
+		xmmreg = vtlb_DynGenReadQuad(bits, ECX.GetCode(), _Rt_ ? alloc_cb : nullptr);
 	}
 
 	// if there was a constant, it should have been invalidated.
@@ -117,12 +121,15 @@ static void recLoad(u32 bits, bool sign)
 	else
 	{
 		// Load arg1 with the source memory address that we're reading from.
-		_freeX86reg(arg1regd);
-		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+		_freeX86reg(ECX);
+//		_eeMoveGPRtoR(arg1regd, _Rs_);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
-		x86reg = vtlb_DynGenReadNonQuad(bits, sign, false, arg1regd.GetId(), alloc_cb);
+		x86reg = vtlb_DynGenReadNonQuad(bits, sign, false, ECX.GetCode(), alloc_cb);
 	}
 
 	// if there was a constant, it should have been invalidated.
@@ -169,20 +176,26 @@ static void recStore(u32 bits)
 		if (_Rs_ != 0)
 		{
 			// TODO(Stenzek): Preload Rs when it's live. Turn into LEA.
-			_eeMoveGPRtoR(arg1regd, _Rs_);
-			if (_Imm_ != 0)
-				xADD(arg1regd, _Imm_);
+//			_eeMoveGPRtoR(arg1regd, _Rs_);
+            _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+			if (_Imm_ != 0) {
+//                xADD(arg1regd, _Imm_);
+                armAsm->Add(ECX, ECX, _Imm_);
+            }
 		}
 		else
 		{
-			xMOV(arg1regd, _Imm_);
+//			xMOV(arg1regd, _Imm_);
+            armAsm->Mov(ECX, _Imm_);
 		}
 
-		if (bits == 128)
-			xAND(arg1regd, ~0x0F);
+		if (bits == 128) {
+//            xAND(arg1regd, ~0x0F);
+            armAsm->And(ECX, ECX, ~0x0F);
+        }
 
 		// TODO(Stenzek): Use Rs directly if imm=0. But beware of upper bits.
-		vtlb_DynGenWrite(bits, xmm, arg1regd.GetId(), regt);
+		vtlb_DynGenWrite(bits, xmm, ECX.GetCode(), regt);
 	}
 }
 
@@ -261,10 +274,10 @@ void recSQ()
 void recLWL()
 {
 #ifdef REC_LOADS
-	_freeX86reg(eax);
-	_freeX86reg(ecx);
-	_freeX86reg(edx);
-	_freeX86reg(arg1regd);
+	_freeX86reg(EAX);
+	_freeX86reg(ECX);
+	_freeX86reg(EDX);
+//	_freeX86reg(arg1regd);
 
 	// avoid flushing and immediately reading back
 	if (_Rt_)
@@ -272,19 +285,25 @@ void recLWL()
 	if (_Rs_)
 		_addNeededX86reg(X86TYPE_GPR, _Rs_);
 
-	const xRegister32 temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+	const a64::WRegister temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
 
 	_eeMoveGPRtoR(arg1regd, _Rs_);
-	if (_Imm_ != 0)
-		xADD(arg1regd, _Imm_);
+	if (_Imm_ != 0) {
+//        xADD(arg1regd, _Imm_);
+        armAsm->Add(ECX, ECX, _Imm_);
+    }
 
 	// calleeSavedReg1 = bit offset in word
-	xMOV(temp, arg1regd);
-	xAND(temp, 3);
-	xSHL(temp, 3);
+//	xMOV(temp, arg1regd);
+    armAsm->Mov(temp, ECX);
+//	xAND(temp, 3);
+    armAsm->And(temp, temp, 3);
+//	xSHL(temp, 3);
+    armAsm->Lsl(temp, temp, 3);
 
-	xAND(arg1regd, ~3);
-	vtlb_DynGenReadNonQuad(32, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+//	xAND(arg1regd, ~3);
+    armAsm->And(ECX, ECX, ~3);
+	vtlb_DynGenReadNonQuad(32, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 
 	if (!_Rt_)
 	{
@@ -293,20 +312,29 @@ void recLWL()
 	}
 
 	// mask off bytes loaded
-	xMOV(ecx, temp);
+//	xMOV(ecx, temp);
+    armAsm->Mov(ECX, temp);
 	_freeX86reg(temp);
 
 	const int treg = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE);
-	xMOV(edx, 0xffffff);
-	xSHR(edx, cl);
-	xAND(edx, xRegister32(treg));
+//	xMOV(edx, 0xffffff);
+    armAsm->Mov(EDX, 0xffffff);
+//	xSHR(edx, cl);
+    armAsm->Lsr(EDX, EDX, ECX);
+//	xAND(edx, xRegister32(treg));
+    armAsm->And(EDX, EDX, a64::WRegister(treg));
 
 	// OR in bytes loaded
-	xNEG(ecx);
-	xADD(ecx, 24);
-	xSHL(eax, cl);
-	xOR(eax, edx);
-	xMOVSX(xRegister64(treg), eax);
+//	xNEG(ecx);
+    armAsm->Neg(ECX, ECX);
+//	xADD(ecx, 24);
+    armAsm->Add(ECX, ECX, 24);
+//	xSHL(eax, cl);
+    armAsm->Lsl(EAX, EAX, ECX);
+//	xOR(eax, edx);
+    armAsm->Orr(EAX, EAX, EDX);
+//	xMOVSX(xRegister64(treg), eax);
+    armAsm->Sxtw(a64::XRegister(treg), EAX);
 #else
 	iFlushCall(FLUSH_INTERPRETER);
 	_deleteEEreg(_Rs_, 1);
@@ -322,10 +350,10 @@ void recLWL()
 void recLWR()
 {
 #ifdef REC_LOADS
-	_freeX86reg(eax);
-	_freeX86reg(ecx);
-	_freeX86reg(edx);
-	_freeX86reg(arg1regd);
+	_freeX86reg(EAX);
+	_freeX86reg(ECX);
+	_freeX86reg(EDX);
+//	_freeX86reg(arg1regd);
 
 	// avoid flushing and immediately reading back
 	if (_Rt_)
@@ -333,17 +361,22 @@ void recLWR()
 	if (_Rs_)
 		_addNeededX86reg(X86TYPE_GPR, _Rs_);
 
-	const xRegister32 temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+    const a64::WRegister temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
 
-	_eeMoveGPRtoR(arg1regd, _Rs_);
-	if (_Imm_ != 0)
-		xADD(arg1regd, _Imm_);
+//	_eeMoveGPRtoR(arg1regd, _Rs_);
+    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+	if (_Imm_ != 0) {
+//        xADD(arg1regd, _Imm_);
+        armAsm->Add(ECX, ECX, _Imm_);
+    }
 
 	// edi = bit offset in word
-	xMOV(temp, arg1regd);
+//	xMOV(temp, arg1regd);
+    armAsm->Mov(temp, ECX);
 
-	xAND(arg1regd, ~3);
-	vtlb_DynGenReadNonQuad(32, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+//	xAND(arg1regd, ~3);
+    armAsm->And(ECX, ECX, ~3);
+	vtlb_DynGenReadNonQuad(32, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 
 	if (!_Rt_)
 	{
@@ -352,27 +385,46 @@ void recLWR()
 	}
 
 	const int treg = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE);
-	xAND(temp, 3);
+    auto reg32 = a64::WRegister(treg);
 
-	xForwardJE8 nomask;
-	xSHL(temp, 3);
+//	xAND(temp, 3);
+    armAsm->Ands(temp, temp, 3);
+
+//	xForwardJE8 nomask;
+    a64::Label nomask;
+    armAsm->B(&nomask, a64::Condition::eq);
+//	xSHL(temp, 3);
+    armAsm->Lsl(temp, temp, 3);
 	// mask off bytes loaded
-	xMOV(ecx, 24);
-	xSUB(ecx, temp);
-	xMOV(edx, 0xffffff00);
-	xSHL(edx, cl);
-	xAND(xRegister32(treg), edx);
+//	xMOV(ecx, 24);
+    armAsm->Mov(ECX, 24);
+//	xSUB(ecx, temp);
+    armAsm->Sub(ECX, ECX, temp);
+//	xMOV(edx, 0xffffff00);
+    armAsm->Mov(EDX, 0xffffff00);
+//	xSHL(edx, cl);
+    armAsm->Lsl(EDX, EDX, ECX);
+//	xAND(xRegister32(treg), edx);
+    armAsm->And(reg32, reg32, EDX);
 
 	// OR in bytes loaded
-	xMOV(ecx, temp);
-	xSHR(eax, cl);
-	xOR(xRegister32(treg), eax);
+//	xMOV(ecx, temp);
+    armAsm->Mov(ECX, temp);
+//	xSHR(eax, cl);
+    armAsm->Lsr(EAX, EAX, ECX);
+//	xOR(xRegister32(treg), eax);
+    armAsm->Orr(reg32, reg32, EAX);
 
-	xForwardJump8 end;
-	nomask.SetTarget();
+//	xForwardJump8 end;
+    a64::Label end;
+    armAsm->B(&end);
+//	nomask.SetTarget();
+    armBind(&nomask);
 	// NOTE: This might look wrong, but it's correct - see interpreter.
-	xMOVSX(xRegister64(treg), eax);
-	end.SetTarget();
+//	xMOVSX(xRegister64(treg), eax);
+    armAsm->Sxtw(a64::XRegister(treg), EAX);
+//	end.SetTarget();
+    armBind(&end);
 	_freeX86reg(temp);
 #else
 	iFlushCall(FLUSH_INTERPRETER);
@@ -399,60 +451,90 @@ void recSWL()
 	else
 		_addNeededX86reg(X86TYPE_GPR, _Rt_);
 
-	const xRegister32 temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-	_freeX86reg(eax);
-	_freeX86reg(ecx);
-	_freeX86reg(arg1regd);
-	_freeX86reg(arg2regd);
+    const a64::WRegister temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+	_freeX86reg(EAX);
+	_freeX86reg(ECX);
+    _freeX86reg(EDX);
+//	_freeX86reg(arg1regd);
+//	_freeX86reg(arg2regd);
 
-	_eeMoveGPRtoR(arg1regd, _Rs_);
-	if (_Imm_ != 0)
-		xADD(arg1regd, _Imm_);
+//	_eeMoveGPRtoR(arg1regd, _Rs_);
+    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+	if (_Imm_ != 0) {
+//        xADD(arg1regd, _Imm_);
+        armAsm->Add(ECX, ECX, _Imm_);
+    }
 
 	// edi = bit offset in word
-	xMOV(temp, arg1regd);
-	xAND(arg1regd, ~3);
-	xAND(temp, 3);
-	xCMP(temp, 3);
+//	xMOV(temp, arg1regd);
+    armAsm->Mov(temp, ECX);
+//	xAND(arg1regd, ~3);
+    armAsm->And(ECX, ECX, ~3);
+//	xAND(temp, 3);
+    armAsm->And(temp, temp, 3);
+//	xCMP(temp, 3);
+    armAsm->Cmp(temp, 3);
 
 	// If we're not using fastmem, we need to flush early. Because the first read
 	// (which would flush) happens inside a branch.
 	if (!CHECK_FASTMEM || vtlb_IsFaultingPC(pc))
 		iFlushCall(FLUSH_FULLVTLB);
 
-	xForwardJE8 skip;
-	xSHL(temp, 3);
+//	xForwardJE8 skip;
+    a64::Label skip;
+    armAsm->B(&skip, a64::Condition::eq);
+//	xSHL(temp, 3);
+    armAsm->Lsl(temp, temp, 3);
 
-	vtlb_DynGenReadNonQuad(32, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+	vtlb_DynGenReadNonQuad(32, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 
 	// mask read -> arg2
-	xMOV(ecx, temp);
-	xMOV(arg2regd, 0xffffff00);
-	xSHL(arg2regd, cl);
-	xAND(arg2regd, eax);
+//	xMOV(ecx, temp);
+    armAsm->Mov(ECX, temp);
+//	xMOV(arg2regd, 0xffffff00);
+    armAsm->Mov(EDX, 0xffffff00);
+//	xSHL(arg2regd, cl);
+    armAsm->Lsl(EDX, EDX, ECX);
+//	xAND(arg2regd, eax);
+    armAsm->And(EDX, EDX, EAX);
 
 	if (_Rt_)
 	{
 		// mask write and OR -> edx
-		xNEG(ecx);
-		xADD(ecx, 24);
-		_eeMoveGPRtoR(eax, _Rt_, false);
-		xSHR(eax, cl);
-		xOR(arg2regd, eax);
+//		xNEG(ecx);
+        armAsm->Neg(ECX, ECX);
+//		xADD(ecx, 24);
+        armAsm->Add(ECX, ECX, 24);
+//		_eeMoveGPRtoR(eax, _Rt_, false);
+        _eeMoveGPRtoR(a64::WRegister(EAX), _Rt_, false);
+//		xSHR(eax, cl);
+        armAsm->Lsr(EAX, EAX, ECX);
+//		xOR(arg2regd, eax);
+        armAsm->Orr(EDX, EDX, EAX);
 	}
 
-	_eeMoveGPRtoR(arg1regd, _Rs_, false);
-	if (_Imm_ != 0)
-		xADD(arg1regd, _Imm_);
-	xAND(arg1regd, ~3);
+//	_eeMoveGPRtoR(arg1regd, _Rs_, false);
+    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+	if (_Imm_ != 0) {
+//        xADD(arg1regd, _Imm_);
+        armAsm->Add(ECX, ECX, _Imm_);
+    }
+//	xAND(arg1regd, ~3);
+    armAsm->And(ECX, ECX, ~3);
 
-	xForwardJump8 end;
-	skip.SetTarget();
-	_eeMoveGPRtoR(arg2regd, _Rt_, false);
-	end.SetTarget();
+//	xForwardJump8 end;
+    a64::Label end;
+    armAsm->B(&end);
+//	skip.SetTarget();
+    armBind(&skip);
+//	_eeMoveGPRtoR(arg2regd, _Rt_, false);
+    _eeMoveGPRtoR(a64::WRegister(EDX), _Rt_, false);
+//	end.SetTarget();
+    armBind(&end);
 
 	_freeX86reg(temp);
-	vtlb_DynGenWrite(32, false, arg1regd.GetId(), arg2regd.GetId());
+//	vtlb_DynGenWrite(32, false, arg1regd.GetId(), arg2regd.GetId());
+    vtlb_DynGenWrite(32, false, ECX.GetCode(), EDX.GetCode());
 #else
 	iFlushCall(FLUSH_INTERPRETER);
 	_deleteEEreg(_Rs_, 1);
@@ -476,58 +558,87 @@ void recSWR()
 	else
 		_addNeededX86reg(X86TYPE_GPR, _Rt_);
 
-	const xRegister32 temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-	_freeX86reg(ecx);
-	_freeX86reg(arg1regd);
-	_freeX86reg(arg2regd);
+    const a64::WRegister temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+	_freeX86reg(ECX);
+    _freeX86reg(EDX);
+//	_freeX86reg(arg1regd);
+//	_freeX86reg(arg2regd);
 
-	_eeMoveGPRtoR(arg1regd, _Rs_);
-	if (_Imm_ != 0)
-		xADD(arg1regd, _Imm_);
+//	_eeMoveGPRtoR(arg1regd, _Rs_);
+    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+	if (_Imm_ != 0) {
+//        xADD(arg1regd, _Imm_);
+        armAsm->Add(ECX, ECX, _Imm_);
+    }
 
 	// edi = bit offset in word
-	xMOV(temp, arg1regd);
-	xAND(arg1regd, ~3);
-	xAND(temp, 3);
+//	xMOV(temp, arg1regd);
+    armAsm->Mov(temp, ECX);
+//	xAND(arg1regd, ~3);
+    armAsm->And(ECX, ECX, ~3);
+//	xAND(temp, 3);
+    armAsm->Ands(temp, temp, 3);
 
 	// If we're not using fastmem, we need to flush early. Because the first read
 	// (which would flush) happens inside a branch.
 	if (!CHECK_FASTMEM || vtlb_IsFaultingPC(pc))
 		iFlushCall(FLUSH_FULLVTLB);
 
-	xForwardJE8 skip;
-	xSHL(temp, 3);
+//	xForwardJE8 skip;
+    a64::Label skip;
+    armAsm->B(&skip, a64::Condition::eq);
+//	xSHL(temp, 3);
+    armAsm->Lsl(temp, temp, 3);
 
-	vtlb_DynGenReadNonQuad(32, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+	vtlb_DynGenReadNonQuad(32, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 
 	// mask read -> edx
-	xMOV(ecx, 24);
-	xSUB(ecx, temp);
-	xMOV(arg2regd, 0xffffff);
-	xSHR(arg2regd, cl);
-	xAND(arg2regd, eax);
+//	xMOV(ecx, 24);
+    armAsm->Mov(ECX, 24);
+//	xSUB(ecx, temp);
+    armAsm->Sub(ECX, ECX, temp);
+//	xMOV(arg2regd, 0xffffff);
+    armAsm->Mov(EDX, 0xffffff);
+//	xSHR(arg2regd, cl);
+    armAsm->Lsr(EDX, EDX, ECX);
+//	xAND(arg2regd, eax);
+    armAsm->And(EDX, EDX, EAX);
 
 	if (_Rt_)
 	{
 		// mask write and OR -> edx
-		xMOV(ecx, temp);
-		_eeMoveGPRtoR(eax, _Rt_, false);
-		xSHL(eax, cl);
-		xOR(arg2regd, eax);
+//		xMOV(ecx, temp);
+        armAsm->Mov(ECX, temp);
+//		_eeMoveGPRtoR(eax, _Rt_, false);
+        _eeMoveGPRtoR(a64::WRegister(EAX), _Rt_, false);
+//		xSHL(eax, cl);
+        armAsm->Lsl(EAX, EAX, ECX);
+//		xOR(arg2regd, eax);
+        armAsm->Orr(EDX, EDX, EAX);
 	}
 
-	_eeMoveGPRtoR(arg1regd, _Rs_, false);
-	if (_Imm_ != 0)
-		xADD(arg1regd, _Imm_);
-	xAND(arg1regd, ~3);
+//	_eeMoveGPRtoR(arg1regd, _Rs_, false);
+    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+	if (_Imm_ != 0) {
+//        xADD(arg1regd, _Imm_);
+        armAsm->Add(ECX, ECX, _Imm_);
+    }
+//	xAND(arg1regd, ~3);
+    armAsm->And(ECX, ECX, ~3);
 
-	xForwardJump8 end;
-	skip.SetTarget();
-	_eeMoveGPRtoR(arg2regd, _Rt_, false);
-	end.SetTarget();
+//	xForwardJump8 end;
+    a64::Label end;
+    armAsm->B(&end);
+//	skip.SetTarget();
+    armBind(&skip);
+//	_eeMoveGPRtoR(arg2regd, _Rt_, false);
+    _eeMoveGPRtoR(a64::WRegister(EDX), _Rt_, false);
+//	end.SetTarget();
+    armBind(&end);
 
 	_freeX86reg(temp);
-	vtlb_DynGenWrite(32, false, arg1regd.GetId(), arg2regd.GetId());
+//	vtlb_DynGenWrite(32, false, arg1regd.GetId(), arg2regd.GetId());
+    vtlb_DynGenWrite(32, false, ECX.GetCode(), EDX.GetCode());
 #else
 	iFlushCall(FLUSH_INTERPRETER);
 	_deleteEEreg(_Rs_, 1);
@@ -540,36 +651,109 @@ void recSWR()
 
 ////////////////////////////////////////////////////
 
-/// Masks rt with (0xffffffffffffffff maskshift maskamt), merges with (value shift amt), leaves result in value
-static void ldlrhelper_const(int maskamt, const xImpl_Group2& maskshift, int amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+namespace
 {
-	pxAssert(rt.GetId() != ecx.GetId() && value.GetId() != ecx.GetId());
+    enum class SHIFTV
+    {
+        xSHL,
+        xSHR,
+        xSAR
+    };
+} // namespace
+
+/// Masks rt with (0xffffffffffffffff maskshift maskamt), merges with (value shift amt), leaves result in value
+//static void ldlrhelper_const(int maskamt, const xImpl_Group2& maskshift, int amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+static void ldlrhelper_const(int maskamt, const SHIFTV maskshift, int amt, const SHIFTV shift, const a64::XRegister& value, const a64::XRegister& rt)
+{
+	pxAssert(rt.GetCode() != ECX.GetCode() && value.GetCode() != ECX.GetCode());
 
 	// Would xor rcx, rcx; not rcx be better here?
-	xMOV(rcx, -1);
+//	xMOV(rcx, -1);
+    armAsm->Mov(RCX, -1);
 
-	maskshift(rcx, maskamt);
-	xAND(rt, rcx);
+//	maskshift(rcx, maskamt);
+    switch (maskshift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(RCX, RCX, maskamt);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(RCX, RCX, maskamt);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(RCX, RCX, maskamt);
+            break;
+    }
 
-	shift(value, amt);
-	xOR(rt, value);
+//	xAND(rt, rcx);
+    armAsm->And(rt, rt, RCX);
+
+//	shift(value, amt);
+    switch (shift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(value, value, amt);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(value, value, amt);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(value, value, amt);
+            break;
+    }
+
+//	xOR(rt, value);
+    armAsm->Orr(rt, rt, value);
 }
 
 /// Masks rt with (0xffffffffffffffff maskshift maskamt), merges with (value shift amt), leaves result in value
-static void ldlrhelper(const xRegister32& maskamt, const xImpl_Group2& maskshift, const xRegister32& amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+//static void ldlrhelper(const xRegister32& maskamt, const xImpl_Group2& maskshift, const xRegister32& amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+static void ldlrhelper(const a64::WRegister& maskamt, const SHIFTV maskshift, const a64::WRegister& amt, const SHIFTV shift, const a64::XRegister& value, const a64::XRegister& rt)
 {
-	pxAssert(rt.GetId() != ecx.GetId() && amt.GetId() != ecx.GetId() && value.GetId() != ecx.GetId());
+	pxAssert(rt.GetCode() != ECX.GetCode() && amt.GetCode() != ECX.GetCode() && value.GetCode() != ECX.GetCode());
 
 	// Would xor rcx, rcx; not rcx be better here?
-	const xRegister64 maskamt64(maskamt);
-	xMOV(ecx, maskamt);
-	xMOV(maskamt64, -1);
-	maskshift(maskamt64, cl);
-	xAND(rt, maskamt64);
+    const a64::XRegister maskamt64(maskamt.GetCode());
+//	xMOV(ecx, maskamt);
+    armAsm->Mov(ECX, maskamt);
+//	xMOV(maskamt64, -1);
+    armAsm->Mov(maskamt64, -1);
+//	maskshift(maskamt64, cl);
+    switch (maskshift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(maskamt64, maskamt64, RCX);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(maskamt64, maskamt64, RCX);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(maskamt64, maskamt64, RCX);
+            break;
+    }
 
-	xMOV(ecx, amt);
-	shift(value, cl);
-	xOR(rt, value);
+//	xAND(rt, maskamt64);
+    armAsm->And(rt, rt, maskamt64);
+
+//	xMOV(ecx, amt);
+    armAsm->Mov(ECX, amt);
+
+//	shift(value, cl);
+    switch (shift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(value, value, RCX);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(value, value, RCX);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(value, value, RCX);
+            break;
+    }
+
+//	xOR(rt, value);
+    armAsm->Orr(rt, rt, value);
 }
 
 void recLDL()
@@ -584,19 +768,21 @@ void recLDL()
 	if (_Rs_)
 		_addNeededX86reg(X86TYPE_GPR, _Rs_);
 
-	const xRegister32 temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-	_freeX86reg(eax);
-	_freeX86reg(ecx);
-	_freeX86reg(edx);
-	_freeX86reg(arg1regd);
+    const a64::WRegister temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+	_freeX86reg(EAX);
+	_freeX86reg(ECX);
+	_freeX86reg(EDX);
+//	_freeX86reg(arg1regd);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
 		u32 srcadr = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
 
 		// If _Rs_ is equal to _Rt_ we need to put the shift in to eax since it won't take the CONST path.
-		if (_Rs_ == _Rt_)
-			xMOV(temp1, srcadr);
+		if (_Rs_ == _Rt_) {
+//            xMOV(temp1, srcadr);
+            armAsm->Mov(temp1, srcadr);
+        }
 
 		srcadr &= ~0x07;
 
@@ -605,18 +791,24 @@ void recLDL()
 	else
 	{
 		// Load ECX with the source memory address that we're reading from.
-		_freeX86reg(arg1regd);
-		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+//		_freeX86reg(arg1regd);
+        _freeX86reg(ECX);
+//		_eeMoveGPRtoR(arg1regd, _Rs_);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
-		xMOV(temp1, arg1regd);
-		xAND(arg1regd, ~0x07);
+//		xMOV(temp1, arg1regd);
+        armAsm->Mov(temp1, ECX);
+//		xAND(arg1regd, ~0x07);
+        armAsm->And(ECX, ECX, ~0x07);
 
-		vtlb_DynGenReadNonQuad(64, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+		vtlb_DynGenReadNonQuad(64, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 	}
 
-	const xRegister64 treg(_allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE));
+    const a64::XRegister treg(_allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE));
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -624,27 +816,40 @@ void recLDL()
 		shift = ((shift & 0x7) + 1) * 8;
 		if (shift != 64)
 		{
-			ldlrhelper_const(shift, xSHR, 64 - shift, xSHL, rax, treg);
+//			ldlrhelper_const(shift, xSHR, 64 - shift, xSHL, rax, treg);
+            ldlrhelper_const(shift, SHIFTV::xSHR, 64 - shift, SHIFTV::xSHL, a64::XRegister(RAX), treg);
 		}
 		else
 		{
-			xMOV(treg, rax);
+//			xMOV(treg, rax);
+            armAsm->Mov(treg, RAX);
 		}
 	}
 	else
 	{
-		xAND(temp1, 0x7);
-		xCMP(temp1, 7);
-		xCMOVE(treg, rax); // swap register with memory when not shifting
-		xForwardJE8 skip;
+//		xAND(temp1, 0x7);
+        armAsm->And(temp1, temp1, 0x7);
+//		xCMP(temp1, 7);
+        armAsm->Cmp(temp1, 7);
+//		xCMOVE(treg, rax); // swap register with memory when not shifting
+        armAsm->Csel(treg, RAX, treg, a64::Condition::eq);
+//		xForwardJE8 skip;
+        a64::Label skip;
+        armAsm->B(&skip, a64::Condition::eq);
 		// Calculate the shift from top bit to lowest.
-		xADD(temp1, 1);
-		xMOV(edx, 64);
-		xSHL(temp1, 3);
-		xSUB(edx, temp1);
+//		xADD(temp1, 1);
+        armAsm->Add(temp1, temp1, 1);
+//		xMOV(edx, 64);
+        armAsm->Mov(EDX, 64);
+//		xSHL(temp1, 3);
+        armAsm->Lsl(temp1, temp1, 3);
+//		xSUB(edx, temp1);
+        armAsm->Sub(EDX, EDX, temp1);
 
-		ldlrhelper(temp1, xSHR, edx, xSHL, rax, treg);
-		skip.SetTarget();
+//		ldlrhelper(temp1, xSHR, edx, xSHL, rax, treg);
+        ldlrhelper(temp1, SHIFTV::xSHR, a64::WRegister(EDX), SHIFTV::xSHL, a64::XRegister(RAX), treg);
+//		skip.SetTarget();
+        armBind(&skip);
 	}
 
 	_freeX86reg(temp1);
@@ -671,19 +876,21 @@ void recLDR()
 	if (_Rs_)
 		_addNeededX86reg(X86TYPE_GPR, _Rs_);
 
-	const xRegister32 temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-	_freeX86reg(eax);
-	_freeX86reg(ecx);
-	_freeX86reg(edx);
-	_freeX86reg(arg1regd);
+    const a64::WRegister temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+	_freeX86reg(EAX);
+	_freeX86reg(ECX);
+	_freeX86reg(EDX);
+//	_freeX86reg(arg1regd);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
 		u32 srcadr = g_cpuConstRegs[_Rs_].UL[0] + _Imm_;
 
 		// If _Rs_ is equal to _Rt_ we need to put the shift in to eax since it won't take the CONST path.
-		if (_Rs_ == _Rt_)
-			xMOV(temp1, srcadr);
+		if (_Rs_ == _Rt_) {
+//            xMOV(temp1, srcadr);
+            armAsm->Mov(temp1, srcadr);
+        }
 
 		srcadr &= ~0x07;
 
@@ -692,18 +899,24 @@ void recLDR()
 	else
 	{
 		// Load ECX with the source memory address that we're reading from.
-		_freeX86reg(arg1regd);
-		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+//		_freeX86reg(arg1regd);
+        _freeX86reg(ECX);
+//		_eeMoveGPRtoR(arg1regd, _Rs_);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
-		xMOV(temp1, arg1regd);
-		xAND(arg1regd, ~0x07);
+//		xMOV(temp1, arg1regd);
+        armAsm->Mov(temp1, ECX);
+//		xAND(arg1regd, ~0x07);
+        armAsm->And(ECX, ECX, ~0x07);
 
-		vtlb_DynGenReadNonQuad(64, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+		vtlb_DynGenReadNonQuad(64, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 	}
 
-	const xRegister64 treg(_allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE));
+    const a64::XRegister treg(_allocX86reg(X86TYPE_GPR, _Rt_, MODE_READ | MODE_WRITE));
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -711,25 +924,36 @@ void recLDR()
 		shift = (shift & 0x7) * 8;
 		if (shift != 0)
 		{
-			ldlrhelper_const(64 - shift, xSHL, shift, xSHR, rax, treg);
+//			ldlrhelper_const(64 - shift, xSHL, shift, xSHR, rax, treg);
+            ldlrhelper_const(64 - shift, SHIFTV::xSHL, shift, SHIFTV::xSHR, a64::XRegister(RAX), treg);
 		}
 		else
 		{
-			xMOV(treg, rax);
+//			xMOV(treg, rax);
+            armAsm->Mov(treg, RAX);
 		}
 	}
 	else
 	{
-		xAND(temp1, 0x7);
-		xCMOVE(treg, rax); // swap register with memory when not shifting
-		xForwardJE8 skip;
+//		xAND(temp1, 0x7);
+        armAsm->Ands(temp1, temp1, 0x7);
+//		xCMOVE(treg, rax); // swap register with memory when not shifting
+        armAsm->Csel(treg, RAX, treg, a64::Condition::eq);
+//		xForwardJE8 skip;
+        a64::Label skip;
+        armAsm->B(&skip, a64::Condition::eq);
 		// Calculate the shift from top bit to lowest.
-		xMOV(edx, 64);
-		xSHL(temp1, 3);
-		xSUB(edx, temp1);
+//		xMOV(edx, 64);
+        armAsm->Mov(EDX, 64);
+//		xSHL(temp1, 3);
+        armAsm->Lsl(temp1, temp1, 3);
+//		xSUB(edx, temp1);
+        armAsm->Sub(EDX, EDX, temp1);
 
-		ldlrhelper(edx, xSHL, temp1, xSHR, rax, treg);
-		skip.SetTarget();
+//		ldlrhelper(edx, xSHL, temp1, xSHR, rax, treg);
+        ldlrhelper(a64::WRegister(EDX), SHIFTV::xSHL, temp1, SHIFTV::xSHR, a64::XRegister(RAX), treg);
+//		skip.SetTarget();
+        armBind(&skip);
 	}
 
 	_freeX86reg(temp1);
@@ -746,33 +970,98 @@ void recLDR()
 ////////////////////////////////////////////////////
 
 /// Masks value with (0xffffffffffffffff maskshift maskamt), merges with (rt shift amt), saves to dummyValue
-static void sdlrhelper_const(int maskamt, const xImpl_Group2& maskshift, int amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+//static void sdlrhelper_const(int maskamt, const xImpl_Group2& maskshift, int amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+static void sdlrhelper_const(int maskamt, const SHIFTV maskshift, int amt, const SHIFTV shift, const a64::XRegister& value, const a64::XRegister& rt)
 {
-	pxAssert(rt.GetId() != ecx.GetId() && value.GetId() != ecx.GetId());
-	xMOV(rcx, -1);
-	maskshift(rcx, maskamt);
-	xAND(rcx, value);
+	pxAssert(rt.GetCode() != ECX.GetCode() && value.GetCode() != ECX.GetCode());
+//	xMOV(rcx, -1);
+    armAsm->Mov(RCX, -1);
 
-	shift(rt, amt);
-	xOR(rt, rcx);
+//	maskshift(rcx, maskamt);
+    switch (maskshift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(RCX, RCX, maskamt);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(RCX, RCX, maskamt);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(RCX, RCX, maskamt);
+            break;
+    }
+
+//	xAND(rcx, value);
+    armAsm->And(RCX, RCX, value);
+
+//	shift(rt, amt);
+    switch (shift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(rt, rt, amt);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(rt, rt, amt);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(rt, rt, amt);
+            break;
+    }
+
+//	xOR(rt, rcx);
+    armAsm->Orr(rt, rt, RCX);
 }
 
 /// Masks value with (0xffffffffffffffff maskshift maskamt), merges with (rt shift amt), saves to dummyValue
-static void sdlrhelper(const xRegister32& maskamt, const xImpl_Group2& maskshift, const xRegister32& amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+//static void sdlrhelper(const xRegister32& maskamt, const xImpl_Group2& maskshift, const xRegister32& amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
+static void sdlrhelper(const a64::WRegister& maskamt, const SHIFTV maskshift, const a64::WRegister& amt, const SHIFTV shift, const a64::XRegister& value, const a64::XRegister& rt)
 {
-	pxAssert(rt.GetId() != ecx.GetId() && amt.GetId() != ecx.GetId() && value.GetId() != ecx.GetId());
+	pxAssert(rt.GetCode() != ECX.GetCode() && amt.GetCode() != ECX.GetCode() && value.GetCode() != ECX.GetCode());
 
 	// Generate mask 128-(shiftx8)
-	const xRegister64 maskamt64(maskamt);
-	xMOV(ecx, maskamt);
-	xMOV(maskamt64, -1);
-	maskshift(maskamt64, cl);
-	xAND(maskamt64, value);
+    const a64::XRegister maskamt64(maskamt.GetCode());
+//	xMOV(ecx, maskamt);
+    armAsm->Mov(ECX, maskamt);
+//	xMOV(maskamt64, -1);
+    armAsm->Mov(maskamt64, -1);
+
+//	maskshift(maskamt64, cl);
+    switch (maskshift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(maskamt64, maskamt64, RCX);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(maskamt64, maskamt64, RCX);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(maskamt64, maskamt64, RCX);
+            break;
+    }
+
+//	xAND(maskamt64, value);
+    armAsm->And(maskamt64, maskamt64, value);
 
 	// Shift over reg value
-	xMOV(ecx, amt);
-	shift(rt, cl);
-	xOR(rt, maskamt64);
+//	xMOV(ecx, amt);
+    armAsm->Mov(ECX, amt);
+
+//	shift(rt, cl);
+    switch (shift)
+    {
+        case SHIFTV::xSHR:
+            armAsm->Lsr(rt, rt, RCX);
+            break;
+        case SHIFTV::xSAR:
+            armAsm->Asr(rt, rt, RCX);
+            break;
+        case SHIFTV::xSHL:
+            armAsm->Lsl(rt, rt, RCX);
+            break;
+    }
+
+//	xOR(rt, maskamt64);
+    armAsm->Orr(rt, rt, maskamt64);
 }
 
 void recSDL()
@@ -782,8 +1071,9 @@ void recSDL()
 	if (_Rt_)
 		_addNeededX86reg(X86TYPE_GPR, _Rt_);
 
-	_freeX86reg(ecx);
-	_freeX86reg(arg2regd);
+	_freeX86reg(ECX);
+    _freeX86reg(EDX);
+//	_freeX86reg(arg2regd);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -792,15 +1082,17 @@ void recSDL()
 		u32 shift = ((adr & 0x7) + 1) * 8;
 		if (shift == 64)
 		{
-			_eeMoveGPRtoR(arg2reg, _Rt_);
+//			_eeMoveGPRtoR(arg2reg, _Rt_);
+            _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
 		}
 		else
 		{
 			vtlb_DynGenReadNonQuad_Const(64, false, false, aligned, RETURN_READ_IN_RAX);
 			_eeMoveGPRtoR(arg2reg, _Rt_);
-			sdlrhelper_const(shift, xSHL, 64 - shift, xSHR, rax, arg2reg);
+//			sdlrhelper_const(shift, xSHL, 64 - shift, xSHR, rax, arg2reg);
+            sdlrhelper_const(shift, SHIFTV::xSHL, 64 - shift, SHIFTV::xSHR, a64::XRegister(RAX), a64::XRegister(RDX));
 		}
-		vtlb_DynGenWrite_Const(64, false, aligned, arg2regd.GetId());
+		vtlb_DynGenWrite_Const(64, false, aligned, EDX.GetCode());
 	}
 	else
 	{
@@ -808,49 +1100,73 @@ void recSDL()
 			_addNeededX86reg(X86TYPE_GPR, _Rs_);
 
 		// Load ECX with the source memory address that we're reading from.
-		_freeX86reg(arg1regd);
-		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+//		_freeX86reg(arg1regd);
+        _freeX86reg(ECX);
+//		_eeMoveGPRtoR(arg1regd, _Rs_);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
-		_freeX86reg(ecx);
-		_freeX86reg(edx);
-		_freeX86reg(arg2regd);
-		const xRegister32 temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-		const xRegister64 temp2(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-		_eeMoveGPRtoR(arg2reg, _Rt_);
+		_freeX86reg(ECX);
+		_freeX86reg(EDX);
+//		_freeX86reg(arg2regd);
 
-		xMOV(temp1, arg1regd);
-		xMOV(temp2, arg2reg);
-		xAND(arg1regd, ~0x07);
-		xAND(temp1, 0x7);
-		xCMP(temp1, 7);
+        const a64::WRegister temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+        const a64::XRegister temp2(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+//		_eeMoveGPRtoR(arg2reg, _Rt_);
+        _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+
+//		xMOV(temp1, arg1regd);
+        armAsm->Mov(temp1, ECX);
+//		xMOV(temp2, arg2reg);
+        armAsm->Mov(temp2, RDX);
+//		xAND(arg1regd, ~0x07);
+        armAsm->And(ECX, ECX, ~0x07);
+//		xAND(temp1, 0x7);
+        armAsm->And(temp1, temp1, 0x7);
+//		xCMP(temp1, 7);
+        armAsm->Cmp(temp1, 7);
 
 		// If we're not using fastmem, we need to flush early. Because the first read
 		// (which would flush) happens inside a branch.
 		if (!CHECK_FASTMEM || vtlb_IsFaultingPC(pc))
 			iFlushCall(FLUSH_FULLVTLB);
 
-		xForwardJE8 skip;
-		xADD(temp1, 1);
-		vtlb_DynGenReadNonQuad(64, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+//		xForwardJE8 skip;
+        a64::Label skip;
+        armAsm->B(&skip, a64::Condition::eq);
+//		xADD(temp1, 1);
+        armAsm->Add(temp1, temp1, 1);
+		vtlb_DynGenReadNonQuad(64, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 
 		//Calculate the shift from top bit to lowest
-		xMOV(edx, 64);
-		xSHL(temp1, 3);
-		xSUB(edx, temp1);
+//		xMOV(edx, 64);
+        armAsm->Mov(EDX, 64);
+//		xSHL(temp1, 3);
+        armAsm->Lsl(temp1, temp1, 3);
+//		xSUB(edx, temp1);
+        armAsm->Sub(EDX, EDX, temp1);
 
-		sdlrhelper(temp1, xSHL, edx, xSHR, rax, temp2);
+//		sdlrhelper(temp1, xSHL, edx, xSHR, rax, temp2);
+        sdlrhelper(temp1, SHIFTV::xSHL, a64::WRegister(EDX), SHIFTV::xSHR, a64::XRegister(RAX), temp2);
 
-		_eeMoveGPRtoR(arg1regd, _Rs_, false);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
-		xAND(arg1regd, ~0x7);
-		skip.SetTarget();
+//		_eeMoveGPRtoR(arg1regd, _Rs_, false);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
+//		xAND(arg1regd, ~0x7);
+        armAsm->And(ECX, ECX, ~0x7);
+//		skip.SetTarget();
+        armBind(&skip);
 
-		vtlb_DynGenWrite(64, false, arg1regd.GetId(), temp2.GetId());
-		_freeX86reg(temp2.GetId());
-		_freeX86reg(temp1.GetId());
+//		vtlb_DynGenWrite(64, false, arg1regd.GetId(), temp2.GetId());
+        vtlb_DynGenWrite(64, false, ECX.GetCode(), temp2.GetCode());
+		_freeX86reg(temp2.GetCode());
+		_freeX86reg(temp1.GetCode());
 	}
 #else
 	iFlushCall(FLUSH_INTERPRETER);
@@ -869,8 +1185,9 @@ void recSDR()
 	if (_Rt_)
 		_addNeededX86reg(X86TYPE_GPR, _Rt_);
 
-	_freeX86reg(ecx);
-	_freeX86reg(arg2regd);
+	_freeX86reg(ECX);
+    _freeX86reg(EDX);
+//	_freeX86reg(arg2regd);
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -879,16 +1196,19 @@ void recSDR()
 		u32 shift = (adr & 0x7) * 8;
 		if (shift == 0)
 		{
-			_eeMoveGPRtoR(arg2reg, _Rt_);
+//			_eeMoveGPRtoR(arg2reg, _Rt_);
+            _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
 		}
 		else
 		{
 			vtlb_DynGenReadNonQuad_Const(64, false, false, aligned, RETURN_READ_IN_RAX);
-			_eeMoveGPRtoR(arg2reg, _Rt_);
-			sdlrhelper_const(64 - shift, xSHR, shift, xSHL, rax, arg2reg);
+//			_eeMoveGPRtoR(arg2reg, _Rt_);
+            _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+//			sdlrhelper_const(64 - shift, xSHR, shift, xSHL, rax, arg2reg);
+            sdlrhelper_const(64 - shift, SHIFTV::xSHR, shift, SHIFTV::xSHL, a64::XRegister(RAX), a64::XRegister(RDX));
 		}
 
-		vtlb_DynGenWrite_Const(64, false, aligned, arg2reg.GetId());
+		vtlb_DynGenWrite_Const(64, false, aligned, RDX.GetCode());
 	}
 	else
 	{
@@ -896,46 +1216,68 @@ void recSDR()
 			_addNeededX86reg(X86TYPE_GPR, _Rs_);
 
 		// Load ECX with the source memory address that we're reading from.
-		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+//		_eeMoveGPRtoR(arg1regd, _Rs_);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
-		_freeX86reg(ecx);
-		_freeX86reg(edx);
-		_freeX86reg(arg2regd);
-		const xRegister32 temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-		const xRegister64 temp2(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
-		_eeMoveGPRtoR(arg2reg, _Rt_);
+		_freeX86reg(ECX);
+		_freeX86reg(EDX);
+//		_freeX86reg(arg2regd);
 
-		xMOV(temp1, arg1regd);
-		xMOV(temp2, arg2reg);
-		xAND(arg1regd, ~0x07);
-		xAND(temp1, 0x7);
+        const a64::WRegister temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+        const a64::XRegister temp2(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
+//		_eeMoveGPRtoR(arg2reg, _Rt_);
+        _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+
+//		xMOV(temp1, arg1regd);
+        armAsm->Mov(temp1, ECX);
+//		xMOV(temp2, arg2reg);
+        armAsm->Mov(temp2, RDX);
+//		xAND(arg1regd, ~0x07);
+        armAsm->And(ECX, ECX, ~0x07);
+//		xAND(temp1, 0x7);
+        armAsm->Ands(temp1, temp1, 0x7);
 
 		// If we're not using fastmem, we need to flush early. Because the first read
 		// (which would flush) happens inside a branch.
 		if (!CHECK_FASTMEM || vtlb_IsFaultingPC(pc))
 			iFlushCall(FLUSH_FULLVTLB);
 
-		xForwardJE8 skip;
-		vtlb_DynGenReadNonQuad(64, false, false, arg1regd.GetId(), RETURN_READ_IN_RAX);
+//		xForwardJE8 skip;
+        a64::Label skip;
+        armAsm->B(&skip, a64::Condition::eq);
+		vtlb_DynGenReadNonQuad(64, false, false, ECX.GetCode(), RETURN_READ_IN_RAX);
 
-		xMOV(edx, 64);
-		xSHL(temp1, 3);
-		xSUB(edx, temp1);
+//		xMOV(edx, 64);
+        armAsm->Mov(EDX, 64);
+//		xSHL(temp1, 3);
+        armAsm->Lsl(temp1, temp1, 3);
+//		xSUB(edx, temp1);
+        armAsm->Sub(EDX, EDX, temp1);
 
-		sdlrhelper(edx, xSHR, temp1, xSHL, rax, temp2);
+//		sdlrhelper(edx, xSHR, temp1, xSHL, rax, temp2);
+        sdlrhelper(a64::WRegister(EDX), SHIFTV::xSHR, temp1, SHIFTV::xSHL, a64::XRegister(RAX), temp2);
 
-		_eeMoveGPRtoR(arg1regd, _Rs_, false);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
-		xAND(arg1regd, ~0x7);
-		xMOV(arg2reg, temp2);
-		skip.SetTarget();
+//		_eeMoveGPRtoR(arg1regd, _Rs_, false);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
+//		xAND(arg1regd, ~0x7);
+        armAsm->And(ECX, ECX, ~0x7);
+//		xMOV(arg2reg, temp2);
+        armAsm->Mov(RDX, temp2);
+//		skip.SetTarget();
+        armBind(&skip);
 
-		vtlb_DynGenWrite(64, false, arg1regd.GetId(), temp2.GetId());
-		_freeX86reg(temp2.GetId());
-		_freeX86reg(temp1.GetId());
+//		vtlb_DynGenWrite(64, false, arg1regd.GetId(), temp2.GetId());
+        vtlb_DynGenWrite(64, false, ECX.GetCode(), temp2.GetCode());
+		_freeX86reg(temp2.GetCode());
+		_freeX86reg(temp1.GetCode());
 	}
 #else
 	iFlushCall(FLUSH_INTERPRETER);
@@ -968,12 +1310,16 @@ void recLWC1()
 	}
 	else
 	{
-		_freeX86reg(arg1regd);
-		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+//		_freeX86reg(arg1regd);
+        _freeX86reg(ECX);
+//		_eeMoveGPRtoR(arg1regd, _Rs_);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
-		vtlb_DynGenReadNonQuad(32, false, true, arg1regd.GetId(), alloc_cb);
+		vtlb_DynGenReadNonQuad(32, false, true, ECX.GetCode(), alloc_cb);
 	}
 
 	EE::Profiler.EmitOp(eeOpcode::LWC1);
@@ -995,12 +1341,16 @@ void recSWC1()
 	}
 	else
 	{
-		_freeX86reg(arg1regd);
-		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
+//		_freeX86reg(arg1regd);
+        _freeX86reg(ECX);
+//		_eeMoveGPRtoR(arg1regd, _Rs_);
+        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
 
-		vtlb_DynGenWrite(32, true, arg1regd.GetId(), regt);
+		vtlb_DynGenWrite(32, true, ECX.GetCode(), regt);
 	}
 
 	EE::Profiler.EmitOp(eeOpcode::SWC1);

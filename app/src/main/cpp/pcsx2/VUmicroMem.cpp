@@ -5,7 +5,7 @@
 #include "VUmicro.h"
 #include "MTVU.h"
 
-alignas(16) VURegs vuRegs[2];
+//alignas(16) VURegs vuRegs[2];
 
 void vuMemAllocate()
 {

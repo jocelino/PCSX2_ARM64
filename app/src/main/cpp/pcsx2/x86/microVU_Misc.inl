@@ -237,7 +237,8 @@ void mVUmergeRegs(const xmm& dest, const xmm& src, int xyzw, bool modXYZW)
             }
 
             // xyzw
-            for (u32 i = 0; i < 4; i++)
+            u32 i;
+            for (i = 0; i < 4; ++i)
             {
                 if (xyzw & (1u << i))
                     armAsm->Mov(dest.V4S(), i, src.V4S(), i);
@@ -255,52 +256,27 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
 {
     if (toMemory)
     {
-        int i, num_xmms = 0, num_gprs = 0;
-
-        for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
+        int i, e = iREGCNT_GPR;
+        for (i = 0; i < e; ++i)
         {
             if (!armIsCallerSaved(i) || i == 4)
                 continue;
 
-            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i))
-            {
-                num_gprs++;
-//				xPUSH(xRegister64(i));
-                armAsm->Push(a64::xzr, a64::Register(i, a64::kXRegSize));
+            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i)) {
+                armAsm->Push(a64::xzr, a64::XRegister(i));
             }
         }
 
         ////
 
-        std::bitset<iREGCNT_XMM> save_xmms;
-        for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+        e = iREGCNT_XMM;
+        for (i = 0; i < e; ++i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
 
-            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i)
-            {
-                save_xmms[i] = true;
-                num_xmms++;
-            }
-        }
-
-        // we need 16 byte alignment on the stack
-        const int stack_size = (num_xmms * sizeof(u128)) + ((num_gprs & 1) * sizeof(u128)) + 32;
-        int stack_offset = 32;
-
-        if (stack_size > 0)
-        {
-//			xSUB(rsp, stack_size);
-            armAsm->Sub(a64::sp, a64::sp, stack_size);
-            for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
-            {
-                if (save_xmms[i])
-                {
-//					xMOVAPS(ptr128[rsp + stack_offset], xRegisterSSE(i));
-                    armAsm->Str(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-                    stack_offset += sizeof(u128);
-                }
+            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i) {
+                armAsm->Push(a64::xzr, a64::DRegister(i));
             }
         }
     }
@@ -309,7 +285,7 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
         // TODO(Stenzek): get rid of xmmbackup
         mVU.regAlloc->flushAll(); // Flush Regalloc
 //		xMOVAPS(ptr128[&mVU.xmmBackup[xmmPQ.GetCode()][0]], xmmPQ);
-        armAsm->Str(xmmPQ.Q(), armMemOperandPtr(&mVU.xmmBackup[xmmPQ.GetCode()][0]));
+        armAsm->Str(xmmPQ.Q(), PTR_MVU(microVU[mVU.index].xmmBackup[xmmPQ.GetCode()][0]));
     }
 }
 
@@ -318,66 +294,34 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
 {
     if (fromMemory)
     {
-        int i, num_xmms = 0, num_gprs = 0;
-
-        std::bitset<iREGCNT_GPR> save_gprs;
-        for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
-        {
-            if (!armIsCallerSaved(i)  || i == 4)
-                continue;
-
-            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i))
-            {
-                save_gprs[i] = true;
-                num_gprs++;
-            }
-        }
-
-        std::bitset<iREGCNT_XMM> save_xmms;
-        for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+        int i, e = iREGCNT_XMM - 1;
+        for (i = e; i >= 0; --i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
 
-            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i)
-            {
-                save_xmms[i] = true;
-                num_xmms++;
+            if (!onlyNeeded || mVU.regAlloc->checkCachedReg(i) || xmmPQ.GetCode() == i) {
+                armAsm->Pop(a64::DRegister(i), a64::xzr);
             }
         }
 
-        const int stack_extra = 32;
-        const int stack_size = (num_xmms * sizeof(u128)) + ((num_gprs & 1) * sizeof(u128)) + stack_extra;
-        if (num_xmms > 0)
-        {
-            int stack_offset = (num_xmms - 1) * sizeof(u128) + stack_extra;
-            for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
-            {
-                if (!save_xmms[i])
-                    continue;
+        ////
 
-//				xMOVAPS(xRegisterSSE(i), ptr128[rsp + stack_offset]);
-                armAsm->Ldr(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-                stack_offset -= sizeof(u128);
-            }
-        }
-        if (stack_size > 0) {
-//            xADD(rsp, stack_size);
-            armAsm->Add(a64::sp, a64::sp, stack_size);
-        }
-
-        for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
+        e = iREGCNT_GPR - 1;
+        for (i = e; i >= 0; --i)
         {
-            if (save_gprs[i]) {
-//                xPOP(xRegister64(i));
-                armAsm->Pop(a64::Register(i, a64::kXRegSize), a64::xzr);
+            if (!armIsCallerSaved(i)  || i == 4)
+                continue;
+
+            if (!onlyNeeded || mVU.regAlloc->checkCachedGPR(i)) {
+                armAsm->Pop(a64::XRegister(i), a64::xzr);
             }
         }
     }
     else
     {
 //		xMOVAPS(xmmPQ, ptr128[&mVU.xmmBackup[xmmPQ.GetCode()][0]]);
-        armAsm->Ldr(xmmPQ.Q(), armMemOperandPtr(&mVU.xmmBackup[xmmPQ.GetCode()][0]));
+        armAsm->Ldr(xmmPQ.Q(), PTR_MVU(microVU[mVU.index].xmmBackup[xmmPQ.GetCode()][0]));
     }
 }
 
@@ -404,7 +348,8 @@ static void mVUEBit()
 static inline u32 branchAddr(const mV)
 {
 	pxAssumeMsg(islowerOP, "MicroVU: Expected Lower OP code for valid branch addr.");
-	return ((((iPC + 2) + (_Imm11_ * 2)) & mVU.progMemMask) * 4);
+    // return ((((iPC + 2) + (_Imm11_ * 2)) & mVU.progMemMask) * 4)
+	return ((((iPC + 2) + (_Imm11_ << 1)) & mVU.progMemMask) << 2);
 }
 
 static void mVUwaitMTVU()
@@ -471,8 +416,9 @@ __fi std::optional<a64::MemOperand> mVUoptimizeConstantAddr(mV, u32 srcreg, s32 
 	if (srcreg != 0)
 		return std::nullopt;
 
-    armMoveAddressToReg(REX, mVU.regs().Mem);
-    
+//    armMoveAddressToReg(REX, mVU.regs().Mem);
+    armAsm->Ldr(REX, PTR_CPU(vuRegs[mVU.index].Mem));
+
 	const s32 addr = 0 + offset;
 	if (isVU1)
 	{

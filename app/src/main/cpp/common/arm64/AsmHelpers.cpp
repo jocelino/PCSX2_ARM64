@@ -333,6 +333,7 @@ bool armIsCalleeSavedRegister(int reg)
 bool armIsCallerSaved(int id)
 {
 #if defined(__ANDROID__)
+    // gpr registers callee saved => r19 ~ r28
     // 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
     return (id <= 15);
 #else
@@ -348,12 +349,18 @@ bool armIsCallerSaved(int id)
 
 bool armIsCallerSavedXmm(int id)
 {
-#ifdef _WIN32
-    // XMM6 through XMM15 are saved. Upper 128 bits is always volatile.
-		return (id < 6);
+#if defined(__ANDROID__)
+    // vector registers callee saved => d8 ~ d15
+    // d9,d10,d11,d12,d13,d14,d15
+    return (id < 9);
 #else
+    #ifdef _WIN32
+    // XMM6 through XMM15 are saved. Upper 128 bits is always volatile.
+        return (id < 6);
+    #else
     // All vector registers are volatile.
     return true;
+    #endif
 #endif
 }
 
@@ -519,26 +526,32 @@ u32 armEmitJmpPtr(void* code, const void* dst, bool flush_icache)
 
 a64::Register armLoadPtr(const void* addr)
 {
-    armAsm->Ldr(a64::w4, armMemOperandPtr(addr));
-    return a64::w4;
+    armAsm->Ldr(EEX, armMemOperandPtr(addr));
+    return EEX;
 }
 
 a64::Register armLoadPtr64(const void* addr)
 {
-    armAsm->Ldr(a64::x4, armMemOperandPtr(addr));
-    return a64::x4;
+    armAsm->Ldr(REX, armMemOperandPtr(addr));
+    return REX;
 }
 
 a64::Register armLdrh(const void* addr)
 {
-    armAsm->Ldrh(a64::w4, armMemOperandPtr(addr));
-    return a64::w4;
+    armAsm->Ldrh(EEX, armMemOperandPtr(addr));
+    return EEX;
 }
 
 a64::Register armLdrsh(const void* addr)
 {
-    armAsm->Ldrsh(a64::w4, armMemOperandPtr(addr));
-    return a64::w4;
+    armAsm->Ldrsh(EEX, armMemOperandPtr(addr));
+    return EEX;
+}
+
+a64::Register armLoadPtr(const a64::MemOperand offset)
+{
+    armAsm->Ldr(EEX, offset);
+    return EEX;
 }
 
 void armLoadPtr(const a64::CPURegister& reg, const void* addr, int64_t offset)
@@ -602,6 +615,16 @@ void armStorePtr(uint64_t imm, const void* addr, const a64::Register& reg)
     } else {
         armAsm->Mov(reg, imm);
         armAsm->Str(reg, armMemOperandPtr(addr));
+    }
+}
+
+void armStorePtr(uint64_t imm, a64::MemOperand offset, const a64::Register& reg)
+{
+    if(imm == 0) {
+        armAsm->Str(a64::xzr, offset);
+    } else {
+        armAsm->Mov(reg, imm);
+        armAsm->Str(reg, offset);
     }
 }
 

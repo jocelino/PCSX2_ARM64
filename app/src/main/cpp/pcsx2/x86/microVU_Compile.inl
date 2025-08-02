@@ -139,7 +139,7 @@ void doIbit(mV)
 //			xMOV(gprT1, ptr32[&curI]);
             armAsm->Ldr(gprT1, armMemOperandPtr(&curI));
 //			xMOV(ptr32[&mVU.getVI(REG_I)], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.getVI(REG_I)));
+            armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_I]));
 		}
 		else
 		{
@@ -153,7 +153,7 @@ void doIbit(mV)
 				tempI = curI;
 
 //			xMOV(ptr32[&mVU.getVI(REG_I)], tempI);
-            armStorePtr(tempI, &mVU.getVI(REG_I));
+            armStorePtr(tempI, PTR_CPU(vuRegs[mVU.index].VI[REG_I]));
 		}
 		incPC(1);
 	}
@@ -324,14 +324,15 @@ __fi void incQ(mV) { mVU.q ^= 1; }
 // so essentially '1' will be the same as '0'...
 void mVUoptimizePipeState(mV)
 {
-	for (int i = 0; i < 32; i++)
+    int i;
+	for (i = 0; i < 32; ++i)
 	{
 		mVUregs.VF[i].x = optimizeReg(mVUregs.VF[i].x);
 		mVUregs.VF[i].y = optimizeReg(mVUregs.VF[i].y);
 		mVUregs.VF[i].z = optimizeReg(mVUregs.VF[i].z);
 		mVUregs.VF[i].w = optimizeReg(mVUregs.VF[i].w);
 	}
-	for (int i = 0; i < 16; i++)
+	for (i = 0; i < 16; ++i)
 	{
 		mVUregs.VI[i] = optimizeReg(mVUregs.VI[i]);
 	}
@@ -344,7 +345,9 @@ void mVUincCycles(mV, int x)
 {
 	mVUcycles += x;
 	// VF[0] is a constant value (0.0 0.0 0.0 1.0)
-	for (int z = 31; z > 0; z--)
+
+    int z;
+	for (z = 31; z > 0; --z)
 	{
 		mVUregs.VF[z].x = calcCycles(mVUregs.VF[z].x, x);
 		mVUregs.VF[z].y = calcCycles(mVUregs.VF[z].y, x);
@@ -352,7 +355,7 @@ void mVUincCycles(mV, int x)
 		mVUregs.VF[z].w = calcCycles(mVUregs.VF[z].w, x);
 	}
 	// VI[0] is a constant value (0)
-	for (int z = 15; z > 0; z--)
+	for (z = 15; z > 0; --z)
 	{
 		mVUregs.VI[z] = calcCycles(mVUregs.VI[z], x);
 	}
@@ -497,7 +500,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 		}
 	}
 //	xMOV(eax, ptr32[&mVU.cycles]);
-    armAsm->Ldrsw(EAX, armMemOperandPtr(&mVU.cycles));
+    armAsm->Ldrsw(EAX, PTR_MVU(microVU[mVU.index].cycles));
 	if (EmuConfig.Gamefixes.VUSyncHack) {
 //        xSUB(eax, mVUcycles); // Running behind, make sure we have time to run the block
         armAsm->Subs(EAX, EAX, mVUcycles);
@@ -518,7 +521,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 
 	if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //        xMOV(ptr32[&mVU.regs().nextBlockCycles], mVUcycles);
-        armStorePtr(mVUcycles, &mVU.regs().nextBlockCycles);
+        armStorePtr(mVUcycles, PTR_CPU(vuRegs[mVU.index].nextBlockCycles));
     }
 	mVUendProgram(mVU, &mFC, 0);
 
@@ -526,7 +529,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
     armBind(&skip);
 
 //	xSUB(ptr32[&mVU.cycles], mVUcycles);
-    armSub(&mVU.cycles, mVUcycles);
+    armSub(PTR_MVU(microVU[mVU.index].cycles), mVUcycles);
 }
 
 //------------------------------------------------------------------
@@ -549,7 +552,8 @@ __fi void startLoop(mV)
 // Initialize VI Constants (vi15 propagates through blocks)
 __fi void mVUinitConstValues(microVU& mVU)
 {
-	for (int i = 0; i < 16; i++)
+    int i;
+	for (i = 0; i < 16; ++i)
 	{
 		mVUconstReg[i].isValid  = 0;
 		mVUconstReg[i].regValue = 0;
@@ -576,7 +580,7 @@ __fi void mVUinitFirstPass(microVU& mVU, uptr pState, u8* thisPtr)
 		memcpy((u8*)&mVU.prog.lpState, (u8*)pState, sizeof(microRegInfo));
 	}
 	mVUblock.x86ptrStart = thisPtr;
-	mVUpBlock = mVUblocks[mVUstartPC / 2]->add(mVU, &mVUblock); // Add this block to block manager
+	mVUpBlock = mVUblocks[mVUstartPC >> 1]->add(mVU, &mVUblock); // Add this block to block manager (mVUstartPC / 2)
 	mVUregs.needExactMatch = (mVUpBlock->pState.blockType) ? 7 : 0; // ToDo: Fix 1-Op block flag linking (MGS2:Demo/Sly Cooper)
 	mVUregs.blockType = 0;
 	mVUregs.viBackUp  = 0;
@@ -597,7 +601,7 @@ void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x400 : 0x4));
-        armAsm->Tst(armLoadPtr(&VU0.VI[REG_FBRST].UL), (isVU1 ? 0x400 : 0x4));
+        armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
     }
 //	xForwardJump32 eJMP(Jcc_Zero);
     a64::Label eJMP;
@@ -605,9 +609,9 @@ void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
 	if (!isVU1 || !THREAD_VU1)
 	{
 //		xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x200 : 0x2));
-        armOrr(&VU0.VI[REG_VPU_STAT].UL, (isVU1 ? 0x200 : 0x2));
+        armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
 //		xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-        armOrr(&mVU.regs().flags, VUFLAG_INTCINTERRUPT);
+        armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 	}
 	incPC(1);
 	mVUDTendProgram(mVU, mFC, 1);
@@ -624,7 +628,7 @@ void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x800 : 0x8));
-        armAsm->Tst(armLoadPtr(&VU0.VI[REG_FBRST].UL), (isVU1 ? 0x800 : 0x8));
+        armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
     }
 //	xForwardJump32 eJMP(Jcc_Zero);
     a64::Label eJMP;
@@ -632,9 +636,9 @@ void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
 	if (!isVU1 || !THREAD_VU1)
 	{
 //		xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x400 : 0x4));
-        armOrr(&VU0.VI[REG_VPU_STAT].UL, (isVU1 ? 0x400 : 0x4));
+        armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
 //		xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-        armOrr(&mVU.regs().flags, VUFLAG_INTCINTERRUPT);
+        armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 	}
 	incPC(1);
 	mVUDTendProgram(mVU, mFC, 1);
@@ -658,14 +662,15 @@ static void mvuPreloadRegisters(microVU& mVU, u32 endCount)
 	u32 vfs_loaded = 0;
 	u32 vis_loaded = 0;
 
-	for (int reg = 0; reg < mVU.regAlloc->getXmmCount(); reg++)
+    int reg;
+	for (reg = 0; reg < mVU.regAlloc->getXmmCount(); ++reg)
 	{
 		const int vf = mVU.regAlloc->getRegVF(reg);
 		if (vf >= 0)
 			vfs_loaded |= (1u << vf);
 	}
 
-	for (int reg = 0; reg < mVU.regAlloc->getGPRCount(); reg++)
+	for (reg = 0; reg < mVU.regAlloc->getGPRCount(); ++reg)
 	{
 		const int vi = mVU.regAlloc->getRegVI(reg);
 		if (vi >= 0)
@@ -701,7 +706,8 @@ static void mvuPreloadRegisters(microVU& mVU, u32 endCount)
 		return (free_regs >= REQUIRED_FREE_XMMS || free_gprs >= REQUIRED_FREE_GPRS);
 	};
 
-	for (u32 x = 0; x < endCount && canPreload(); x++)
+    u32 x, i;
+	for (x = 0; x < endCount && canPreload(); ++x)
 	{
 		incPC(1);
 
@@ -709,7 +715,7 @@ static void mvuPreloadRegisters(microVU& mVU, u32 endCount)
 		if (info->doXGKICK)
 			break;
 
-		for (u32 i = 0; i < 2; i++)
+		for (i = 0; i < 2; ++i)
 		{
 			preloadVF(info->uOp.VF_read[i].reg);
 			preloadVF(info->lOp.VF_read[i].reg);
@@ -741,17 +747,18 @@ static void mvuPreloadRegisters(microVU& mVU, u32 endCount)
 
 void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 {
-	microFlagCycles mFC;
+	microFlagCycles mFC{};
 	u8* thisPtr = armGetCurrentCodePointer();
-	const u32 endCount = (((microRegInfo*)pState)->blockType) ? 1 : (mVU.microMemSize / 8);
+	const u32 endCount = (((microRegInfo*)pState)->blockType) ? 1 : (mVU.microMemSize >> 3); // mVU.microMemSize / 8
 
 	// First Pass
-	iPC = startPC / 4;
+	iPC = startPC >> 2; // startPC / 4
 	mVUsetupRange(mVU, startPC, 1); // Setup Program Bounds/Range
 	mVU.regAlloc->reset(false);          // Reset regAlloc
 	mVUinitFirstPass(mVU, pState, thisPtr);
 	mVUbranch = 0;
-	for (int branch = 0; mVUcount < endCount;)
+    int branch;
+	for (branch = 0; mVUcount < endCount;)
 	{
 		incPC(1);
 		startLoop(mVU);
@@ -919,7 +926,7 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 
 	mvuPreloadRegisters(mVU, endCount);
 
-	for (; x < endCount; x++)
+	for (; x < endCount; ++x)
 	{
 #if 0
 		if (mVU.index == 1 && (x == 0 || true))
@@ -940,7 +947,7 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 		if (mVUup.mBit)
 		{
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_MFLAGSET);
-            armOrr(&mVU.regs().flags, VUFLAG_MFLAGSET);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_MFLAGSET);
 		}
 
 		if (isVU1 && mVUlow.kickcycles && CHECK_XGKICKHACK)
@@ -968,7 +975,8 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 				// Make sure we save the current state so it can come back to it
 				u32* cpS = (u32*)&mVUregs;
 				u32* lpS = (u32*)&mVU.prog.lpState;
-				for (size_t i = 0; i < (sizeof(microRegInfo) - 4) / 4; i++, lpS++, cpS++)
+                size_t i, e = (sizeof(microRegInfo) - 4) >> 2; // sizeof(microRegInfo) - 4
+				for (i = 0; i < e; ++i, ++lpS, ++cpS)
 				{
 //					xMOV(ptr32[lpS], cpS[0]);
                     armStorePtr(cpS[0], lpS);
@@ -977,7 +985,7 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 				mVUsetupRange(mVU, xPC, false);
 				if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //                    xMOV(ptr32[&mVU.regs().nextBlockCycles], 0);
-                    armStorePtr(0, &mVU.regs().nextBlockCycles);
+                    armStorePtr(0, PTR_CPU(vuRegs[mVU.index].nextBlockCycles));
                 }
 				mVUendProgram(mVU, &mFC, 0);
 				normBranchCompile(mVU, xPC);
@@ -1086,29 +1094,31 @@ __fi void* mVUentryGet(microVU& mVU, microBlockManager* block, u32 startPC, uptr
 // Search for Existing Compiled Block (if found, return x86ptr; else, compile and return x86ptr)
 __fi void* mVUblockFetch(microVU& mVU, u32 startPC, uptr pState)
 {
-
 	pxAssert((startPC & 7) == 0);
 	pxAssert(startPC <= mVU.microMemSize - 8);
 	startPC &= mVU.microMemSize - 8;
 
-	blockCreate(startPC / 8);
-	return mVUentryGet(mVU, mVUblocks[startPC / 8], startPC, pState);
+    u32 startPC_8 = startPC >> 3; // startPC / 8
+	blockCreate(startPC_8);
+	return mVUentryGet(mVU, mVUblocks[startPC_8], startPC, pState);
 }
 
 // mVUcompileJIT() - Called By JR/JALR during execution
 _mVUt void* mVUcompileJIT(u32 startPC, uptr ptr)
 {
+    u32 startPC_8 = startPC >> 3; // startPC / 8
+
 	if (doJumpAsSameProgram) // Treat jump as part of same microProgram
 	{
 		if (doJumpCaching) // When doJumpCaching, ptr is a microBlock pointer
 		{
 			microVU& mVU = mVUx;
-			microBlock* pBlock = (microBlock*)ptr;
-			microJumpCache& jc = pBlock->jumpCache[startPC / 8];
-			if (jc.prog && jc.prog == mVU.prog.quick[startPC / 8].prog)
+			auto* pBlock = (microBlock*)ptr;
+			microJumpCache& jc = pBlock->jumpCache[startPC_8];
+			if (jc.prog && jc.prog == mVU.prog.quick[startPC_8].prog)
 				return jc.x86ptrStart;
 			void* v = mVUblockFetch(mVUx, startPC, (uptr)&pBlock->pStateEnd);
-			jc.prog = mVU.prog.quick[startPC / 8].prog;
+			jc.prog = mVU.prog.quick[startPC_8].prog;
 			jc.x86ptrStart = v;
 			return v;
 		}
@@ -1118,12 +1128,12 @@ _mVUt void* mVUcompileJIT(u32 startPC, uptr ptr)
 	if (doJumpCaching) // When doJumpCaching, ptr is a microBlock pointer
 	{
 		microVU& mVU = mVUx;
-		microBlock* pBlock = (microBlock*)ptr;
-		microJumpCache& jc = pBlock->jumpCache[startPC / 8];
-		if (jc.prog && jc.prog == mVU.prog.quick[startPC / 8].prog)
+		auto* pBlock = (microBlock*)ptr;
+		microJumpCache& jc = pBlock->jumpCache[startPC_8];
+		if (jc.prog && jc.prog == mVU.prog.quick[startPC_8].prog)
 			return jc.x86ptrStart;
 		void* v = mVUsearchProg<vuIndex>(startPC, (uptr)&pBlock->pStateEnd);
-		jc.prog = mVU.prog.quick[startPC / 8].prog;
+		jc.prog = mVU.prog.quick[startPC_8].prog;
 		jc.x86ptrStart = v;
 		return v;
 	}

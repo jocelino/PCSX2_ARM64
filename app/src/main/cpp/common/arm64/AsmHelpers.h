@@ -13,10 +13,6 @@
 
 namespace a64 = vixl::aarch64;
 
-#define RWRET a64::w0
-#define RXRET a64::x0
-#define RQRET a64::q0
-
 #define RWARG1 a64::w0
 #define RWARG2 a64::w1
 #define RWARG3 a64::w2
@@ -40,29 +36,17 @@ namespace a64 = vixl::aarch64;
 #define RDSCRATCH3 a64::d29
 #define RSSCRATCH3 a64::s29
 
-#define RQSCRATCHI a64::VRegister(30, 128, 16)
-#define RQSCRATCHF a64::VRegister(30, 128, 4)
-#define RQSCRATCHD a64::VRegister(30, 128, 2)
-
-#define RQSCRATCH2I a64::VRegister(31, 128, 16)
-#define RQSCRATCH2F a64::VRegister(31, 128, 4)
-#define RQSCRATCH2D a64::VRegister(31, 128, 2)
-
 #define EAX a64::w0
 #define ECX a64::w1
 #define EDX a64::w2
 #define EBX a64::w3
 #define EEX a64::w4
-#define E5X a64::w5
-#define E8X a64::w8
 
 #define RAX a64::x0
 #define RCX a64::x1
 #define RDX a64::x2
 #define RBX a64::x3
 #define REX a64::x4
-#define R5X a64::x5
-#define R8X a64::x8
 
 #define RSTATE_x19 a64::x19
 #define RSTATE_x20 a64::x20
@@ -70,14 +54,19 @@ namespace a64 = vixl::aarch64;
 #define RSTATE_x22 a64::x22
 #define RSTATE_x23 a64::x23
 #define RSTATE_x24 a64::x24
-#define RFASTMEMBASE a64::x25
-#define RSTATE_FPU a64::x27
-#define RSTATE_PSX a64::x28
-#define RSTATE_CPU a64::x29
 
-#define PTR_FPU(field) a64::MemOperand(RSTATE_FPU, offsetof(fpuRegisters, field))
-#define PTR_PSX(field) a64::MemOperand(RSTATE_PSX, offsetof(psxRegisters, field))
-#define PTR_CPU(field) a64::MemOperand(RSTATE_CPU, offsetof(cpuRegisters, field))
+// fastmem
+#define RFASTMEMBASE a64::x25
+
+// CPU(iR5900), PSX(iR3000A), FPU(iFPU, iFPUd)
+#define RSTATE_CPU a64::x27
+#define RSTATE_PSX a64::x28
+#define PTR_CPU(field) a64::MemOperand(RSTATE_CPU, offsetof(cpuRegistersPack, field))
+
+// microVU
+#define RSTATE_MVU a64::x28
+#define PTR_MVU(field) a64::MemOperand(RSTATE_MVU, offsetof(vuRegistersPack, field))
+
 
 static inline s64 GetPCDisplacement(const void* current, const void* target)
 {
@@ -190,6 +179,7 @@ a64::Register armLoadPtr(const void* addr);
 a64::Register armLoadPtr64(const void* addr);
 a64::Register armLdrh(const void* addr);
 a64::Register armLdrsh(const void* addr);
+a64::Register armLoadPtr(const a64::MemOperand offset);
 void armLoadPtr(const a64::CPURegister& reg, const void* addr, int64_t offset);
 a64::Register armLoadPtr(a64::Register regRs, int64_t offset);
 void armLoadPtr(const a64::CPURegister& regRt, a64::Register regRs, int64_t offset);
@@ -200,6 +190,7 @@ a64::VRegister armLoadPtrM(a64::Register regRs, int64_t offset=0);
 void armStorePtr(const a64::CPURegister& reg, const void* addr, int64_t offset);
 void armStorePtr(const a64::CPURegister& regRt, a64::Register regRs, int64_t offset);
 void armStorePtr(uint64_t imm, const void* addr, const a64::Register& reg=EEX);
+void armStorePtr(uint64_t imm, a64::MemOperand offset, const a64::Register& reg=EEX);
 void armStorePtr(uint64_t imm, a64::Register regRs, int64_t offset, const a64::Register& regRt=EEX);
 a64::MemOperand armMemOperandPtr(const void* addr);
 

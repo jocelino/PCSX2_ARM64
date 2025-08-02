@@ -42,11 +42,12 @@ struct microRange
 	s32 end;   // End PC   (The opcode the block ends with)
 };
 
-#define mProgSize (0x4000 / 4)
+#define mProgSize (0x4000 >> 2)         // (0x4000 / 4)
+#define mProgSizeHalf (mProgSize >> 1)  // mProgSize / 2
 struct microProgram
 {
 	u32                data [mProgSize];     // Holds a copy of the VU microProgram
-	microBlockManager* block[mProgSize / 2]; // Array of Block Managers
+	microBlockManager* block[mProgSizeHalf]; // Array of Block Managers
 	std::deque<microRange>* ranges;          // The ranges of the microProgram that have already been recompiled
 	u32 startPC; // Start PC of this program
 	int idx;     // Program index
@@ -63,8 +64,8 @@ struct microProgramQuick
 struct microProgManager
 {
 	microIR<mProgSize> IRinfo;             // IR information
-	microProgramList*  prog [mProgSize/2]; // List of microPrograms indexed by startPC values
-	microProgramQuick  quick[mProgSize/2]; // Quick reference to valid microPrograms for current execution
+	microProgramList*  prog [mProgSizeHalf]; // List of microPrograms indexed by startPC values
+	microProgramQuick  quick[mProgSizeHalf]; // Quick reference to valid microPrograms for current execution
 	microProgram*      cur;                // Pointer to currently running MicroProgram
 	int                total;              // Total Number of valid MicroPrograms
 	int                isSame;             // Current cached microProgram is Exact Same program as mVU.regs().Micro (-1 = unknown, 0 = No, 1 = Yes)
@@ -122,7 +123,8 @@ struct microVU
 	u32 totalCycles;  // Total Cycles that mVU is expected to run for
 	s32 cycles;       // Cycles Counter
 
-	VURegs& regs() const { return ::vuRegs[index]; }
+//	VURegs& regs() const { return ::vuRegs[index]; }
+    VURegs& regs() const { return ::g_cpuRegistersPack.vuRegs[index]; }
 
 	__fi REG_VI& getVI(uint reg) const { return regs().VI[reg]; }
 	__fi VECTOR& getVF(uint reg) const { return regs().VF[reg]; }
@@ -185,9 +187,10 @@ public:
 			else
 				qListI++;
 
-			microBlockLink*& blockList = fullCmp ? fBlockList : qBlockList;
-			microBlockLink*& blockEnd  = fullCmp ? fBlockEnd  : qBlockEnd;
-			microBlockLink*  newBlock  = (microBlockLink*)_aligned_malloc(sizeof(microBlockLink), 32);
+            microBlockLink*& blockList = fullCmp ? fBlockList : qBlockList;
+            microBlockLink*& blockEnd  = fullCmp ? fBlockEnd  : qBlockEnd;
+            microBlockLink*  newBlock  = (microBlockLink*)_aligned_malloc(sizeof(microBlockLink), 32);
+
 			newBlock->block.jumpCache  = nullptr;
 			newBlock->next             = nullptr;
 
@@ -266,8 +269,17 @@ public:
 };
 
 // microVU rec structs
-alignas(16) microVU microVU0;
-alignas(16) microVU microVU1;
+//alignas(16) microVU microVU0;
+//alignas(16) microVU microVU1;
+
+struct vuRegistersPack
+{
+    alignas(16) microVU microVU[2];
+};
+alignas(16) extern vuRegistersPack g_vuRegistersPack;
+////
+static microVU& microVU0 = g_vuRegistersPack.microVU[0];
+static microVU& microVU1 = g_vuRegistersPack.microVU[1];
 
 // Debug Helper
 int mVUdebugNow = 0;

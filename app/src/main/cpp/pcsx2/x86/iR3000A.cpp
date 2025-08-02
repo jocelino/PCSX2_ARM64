@@ -173,7 +173,7 @@ static const void* _DynGen_JITCompile()
     u8* retval = armGetCurrentCodePointer();
 
 //	xFastCall((void*)iopRecRecompile, ptr32[&psxRegs.pc]);
-    armLoad(EAX, PTR_PSX(pc));
+    armLoad(EAX, PTR_CPU(psxRegs.pc));
     armEmitCall(reinterpret_cast<void*>(iopRecRecompile));
 
 //	xMOV(eax, ptr[&psxRegs.pc]);
@@ -182,7 +182,7 @@ static const void* _DynGen_JITCompile()
 //	xMOV(rcx, ptrNative[xComplexAddress(rcx, psxRecLUT, rax * wordsize)]);
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
-    armLoad(EAX, PTR_PSX(pc));
+    armLoad(EAX, PTR_CPU(psxRegs.pc));
     armMoveAddressToReg(RDX, &psxRecLUT);
     armAsm->Lsr(ECX, EAX, 16);
     armAsm->Lsr(EAX, EAX, 2);
@@ -206,7 +206,7 @@ static const void* _DynGen_DispatcherReg()
 //	xMOV(rcx, ptrNative[xComplexAddress(rcx, psxRecLUT, rax * wordsize)]);
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
-    armLoad(EAX, PTR_PSX(pc));
+    armLoad(EAX, PTR_CPU(psxRegs.pc));
     armMoveAddressToReg(RDX, &psxRecLUT);
     armAsm->Lsr(ECX, EAX, 16);
     armAsm->Lsr(EAX, EAX, 2);
@@ -281,7 +281,7 @@ void _psxFlushConstReg(int reg)
 	if (PSX_IS_CONST1(reg) && !(g_psxFlushedConstReg & (1 << reg)))
 	{
 //		xMOV(ptr32[&psxRegs.GPR.r[reg]], g_psxConstRegs[reg]);
-        armStore(PTR_PSX(GPR.r[reg]), g_psxConstRegs[reg]);
+        armStore(PTR_CPU(psxRegs.GPR.r[reg]), g_psxConstRegs[reg]);
 		g_psxFlushedConstReg |= (1 << reg);
 	}
 }
@@ -303,7 +303,7 @@ void _psxFlushConstRegs()
 			if (!(g_psxFlushedConstReg & (1 << i)))
 			{
 //				xMOV(ptr32[&psxRegs.GPR.r[i]], g_psxConstRegs[i]);
-                armStore(PTR_PSX(GPR.r[i]), g_psxConstRegs[i]);
+                armStore(PTR_CPU(psxRegs.GPR.r[i]), g_psxConstRegs[i]);
 				g_psxFlushedConstReg |= 1 << i;
 			}
 
@@ -340,7 +340,7 @@ void _psxMoveGPRtoR(const a64::Register& to, int fromgpr)
         }
 		else {
 //            xMOV(to, ptr[&psxRegs.GPR.r[fromgpr]]);
-            armLoad(to, PTR_PSX(GPR.r[fromgpr]));
+            armLoad(to, PTR_CPU(psxRegs.GPR.r[fromgpr]));
         }
 	}
 }
@@ -363,7 +363,7 @@ void _psxMoveGPRtoM(uptr to, int fromgpr)
 		else
 		{
 //			xMOV(eax, ptr[&psxRegs.GPR.r[fromgpr]]);
-            armLoad(EAX, PTR_PSX(GPR.r[fromgpr]));
+            armLoad(EAX, PTR_CPU(psxRegs.GPR.r[fromgpr]));
 //			xMOV(ptr32[(u32*)(to)], eax);
             armAsm->Str(EAX, armMemOperandPtr((u32*)(to)));
 		}
@@ -395,7 +395,7 @@ void _psxFlushCall(int flushtype)
 	if ((flushtype & FLUSH_PC) /*&& !g_cpuFlushedPC*/)
 	{
 //		xMOV(ptr32[&psxRegs.pc], psxpc);
-        armStore(PTR_PSX(pc), psxpc);
+        armStore(PTR_CPU(psxRegs.pc), psxpc);
 		//g_cpuFlushedPC = true;
 	}
 }
@@ -699,9 +699,9 @@ static void psxRecompileIrxImport()
 		return;
 
 //	xMOV(ptr32[&psxRegs.code], psxRegs.code);
-    armStore(PTR_PSX(code), psxRegs.code);
+    armStore(PTR_CPU(psxRegs.code), psxRegs.code);
 //	xMOV(ptr32[&psxRegs.pc], psxpc);
-    armStore(PTR_PSX(pc), psxpc);
+    armStore(PTR_CPU(psxRegs.pc), psxpc);
 	_psxFlushCall(FLUSH_NODESTROY);
 
 	if (TraceActive(IOP.Bios))
@@ -1128,15 +1128,15 @@ void psxSetBranchReg(u32 reg)
 			if (x86regs[wbreg].inuse && x86regs[wbreg].type == X86TYPE_PCWRITEBACK)
 			{
 //				xMOV(ptr32[&psxRegs.pc], xRegister32(wbreg));
-                armStore(PTR_PSX(pc), a64::WRegister(wbreg));
+                armStore(PTR_CPU(psxRegs.pc), a64::WRegister(wbreg));
 				x86regs[wbreg].inuse = 0;
 			}
 			else
 			{
 //				xMOV(eax, ptr32[&psxRegs.pcWriteback]);
-                armLoad(EAX, PTR_PSX(pcWriteback));
+                armLoad(EAX, PTR_CPU(psxRegs.pcWriteback));
 //				xMOV(ptr32[&psxRegs.pc], eax);
-                armStore(PTR_PSX(pc), EAX);
+                armStore(PTR_CPU(psxRegs.pc), EAX);
 			}
 		}
 		else
@@ -1145,7 +1145,7 @@ void psxSetBranchReg(u32 reg)
 			{
 				const int x86reg = _allocX86reg(X86TYPE_PSX, reg, MODE_READ);
 //				xMOV(ptr32[&psxRegs.pc], xRegister32(x86reg));
-                armStore(PTR_PSX(pc), a64::WRegister(x86reg));
+                armStore(PTR_CPU(psxRegs.pc), a64::WRegister(x86reg));
 			}
 			else
 			{
@@ -1168,7 +1168,7 @@ void psxSetBranchImm(u32 imm)
 
 	// end the current block
 //	xMOV(ptr32[&psxRegs.pc], imm);
-    armStore(PTR_PSX(pc), imm);
+    armStore(PTR_CPU(psxRegs.pc), imm);
 	_psxFlushCall(FLUSH_EVERYTHING);
 	iPsxBranchTest(imm, imm <= psxpc);
 
@@ -1188,11 +1188,11 @@ static void iPsxAddEECycles(u32 blockCycles)
 	{
 		if (blockCycles != 0xFFFFFFFF) {
 //            xSUB(ptr32[&psxRegs.iopCycleEE], blockCycles * 8);
-            armSub(PTR_PSX(iopCycleEE), blockCycles * 8, true);
+            armSub(PTR_CPU(psxRegs.iopCycleEE), blockCycles * 8, true);
         }
 		else {
 //            xSUB(ptr32[&psxRegs.iopCycleEE], eax);
-            armSub(PTR_PSX(iopCycleEE), EAX, true);
+            armSub(PTR_CPU(psxRegs.iopCycleEE), EAX, true);
         }
 		return;
 	}
@@ -1206,7 +1206,7 @@ static void iPsxAddEECycles(u32 blockCycles)
         armAsm->Mov(EAX, blockCycles * cnum);
     }
 //	xADD(eax, ptr32[&psxRegs.iopCycleEECarry]);
-    armAsm->Add(EAX, EAX, armLoad(PTR_PSX(iopCycleEECarry)));
+    armAsm->Add(EAX, EAX, armLoad(PTR_CPU(psxRegs.iopCycleEECarry)));
 //	xMOV(ecx, cdenom);
     armAsm->Mov(ECX, cdenom);
     armAsm->Mov(EEX, EAX);
@@ -1216,9 +1216,9 @@ static void iPsxAddEECycles(u32 blockCycles)
     armAsm->Udiv(EAX, EEX, ECX);
     armAsm->Msub(EDX, EAX, ECX, EEX);
 //	xMOV(ptr32[&psxRegs.iopCycleEECarry], edx);
-    armStore(PTR_PSX(iopCycleEECarry), EDX);
+    armStore(PTR_CPU(psxRegs.iopCycleEECarry), EDX);
 //	xSUB(ptr32[&psxRegs.iopCycleEE], eax);
-    armSub(PTR_PSX(iopCycleEE), EAX, true);
+    armSub(PTR_CPU(psxRegs.iopCycleEE), EAX, true);
 }
 
 static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
@@ -1228,11 +1228,11 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 	if (EmuConfig.Speedhacks.WaitLoop && s_nBlockFF && newpc == s_branchTo)
 	{
 //		xMOV(eax, ptr32[&psxRegs.cycle]);
-        armLoad(EAX, PTR_PSX(cycle));
+        armLoad(EAX, PTR_CPU(psxRegs.cycle));
 //		xMOV(ecx, eax);
         armAsm->Mov(ECX, EAX);
 //		xMOV(edx, ptr32[&psxRegs.iopCycleEE]);
-        armLoadsw(EDX, PTR_PSX(iopCycleEE));
+        armLoadsw(EDX, PTR_CPU(psxRegs.iopCycleEE));
 //		xADD(edx, 7);
         armAsm->Add(EDX, EDX, 7);
 //		xSHR(edx, 3);
@@ -1240,12 +1240,12 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 //		xADD(eax, edx);
         armAsm->Add(EAX, EAX, EDX);
 //		xCMP(eax, ptr32[&psxRegs.iopNextEventCycle]);
-        armLoad(EEX, PTR_PSX(iopNextEventCycle));
+        armLoad(EEX, PTR_CPU(psxRegs.iopNextEventCycle));
         armAsm->Cmp(EAX, EEX);
 //		xCMOVNS(eax, ptr32[&psxRegs.iopNextEventCycle]);
         armAsm->Csel(EAX, EEX, EAX, a64::Condition::pl);
 //		xMOV(ptr32[&psxRegs.cycle], eax);
-        armStore(PTR_PSX(cycle), EAX);
+        armStore(PTR_CPU(psxRegs.cycle), EAX);
 //		xSUB(eax, ecx);
         armAsm->Sub(EAX, EAX, ECX);
 //		xSHL(eax, 3);
@@ -1260,7 +1260,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 		if (newpc != 0xffffffff)
 		{
 //			xCMP(ptr32[&psxRegs.pc], newpc);
-            armAsm->Cmp(armLoad(PTR_PSX(pc)), newpc);
+            armAsm->Cmp(armLoad(PTR_CPU(psxRegs.pc)), newpc);
 //			xJNE(iopDispatcherReg);
             armEmitCondBranch(a64::Condition::ne, iopDispatcherReg);
 		}
@@ -1270,7 +1270,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 //		xMOV(ebx, ptr32[&psxRegs.cycle]);
 //		xADD(ebx, blockCycles);
 //		xMOV(ptr32[&psxRegs.cycle], ebx); // update cycles
-        armAdd(EBX, PTR_PSX(cycle), blockCycles);
+        armAdd(EBX, PTR_CPU(psxRegs.cycle), blockCycles);
 
 		// jump if iopCycleEE <= 0  (iop's timeslice timed out, so time to return control to the EE)
 		iPsxAddEECycles(blockCycles);
@@ -1279,7 +1279,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 
 		// check if an event is pending
 //		xSUB(ebx, ptr32[&psxRegs.iopNextEventCycle]);
-        armAsm->Subs(EBX, EBX, armLoad(PTR_PSX(iopNextEventCycle)));
+        armAsm->Subs(EBX, EBX, armLoad(PTR_CPU(psxRegs.iopNextEventCycle)));
 //		xForwardJS<u8> nointerruptpending;
         a64::Label nointerruptpending;
         armAsm->B(&nointerruptpending, a64::Condition::mi);
@@ -1290,7 +1290,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 		if (newpc != 0xffffffff)
 		{
 //			xCMP(ptr32[&psxRegs.pc], newpc);
-            armAsm->Cmp(armLoad(PTR_PSX(pc)), newpc);
+            armAsm->Cmp(armLoad(PTR_CPU(psxRegs.pc)), newpc);
 //			xJNE(iopDispatcherReg);
             armEmitCondBranch(a64::Condition::ne, iopDispatcherReg);
 		}
@@ -1321,9 +1321,9 @@ static void checkcodefn()
 void rpsxSYSCALL()
 {
 //	xMOV(ptr32[&psxRegs.code], psxRegs.code);
-    armStore(PTR_PSX(code), psxRegs.code);
+    armStore(PTR_CPU(psxRegs.code), psxRegs.code);
 //	xMOV(ptr32[&psxRegs.pc], psxpc - 4);
-    armStore(PTR_PSX(pc), psxpc - 4);
+    armStore(PTR_CPU(psxRegs.pc), psxpc - 4);
 	_psxFlushCall(FLUSH_NODESTROY);
 
 	//xMOV( ecx, 0x20 );			// exception code
@@ -1334,13 +1334,13 @@ void rpsxSYSCALL()
     armEmitCall(reinterpret_cast<const void*>(psxException));
 
 //	xCMP(ptr32[&psxRegs.pc], psxpc - 4);
-    armAsm->Cmp(armLoad(PTR_PSX(pc)), psxpc - 4);
+    armAsm->Cmp(armLoad(PTR_CPU(psxRegs.pc)), psxpc - 4);
 //	j8Ptr[0] = JE8(0);
     a64::Label j8Ptr0;
     armAsm->B(&j8Ptr0, a64::Condition::eq);
 
 //	xADD(ptr32[&psxRegs.cycle], psxScaleBlockCycles());
-    armAdd(PTR_PSX(cycle), psxScaleBlockCycles());
+    armAdd(PTR_CPU(psxRegs.cycle), psxScaleBlockCycles());
 	iPsxAddEECycles(psxScaleBlockCycles());
 //	JMP32((uptr)iopDispatcherReg - ((uptr)x86Ptr + 5));
     armEmitJmp(iopDispatcherReg);
@@ -1355,9 +1355,9 @@ void rpsxSYSCALL()
 void rpsxBREAK()
 {
 //	xMOV(ptr32[&psxRegs.code], psxRegs.code);
-    armStore(PTR_PSX(code), psxRegs.code);
+    armStore(PTR_CPU(psxRegs.code), psxRegs.code);
 //	xMOV(ptr32[&psxRegs.pc], psxpc - 4);
-    armStore(PTR_PSX(pc), psxpc - 4);
+    armStore(PTR_CPU(psxRegs.pc), psxpc - 4);
 	_psxFlushCall(FLUSH_NODESTROY);
 
 	//xMOV( ecx, 0x24 );			// exception code
@@ -1368,12 +1368,12 @@ void rpsxBREAK()
     armEmitCall(reinterpret_cast<const void*>(psxException));
 
 //	xCMP(ptr32[&psxRegs.pc], psxpc - 4);
-    armAsm->Cmp(armLoad(PTR_PSX(pc)), psxpc - 4);
+    armAsm->Cmp(armLoad(PTR_CPU(psxRegs.pc)), psxpc - 4);
 //	j8Ptr[0] = JE8(0);
     a64::Label j8Ptr0;
     armAsm->B(&j8Ptr0, a64::Condition::eq);
 //	xADD(ptr32[&psxRegs.cycle], psxScaleBlockCycles());
-    armAdd(PTR_PSX(cycle), psxScaleBlockCycles());
+    armAdd(PTR_CPU(psxRegs.cycle), psxScaleBlockCycles());
 	iPsxAddEECycles(psxScaleBlockCycles());
 //	JMP32((uptr)iopDispatcherReg - ((uptr)x86Ptr + 5));
     armEmitJmp(iopDispatcherReg);
@@ -1875,7 +1875,7 @@ StartRecomp:
 		else
 		{
 //			xADD(ptr32[&psxRegs.cycle], psxScaleBlockCycles());
-            armAdd(PTR_PSX(cycle), psxScaleBlockCycles());
+            armAdd(PTR_CPU(psxRegs.cycle), psxScaleBlockCycles());
 			iPsxAddEECycles(psxScaleBlockCycles());
 		}
 
@@ -1884,7 +1884,7 @@ StartRecomp:
 			pxAssert(psxpc == s_nEndBlock);
 			_psxFlushCall(FLUSH_EVERYTHING);
 //			xMOV(ptr32[&psxRegs.pc], psxpc);
-            armStore(PTR_PSX(pc), psxpc);
+            armStore(PTR_CPU(psxRegs.pc), psxpc);
 //			recBlocks.Link(HWADDR(s_nEndBlock), xJcc32());
             armAsm->Nop();
             recBlocks.Link(HWADDR(s_nEndBlock), (s32*)armGetCurrentCodePointer()-1);

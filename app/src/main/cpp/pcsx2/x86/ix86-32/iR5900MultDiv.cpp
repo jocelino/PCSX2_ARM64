@@ -75,7 +75,7 @@ static void recWritebackHILO(int info, bool writed, bool upper)
                 armAsm->Sxtw(RAX, EAX);
 				eax_sign_extended = true;
 //				xMOV(ptr64[&cpuRegs.LO.UD[upper]], rax);
-                armStore(PTR_CPU(LO.UD[upper]), RAX);
+                armStore(PTR_CPU(cpuRegs.LO.UD[upper]), RAX);
 			}
 		}
 	}
@@ -105,7 +105,7 @@ static void recWritebackHILO(int info, bool writed, bool upper)
 //				xMOVSX(rdx, edx);
                 armAsm->Sxtw(RDX, EDX);
 //				xMOV(ptr64[&cpuRegs.HI.UD[upper]], rdx);
-                armStore(PTR_CPU(HI.UD[upper]), RDX);
+                armStore(PTR_CPU(cpuRegs.HI.UD[upper]), RDX);
 			}
 		}
 	}
@@ -133,7 +133,7 @@ static void recWritebackHILO(int info, bool writed, bool upper)
                 armAsm->Sxtw(RAX, EAX);
             }
 //			xMOV(ptr64[&cpuRegs.GPR.r[_Rd_].UD[0]], rax);
-            armStore(PTR_CPU(GPR.r[_Rd_].UD[0]), RAX);
+            armStore(PTR_CPU(cpuRegs.GPR.r[_Rd_].UD[0]), RAX);
 		}
 	}
 }
@@ -168,7 +168,7 @@ static void recWritebackConstHILO(u64 res, bool writed, int upper)
             }
 			else {
 //                xImm64Op(xMOV, ptr64[&cpuRegs.LO.UD[upper]], rax, loval);
-                armStore64(PTR_CPU(LO.UD[upper]), loval);
+                armStore64(PTR_CPU(cpuRegs.LO.UD[upper]), loval);
             }
 		}
 	}
@@ -194,7 +194,7 @@ static void recWritebackConstHILO(u64 res, bool writed, int upper)
             }
 			else {
 //                xImm64Op(xMOV, ptr64[&cpuRegs.HI.UD[upper]], rax, hival);
-                armStore64(PTR_CPU(HI.UD[upper]), hival);
+                armStore64(PTR_CPU(cpuRegs.HI.UD[upper]), hival);
             }
 		}
 	}
@@ -211,7 +211,7 @@ static void recWritebackConstHILO(u64 res, bool writed, int upper)
         }
 		else {
 //            xImm64Op(xMOV, ptr64[&cpuRegs.GPR.r[_Rd_].UD[0]], rax, loval);
-            armStore64(PTR_CPU(GPR.r[_Rd_].UD[0]), loval);
+            armStore64(PTR_CPU(cpuRegs.GPR.r[_Rd_].UD[0]), loval);
         }
 	}
 }
@@ -238,7 +238,7 @@ static void recMULTsuper(int info, bool sign, bool upper, int process)
 		else {
 //            sign ? xMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]) : xUMUL(
 //                    ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-            armLoad(EEX, PTR_CPU(GPR.r[_Rt_].UL[0]));
+            armLoad(EEX, PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0]));
             sign ? armAsm->Smull(RAX, EAX, EEX) : armAsm->Umull(RAX, EAX, EEX);
         }
 	}
@@ -253,7 +253,7 @@ static void recMULTsuper(int info, bool sign, bool upper, int process)
 		else {
 //            sign ? xMUL(ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]) : xUMUL(
 //                    ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-            armLoad(EEX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+            armLoad(EEX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
             sign ? armAsm->Smull(RAX, EAX, EEX) : armAsm->Umull(RAX, EAX, EEX);
         }
 	}
@@ -266,7 +266,7 @@ static void recMULTsuper(int info, bool sign, bool upper, int process)
         }
 		else {
 //            xMOV(eax, ptr[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-            armLoad(EAX, PTR_CPU(GPR.r[_Rt_].UL[0]));
+            armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0]));
         }
 
 		if (info & PROCESS_EE_S) {
@@ -276,7 +276,7 @@ static void recMULTsuper(int info, bool sign, bool upper, int process)
 		else {
 //            sign ? xMUL(ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]) : xUMUL(
 //                    ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-            armLoad(EEX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+            armLoad(EEX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
             sign ? armAsm->Smull(RAX, EAX, EEX) : armAsm->Umull(RAX, EAX, EEX);
         }
 	}
@@ -418,7 +418,7 @@ static void recDIVsuper(int info, bool sign, bool upper, int process)
         }
 		else {
 //            xMOV(divisor, ptr[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-            armLoad(divisor, PTR_CPU(GPR.r[_Rt_].UL[0]));
+            armLoad(divisor, PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0]));
         }
 	}
 
@@ -626,15 +626,15 @@ static void writeBackMAddToHiLoRd(int hiloID)
 		_eeOnWriteReg(_Rd_, 1);
 		_deleteEEreg(_Rd_, 0);
 //		xMOV(ptr[&cpuRegs.GPR.r[_Rd_].UD[0]], rax);
-        armStore(PTR_CPU(GPR.r[_Rd_].UD[0]), RAX);
+        armStore(PTR_CPU(cpuRegs.GPR.r[_Rd_].UD[0]), RAX);
 	}
 //	xMOV(ptr[&cpuRegs.LO.UD[hiloID]], rax);
-    armStore(PTR_CPU(LO.UD[hiloID]), RAX);
+    armStore(PTR_CPU(cpuRegs.LO.UD[hiloID]), RAX);
 
 //	xMOVSX(rax, edx);
     armAsm->Sxtw(RAX, EDX);
 //	xMOV(ptr[&cpuRegs.HI.UD[hiloID]], rax);
-    armStore(PTR_CPU(HI.UD[hiloID]), RAX);
+    armStore(PTR_CPU(cpuRegs.HI.UD[hiloID]), RAX);
 }
 
 static void addConstantAndWriteBackToHiLoRd(int hiloID, u64 constant)
@@ -645,9 +645,9 @@ static void addConstantAndWriteBackToHiLoRd(int hiloID, u64 constant)
 	_deleteEEreg(XMMGPR_HI, 1);
 
 //	xMOV(eax, ptr[&cpuRegs.LO.UL[hiloID * 2]]);
-    armLoad(EAX, PTR_CPU(LO.UL[hiloID * 2]));
+    armLoad(EAX, PTR_CPU(cpuRegs.LO.UL[hiloID * 2]));
 //	xMOV(ehi, ptr[&cpuRegs.HI.UL[hiloID * 2]]);
-    armLoad(ehi, PTR_CPU(HI.UL[hiloID * 2]));
+    armLoad(ehi, PTR_CPU(cpuRegs.HI.UL[hiloID * 2]));
 //	xADD(eax, (u32)(constant & 0xffffffff));
     armAsm->Add(EAX, EAX, (u32)(constant & 0xffffffff));
 //	xADC(ehi, (u32)(constant >> 32));
@@ -658,9 +658,9 @@ static void addConstantAndWriteBackToHiLoRd(int hiloID, u64 constant)
 static void addEaxEdxAndWriteBackToHiLoRd(int hiloID)
 {
 //	xADD(eax, ptr[&cpuRegs.LO.UL[hiloID * 2]]);
-    armAsm->Add(EAX, EAX, armLoad(PTR_CPU(LO.UL[hiloID * 2])));
+    armAsm->Add(EAX, EAX, armLoad(PTR_CPU(cpuRegs.LO.UL[hiloID * 2])));
 //	xADC(edx, ptr[&cpuRegs.HI.UL[hiloID * 2]]);
-    armAsm->Adc(EDX, EDX, armLoad(PTR_CPU(HI.UL[hiloID * 2])));
+    armAsm->Adc(EDX, EDX, armLoad(PTR_CPU(cpuRegs.HI.UL[hiloID * 2])));
 
 	writeBackMAddToHiLoRd(hiloID);
 }
@@ -686,21 +686,21 @@ void recMADD()
 //		xMOV(eax, g_cpuConstRegs[_Rs_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rs_].UL[0]);
 //		xMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
 	else if (GPR_IS_CONST1(_Rt_))
 	{
 //		xMOV(eax, g_cpuConstRegs[_Rt_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rt_].UL[0]);
 //		xMUL(ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rs_].UL[0])));
+        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0])));
 	}
 	else
 	{
 //		xMOV(eax, ptr[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(EAX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
 //		xMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
     armAsm->Lsr(RDX, RAX, 32);
 
@@ -728,21 +728,21 @@ void recMADDU()
 //		xMOV(eax, g_cpuConstRegs[_Rs_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rs_].UL[0]);
 //		xUMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
 	else if (GPR_IS_CONST1(_Rt_))
 	{
 //		xMOV(eax, g_cpuConstRegs[_Rt_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rt_].UL[0]);
 //		xUMUL(ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rs_].UL[0])));
+        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0])));
 	}
 	else
 	{
 //		xMOV(eax, ptr[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(EAX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
 //		xUMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
     armAsm->Lsr(RDX, RAX, 32);
 
@@ -770,21 +770,21 @@ void recMADD1()
 //		xMOV(eax, g_cpuConstRegs[_Rs_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rs_].UL[0]);
 //		xMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
 	else if (GPR_IS_CONST1(_Rt_))
 	{
 //		xMOV(eax, g_cpuConstRegs[_Rt_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rt_].UL[0]);
 //		xMUL(ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rs_].UL[0])));
+        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0])));
 	}
 	else
 	{
 //		xMOV(eax, ptr[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(EAX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
 //		xMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
     armAsm->Lsr(RDX, RAX, 32);
 
@@ -812,21 +812,21 @@ void recMADDU1()
 //		xMOV(eax, g_cpuConstRegs[_Rs_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rs_].UL[0]);
 //		xUMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
 	else if (GPR_IS_CONST1(_Rt_))
 	{
 //		xMOV(eax, g_cpuConstRegs[_Rt_].UL[0]);
         armAsm->Mov(EAX, g_cpuConstRegs[_Rt_].UL[0]);
 //		xUMUL(ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rs_].UL[0])));
+        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0])));
 	}
 	else
 	{
 //		xMOV(eax, ptr[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(EAX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
 //		xUMUL(ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 	}
     armAsm->Lsr(RDX, RAX, 32);
 

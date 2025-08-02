@@ -75,10 +75,10 @@ __ri void mVUallocSFLAGc(const x32& reg, const x32& regT, int fInstance)
 }
 
 // Denormalizes Status Flag; destroys tmp1/tmp2
-__ri void mVUallocSFLAGd(u32* memAddr, const x32& reg = EAX, const x32& tmp1 = ECX, const x32& tmp2 = EDX)
+__ri void mVUallocSFLAGd(const a64::MemOperand memAddr, const x32& reg = EAX, const x32& tmp1 = ECX, const x32& tmp2 = EDX)
 {
 //	xMOV(tmp2, ptr32[memAddr]);
-    armAsm->Ldr(tmp2, armMemOperandPtr(memAddr));
+    armAsm->Ldr(tmp2, memAddr);
 //	xMOV(reg, tmp2);
     armAsm->Mov(reg, tmp2);
 //	xSHR(reg, 3);
@@ -106,7 +106,7 @@ __ri void mVUallocSFLAGd(u32* memAddr, const x32& reg = EAX, const x32& tmp1 = E
 __fi void mVUallocMFLAGa(mV, const x32& reg, int fInstance)
 {
 //	xMOVZX(reg, ptr16[&mVU.macFlag[fInstance]]);
-    armAsm->Ldrh(reg, armMemOperandPtr(&mVU.macFlag[fInstance]));
+    armAsm->Ldrh(reg, PTR_MVU(microVU[mVU.index].macFlag[fInstance]));
 }
 
 __fi void mVUallocMFLAGb(mV, const x32& reg, int fInstance)
@@ -114,11 +114,11 @@ __fi void mVUallocMFLAGb(mV, const x32& reg, int fInstance)
 	//xAND(reg, 0xffff);
     if (fInstance < 4) {
 //        xMOV(ptr32[&mVU.macFlag[fInstance]], reg);         // microVU
-        armAsm->Str(reg, armMemOperandPtr(&mVU.macFlag[fInstance]));
+        armAsm->Str(reg, PTR_MVU(microVU[mVU.index].macFlag[fInstance]));
     }
     else               {
 //        xMOV(ptr32[&mVU.regs().VI[REG_MAC_FLAG].UL], reg); // macroVU
-        armAsm->Str(reg, armMemOperandPtr(&mVU.regs().VI[REG_MAC_FLAG].UL));
+        armAsm->Str(reg, PTR_CPU(vuRegs[mVU.index].VI[REG_MAC_FLAG].UL));
     }
 }
 
@@ -126,11 +126,11 @@ __fi void mVUallocCFLAGa(mV, const x32& reg, int fInstance)
 {
     if (fInstance < 4) {
 //        xMOV(reg, ptr32[&mVU.clipFlag[fInstance]]);         // microVU
-        armAsm->Ldr(reg, armMemOperandPtr(&mVU.clipFlag[fInstance]));
+        armAsm->Ldr(reg, PTR_MVU(microVU[mVU.index].clipFlag[fInstance]));
     }
     else               {
 //        xMOV(reg, ptr32[&mVU.regs().VI[REG_CLIP_FLAG].UL]); // macroVU
-        armAsm->Ldr(reg, armMemOperandPtr(&mVU.regs().VI[REG_CLIP_FLAG].UL));
+        armAsm->Ldr(reg, PTR_CPU(vuRegs[mVU.index].VI[REG_CLIP_FLAG].UL));
     }
 }
 
@@ -138,11 +138,11 @@ __fi void mVUallocCFLAGb(mV, const x32& reg, int fInstance)
 {
     if (fInstance < 4) {
 //        xMOV(ptr32[&mVU.clipFlag[fInstance]], reg);         // microVU
-        armAsm->Str(reg, armMemOperandPtr(&mVU.clipFlag[fInstance]));
+        armAsm->Str(reg, PTR_MVU(microVU[mVU.index].clipFlag[fInstance]));
     }
     else               {
 //        xMOV(ptr32[&mVU.regs().VI[REG_CLIP_FLAG].UL], reg); // macroVU
-        armAsm->Str(reg, armMemOperandPtr(&mVU.regs().VI[REG_CLIP_FLAG].UL));
+        armAsm->Str(reg, PTR_CPU(vuRegs[mVU.index].VI[REG_CLIP_FLAG].UL));
     }
 }
 
@@ -154,7 +154,7 @@ void microRegAlloc::writeVIBackup(const a64::Register& reg)
 {
 	microVU& mVU = index ? microVU1 : microVU0;
 //	xMOV(ptr32[&mVU.VIbackup], xRegister32(reg));
-    armAsm->Str(a64::WRegister(reg), armMemOperandPtr(&mVU.VIbackup));
+    armAsm->Str(a64::WRegister(reg), PTR_MVU(microVU[mVU.index].VIbackup));
 }
 
 //------------------------------------------------------------------

@@ -57,9 +57,9 @@ void recJAL()
 	else
 	{
 //		xMOV(ptr32[&cpuRegs.GPR.r[31].UL[0]], pc + 4);
-        armStore(PTR_CPU(GPR.r[31].UL[0]), pc + 4);
+        armStore(PTR_CPU(cpuRegs.GPR.r[31].UL[0]), pc + 4);
 //		xMOV(ptr32[&cpuRegs.GPR.r[31].UL[1]], 0);
-        armStore(PTR_CPU(GPR.r[31].UL[1]), 0);
+        armStore(PTR_CPU(cpuRegs.GPR.r[31].UL[1]), 0);
 	}
 
 	recompileNextInstruction(true, false);
@@ -135,7 +135,7 @@ void recJALR()
 		else
 		{
 //			xWriteImm64ToMem(&cpuRegs.GPR.r[_Rd_].UD[0], rax, newpc);
-            armStore64(PTR_CPU(GPR.r[_Rd_].UD[0]), newpc);
+            armStore64(PTR_CPU(cpuRegs.GPR.r[_Rd_].UD[0]), newpc);
 		}
 	}
 
@@ -147,15 +147,15 @@ void recJALR()
 		if (x86regs[wbreg].inuse && x86regs[wbreg].type == X86TYPE_PCWRITEBACK)
 		{
 //			xMOV(ptr[&cpuRegs.pc], xRegister32(wbreg));
-            armStore(PTR_CPU(pc), a64::WRegister(wbreg));
+            armStore(PTR_CPU(cpuRegs.pc), a64::WRegister(wbreg));
 			x86regs[wbreg].inuse = 0;
 		}
 		else
 		{
 //			xMOV(eax, ptr[&cpuRegs.pcWriteback]);
-            armLoad(EAX, PTR_CPU(pcWriteback));
+            armLoad(EAX, PTR_CPU(cpuRegs.pcWriteback));
 //			xMOV(ptr[&cpuRegs.pc], eax);
-            armStore(PTR_CPU(pc), EAX);
+            armStore(PTR_CPU(cpuRegs.pc), EAX);
 		}
 	}
 	else
@@ -164,7 +164,7 @@ void recJALR()
 		{
 			const int x86reg = _allocX86reg(X86TYPE_GPR, _Rs_, MODE_READ);
 //			xMOV(ptr32[&cpuRegs.pc], xRegister32(x86reg));
-            armStore(PTR_CPU(pc), a64::WRegister(x86reg));
+            armStore(PTR_CPU(cpuRegs.pc), a64::WRegister(x86reg));
 		}
 		else
 		{

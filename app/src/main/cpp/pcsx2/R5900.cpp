@@ -34,7 +34,7 @@ using namespace R5900;	// for R5900 disasm tools
 s32 EEsCycle;		// used to sync the IOP to the EE
 u32 EEoCycle;
 
-alignas(16) cpuRegistersPack _cpuRegistersPack;
+alignas(16) cpuRegistersPack g_cpuRegistersPack;
 alignas(16) tlbs tlb[48];
 cachedTlbs_t cachedTlbs;
 

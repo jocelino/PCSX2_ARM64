@@ -267,7 +267,7 @@ void _eeMoveGPRtoR(const a64::WRegister& to, int fromgpr, bool allow_preload)
         }
 		else {
 //            xMOV(to, ptr[&cpuRegs.GPR.r[fromgpr].UL[0]]);
-            armLoad(to, PTR_CPU(GPR.r[fromgpr].UL[0]));
+            armLoad(to, PTR_CPU(cpuRegs.GPR.r[fromgpr].UL[0]));
         }
 	}
 }
@@ -306,7 +306,7 @@ void _eeMoveGPRtoR(const a64::XRegister& to, int fromgpr, bool allow_preload)
         }
 		else {
 //            xMOV(to, ptr32[&cpuRegs.GPR.r[fromgpr].UD[0]]);
-            armLoad(to, PTR_CPU(GPR.r[fromgpr].UD[0]));
+            armLoad(to, PTR_CPU(cpuRegs.GPR.r[fromgpr].UD[0]));
         }
 	}
 }
@@ -343,7 +343,7 @@ void _eeMoveGPRtoM(uptr to, int fromgpr)
 		else
 		{
 //			xMOV(eax, ptr32[&cpuRegs.GPR.r[fromgpr].UL[0]]);
-            armLoad(EAX, PTR_CPU(GPR.r[fromgpr].UL[0]));
+            armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[fromgpr].UL[0]));
 //			xMOV(ptr32[(void*)(to)], eax);
             armAsm->Str(EAX, armMemOperandPtr((void*)(to)));
 		}
@@ -358,9 +358,9 @@ void recBranchCall(void (*func)())
 	// to the current cpu cycle.
 
 //	xMOV(eax, ptr[&cpuRegs.cycle]);
-    armLoad(EAX, PTR_CPU(cycle));
+    armLoad(EAX, PTR_CPU(cpuRegs.cycle));
 //	xMOV(ptr[&cpuRegs.nextEventCycle], eax);
-    armStore(PTR_CPU(nextEventCycle), EAX);
+    armStore(PTR_CPU(cpuRegs.nextEventCycle), EAX);
 
 	recCall(func);
 	g_branch = 2;
@@ -410,7 +410,7 @@ static const void* _DynGen_JITCompile()
     u8* retval = armGetCurrentCodePointer();
 
 //	xFastCall((const void*)recRecompile, ptr32[&cpuRegs.pc]);
-    armLoad(EAX, PTR_CPU(pc));
+    armLoad(EAX, PTR_CPU(cpuRegs.pc));
     armEmitCall(reinterpret_cast<const void*>(recRecompile));
 
 	// C equivalent:
@@ -423,7 +423,7 @@ static const void* _DynGen_JITCompile()
 //	xMOV(rcx, ptrNative[xComplexAddress(rcx, recLUT, rax * wordsize)]);
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
-    armLoad(EAX, PTR_CPU(pc));
+    armLoad(EAX, PTR_CPU(cpuRegs.pc));
     armMoveAddressToReg(RDX, &recLUT);
     armAsm->Lsr(ECX, EAX, 16);
     armAsm->Lsr(EAX, EAX, 2);
@@ -451,7 +451,7 @@ static const void* _DynGen_DispatcherReg()
 //	xMOV(rcx, ptrNative[xComplexAddress(rcx, recLUT, rax * wordsize)]);
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
-    armLoad(EAX, PTR_CPU(pc));
+    armLoad(EAX, PTR_CPU(cpuRegs.pc));
     armMoveAddressToReg(RDX, &recLUT);
     armAsm->Lsr(ECX, EAX, 16);
     armAsm->Lsr(EAX, EAX, 2);
@@ -490,7 +490,7 @@ static const void* _DynGen_EnterRecompiledCode()
 	static constexpr u32 stack_size = 32 + 8;
 #else
 	// Stack still needs to be aligned
-//	static constexpr u32 stack_size = 8;
+//	static constexpr u32 stack_size = 16;
 #endif
 
 	// We never return through this function, instead we fastjmp() out.
@@ -499,9 +499,9 @@ static const void* _DynGen_EnterRecompiledCode()
 //    armAsm->Sub(a64::sp, a64::sp, stack_size);
 #endif
 
-    armMoveAddressToReg(RSTATE_FPU, &fpuRegs);
+    // From memory to registry
     armMoveAddressToReg(RSTATE_PSX, &psxRegs);
-    armMoveAddressToReg(RSTATE_CPU, &cpuRegs);
+    armMoveAddressToReg(RSTATE_CPU, &g_cpuRegistersPack);
 
 	if (CHECK_FASTMEM) {
 //        xMOV(RFASTMEMBASE, ptrNative[&vtlb_private::vtlbdata.fastmem_base]);
@@ -652,12 +652,14 @@ static void recResetRaw()
 
 	EE::Profiler.Reset();
 
+    // recVTLB => iR5900LoadStore
+    vtlb_DynGenDispatchers();
+
 //	xSetPtr(SysMemory::GetEERec());
     armSetAsmPtr(recPtr, recPtrEnd - recPtr, nullptr);
     armStartBlock();
 
 	_DynGen_Dispatchers();
-//	vtlb_DynGenDispatchers();
 
 //	recPtr = xGetPtr();
     recPtr = armEndBlock();
@@ -922,15 +924,15 @@ void SetBranchReg(u32 reg)
 			if (x86regs[wbreg].inuse && x86regs[wbreg].type == X86TYPE_PCWRITEBACK)
 			{
 //				xMOV(ptr[&cpuRegs.pc], xRegister32(wbreg));
-                armStore(PTR_CPU(pc), a64::WRegister(wbreg));
+                armStore(PTR_CPU(cpuRegs.pc), a64::WRegister(wbreg));
 				x86regs[wbreg].inuse = 0;
 			}
 			else
 			{
 //				xMOV(eax, ptr[&cpuRegs.pcWriteback]);
-                armLoad(EAX, PTR_CPU(pcWriteback));
+                armLoad(EAX, PTR_CPU(cpuRegs.pcWriteback));
 //				xMOV(ptr[&cpuRegs.pc], eax);
-                armStore(PTR_CPU(pc), EAX);
+                armStore(PTR_CPU(cpuRegs.pc), EAX);
 			}
 		}
 		else
@@ -939,7 +941,7 @@ void SetBranchReg(u32 reg)
 			{
 				const int x86reg = _allocX86reg(X86TYPE_GPR, reg, MODE_READ);
 //				xMOV(ptr32[&cpuRegs.pc], xRegister32(x86reg));
-                armStore(PTR_CPU(pc), a64::WRegister(x86reg));
+                armStore(PTR_CPU(cpuRegs.pc), a64::WRegister(x86reg));
 			}
 			else
 			{
@@ -967,7 +969,7 @@ void SetBranchImm(u32 imm)
 	// end the current block
 	iFlushCall(FLUSH_EVERYTHING);
 //	xMOV(ptr32[&cpuRegs.pc], imm);
-    armStore(PTR_CPU(pc), imm);
+    armStore(PTR_CPU(cpuRegs.pc), imm);
 	iBranchTest(imm);
 }
 
@@ -1321,14 +1323,14 @@ void iFlushCall(int flushtype)
 	if ((flushtype & FLUSH_PC) && !g_cpuFlushedPC)
 	{
 //		xMOV(ptr32[&cpuRegs.pc], pc);
-        armStore(PTR_CPU(pc), pc);
+        armStore(PTR_CPU(cpuRegs.pc), pc);
 		g_cpuFlushedPC = true;
 	}
 
 	if ((flushtype & FLUSH_CODE) && !g_cpuFlushedCode)
 	{
 //		xMOV(ptr32[&cpuRegs.code], cpuRegs.code);
-        armStore(PTR_CPU(code), cpuRegs.code);
+        armStore(PTR_CPU(cpuRegs.code), cpuRegs.code);
 		g_cpuFlushedCode = true;
 	}
 
@@ -1454,16 +1456,16 @@ static void iBranchTest(u32 newpc)
 	if (EmuConfig.Speedhacks.WaitLoop && s_nBlockFF && newpc == s_branchTo)
 	{
 //		xMOV(eax, ptr32[&cpuRegs.nextEventCycle]);
-        armLoad(EAX, PTR_CPU(nextEventCycle));
+        armLoad(EAX, PTR_CPU(cpuRegs.nextEventCycle));
 //		xADD(ptr32[&cpuRegs.cycle], scaleblockcycles());
-        armAdd(PTR_CPU(cycle), scaleblockcycles());
+        armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles());
 //		xCMP(eax, ptr32[&cpuRegs.cycle]);
-        armLoad(EEX, PTR_CPU(cycle));
+        armLoad(EEX, PTR_CPU(cpuRegs.cycle));
         armAsm->Cmp(EAX, EEX);
 //		xCMOVS(eax, ptr32[&cpuRegs.cycle]);
         armAsm->Csel(EAX, EEX, EAX, a64::Condition::mi);
 //		xMOV(ptr32[&cpuRegs.cycle], eax);
-        armStore(PTR_CPU(cycle), EAX);
+        armStore(PTR_CPU(cpuRegs.cycle), EAX);
 
 //		xJMP((void*)DispatcherEvent);
         armEmitJmp(DispatcherEvent);
@@ -1473,9 +1475,9 @@ static void iBranchTest(u32 newpc)
 //		xMOV(eax, ptr[&cpuRegs.cycle]);
 //		xADD(eax, scaleblockcycles());
 //		xMOV(ptr[&cpuRegs.cycle], eax); // update cycles
-        armAdd(EAX, PTR_CPU(cycle), scaleblockcycles());
+        armAdd(EAX, PTR_CPU(cpuRegs.cycle), scaleblockcycles());
 //		xSUB(eax, ptr[&cpuRegs.nextEventCycle]);
-        armAsm->Subs(EAX, EAX, armLoad(PTR_CPU(nextEventCycle)));
+        armAsm->Subs(EAX, EAX, armLoad(PTR_CPU(cpuRegs.nextEventCycle)));
 
         a64::Label labelSigned;
         armAsm->B(&labelSigned, a64::Condition::pl);
@@ -1929,7 +1931,7 @@ void recompileNextInstruction(bool delayslot, bool swapped_delay_slot)
 			g_cpuFlushedCode = false;
 			if (g_maySignalException) {
 //                xAND(ptr32[&cpuRegs.CP0.n.Cause], ~(1 << 31)); // BD
-                armAnd(PTR_CPU(CP0.n.Cause), ~(1 << 31));
+                armAnd(PTR_CPU(cpuRegs.CP0.n.Cause), ~(1 << 31));
             }
 
 			g_recompilingDelaySlot = false;
@@ -1963,7 +1965,7 @@ void recompileNextInstruction(bool delayslot, bool swapped_delay_slot)
 		g_cpuFlushedCode = false;
 		if (g_maySignalException) {
 //            xAND(ptr32[&cpuRegs.CP0.n.Cause], ~(1 << 31)); // BD
-            armAnd(PTR_CPU(CP0.n.Cause), ~(1 << 31));
+            armAnd(PTR_CPU(cpuRegs.CP0.n.Cause), ~(1 << 31));
         }
 		g_recompilingDelaySlot = false;
 	}
@@ -2245,13 +2247,13 @@ static bool skipMPEG_By_Pattern(u32 sPC)
 		if (memRead32(sPC + 8) != p2)
 			return 0;
 //		xMOV(ptr32[&cpuRegs.GPR.n.v0.UL[0]], 1);
-        armStore(PTR_CPU(GPR.n.v0.UL[0]), 1);
+        armStore(PTR_CPU(cpuRegs.GPR.n.v0.UL[0]), 1);
 //		xMOV(ptr32[&cpuRegs.GPR.n.v0.UL[1]], 0);
-        armStore(PTR_CPU(GPR.n.v0.UL[1]), 0);
+        armStore(PTR_CPU(cpuRegs.GPR.n.v0.UL[1]), 0);
 //		xMOV(eax, ptr32[&cpuRegs.GPR.n.ra.UL[0]]);
-        armLoad(EAX, PTR_CPU(GPR.n.ra.UL[0]));
+        armLoad(EAX, PTR_CPU(cpuRegs.GPR.n.ra.UL[0]));
 //		xMOV(ptr32[&cpuRegs.pc], eax);
-        armStore(PTR_CPU(pc), EAX);
+        armStore(PTR_CPU(cpuRegs.pc), EAX);
 		iBranchTest();
 		g_branch = 1;
 		pc = s_nEndBlock;
@@ -2279,9 +2281,9 @@ static bool recSkipTimeoutLoop(s32 reg, bool is_timeout_loop)
 	// else new_v0 is 0, so exit loop
 
 //	xMOV(ebx, ptr32[&cpuRegs.cycle]); // ebx = cycle
-    armLoad(EBX, PTR_CPU(cycle));
+    armLoad(EBX, PTR_CPU(cpuRegs.cycle));
 //	xMOV(ecx, ptr32[&cpuRegs.nextEventCycle]); // ecx = nextEventCycle
-    armLoad(ECX, PTR_CPU(nextEventCycle));
+    armLoad(ECX, PTR_CPU(cpuRegs.nextEventCycle));
 //	xCMP(ebx, ecx);
     armAsm->Cmp(EBX, ECX);
 	//xJAE((void*)DispatcherEvent); // jump to dispatcher if event immediately
@@ -2295,14 +2297,14 @@ static bool recSkipTimeoutLoop(s32 reg, bool is_timeout_loop)
 //	xADD(ebx, 8);
     armAsm->Add(EBX, EBX, 8);
 //	xMOV(ptr32[&cpuRegs.cycle], ebx);
-    armStore(PTR_CPU(cycle), EBX);
+    armStore(PTR_CPU(cpuRegs.cycle), EBX);
 //	xJMP((void*)DispatcherEvent);
     armEmitJmp(DispatcherEvent);
 //	not_dispatcher.SetTarget();
     armBind(&not_dispatcher);
 
 //	xMOV(edx, ptr32[&cpuRegs.GPR.r[reg].UL[0]]); // eax = v0
-    armLoad(EDX, PTR_CPU(GPR.r[reg].UL[0]));
+    armLoad(EDX, PTR_CPU(cpuRegs.GPR.r[reg].UL[0]));
 //	xLEA(rax, ptrNative[rdx * 8 + rbx]); // edx = v0 * 8 + cycle
     armAsm->Add(RAX, RBX, a64::Operand(RDX, a64::LSL, 3));
 //	xCMP(rcx, rax);
@@ -2310,7 +2312,7 @@ static bool recSkipTimeoutLoop(s32 reg, bool is_timeout_loop)
 //	xCMOVB(rax, rcx); // eax = new_cycles = min(v8 * 8, nextEventCycle)
     armAsm->Csel(RAX, RCX, RAX, a64::Condition::cc);
 //	xMOV(ptr32[&cpuRegs.cycle], eax); // writeback new_cycles
-    armStore(PTR_CPU(cycle), EAX);
+    armStore(PTR_CPU(cpuRegs.cycle), EAX);
 //	xSUB(eax, ebx); // new_cycles -= cycle
     armAsm->Sub(EAX, EAX, EBX);
 //	xSHR(eax, 3); // compute new v0 value
@@ -2318,11 +2320,11 @@ static bool recSkipTimeoutLoop(s32 reg, bool is_timeout_loop)
 //	xSUB(edx, eax); // v0 -= cycle_diff
     armAsm->Subs(EDX, EDX, EAX);
 //	xMOV(ptr32[&cpuRegs.GPR.r[reg].UL[0]], edx); // write back new value of v0
-    armStore(PTR_CPU(GPR.r[reg].UL[0]), EDX);
+    armStore(PTR_CPU(cpuRegs.GPR.r[reg].UL[0]), EDX);
 //	xJNZ((void*)DispatcherEvent); // jump to dispatcher if new v0 is not zero (i.e. an event)
     armEmitCondBranch(a64::ne, DispatcherEvent);
 //	xMOV(ptr32[&cpuRegs.pc], s_nEndBlock); // otherwise end of loop
-    armStore(PTR_CPU(pc), s_nEndBlock);
+    armStore(PTR_CPU(cpuRegs.pc), s_nEndBlock);
 //	recBlocks.Link(HWADDR(s_nEndBlock), xJcc32());
     armAsm->Nop();
     recBlocks.Link(HWADDR(s_nEndBlock), (s32*)armGetCurrentCodePointer()-1);
@@ -2433,7 +2435,7 @@ static void recRecompile(const u32 startpc)
 			eeRecNeedsReset = true;
 			// 0x3563b8 is the start address of the function that invalidate entry in TLB cache
 //			xFastCall((void*)GoemonUnloadTlb, ptr32[&cpuRegs.GPR.n.a0.UL[0]]);
-            armLoad(EAX, PTR_CPU(GPR.n.a0.UL[0]));
+            armLoad(EAX, PTR_CPU(cpuRegs.GPR.n.a0.UL[0]));
             armEmitCall(reinterpret_cast<void*>(GoemonUnloadTlb));
 		}
 	}
@@ -2881,9 +2883,9 @@ StartRecomp:
 			else
 			{
 //				xMOV(ptr32[&cpuRegs.pc], pc);
-                armStore(PTR_CPU(pc), pc);
+                armStore(PTR_CPU(cpuRegs.pc), pc);
 //				xADD(ptr32[&cpuRegs.cycle], scaleblockcycles());
-                armAdd(PTR_CPU(cycle), scaleblockcycles());
+                armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles());
 //				recBlocks.Link(HWADDR(pc), xJcc32());
                 armAsm->Nop();
                 recBlocks.Link(HWADDR(pc), (s32*)armGetCurrentCodePointer()-1);

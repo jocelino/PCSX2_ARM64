@@ -120,7 +120,7 @@ void _flushConstReg(int reg)
 	if (GPR_IS_CONST1(reg) && !(g_cpuFlushedConstReg & (1 << reg)))
 	{
 //		xWriteImm64ToMem(&cpuRegs.GPR.r[reg].UD[0], rax, g_cpuConstRegs[reg].SD[0]);
-        armStore64(PTR_CPU(GPR.r[reg].UD[0]), g_cpuConstRegs[reg].SD[0]);
+        armStore64(PTR_CPU(cpuRegs.GPR.r[reg].UD[0]), g_cpuConstRegs[reg].SD[0]);
 		g_cpuFlushedConstReg |= (1 << reg);
 		if (reg == 0)
 			DevCon.Warning("Flushing r0!");
@@ -131,7 +131,8 @@ void _flushConstRegs(bool delete_const)
 {
 	int zero_reg_count = 0;
 	int minusone_reg_count = 0;
-	for (u32 i = 0; i < 32; i++)
+    u32 i;
+	for (i = 0; i < 32; ++i)
 	{
 		if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 			continue;
@@ -148,7 +149,7 @@ void _flushConstRegs(bool delete_const)
 	{
 //		xXOR(eax, eax);
         armAsm->Eor(EAX, EAX, EAX);
-		for (u32 i = 0; i < 32; i++)
+		for (i = 0; i < 32; ++i)
 		{
 			if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 				continue;
@@ -156,7 +157,7 @@ void _flushConstRegs(bool delete_const)
 			if (g_cpuConstRegs[i].SD[0] == 0)
 			{
 //				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
-                armStore(PTR_CPU(GPR.r[i].UD[0]), RAX);
+                armStore(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), RAX);
 				g_cpuFlushedConstReg |= 1u << i;
 				if (delete_const)
 					g_cpuHasConstReg &= ~(1u << i);
@@ -175,7 +176,7 @@ void _flushConstRegs(bool delete_const)
             armAsm->Mvn(RAX, RAX);
         }
 
-		for (u32 i = 0; i < 32; i++)
+		for (i = 0; i < 32; ++i)
 		{
 			if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 				continue;
@@ -183,7 +184,7 @@ void _flushConstRegs(bool delete_const)
 			if (g_cpuConstRegs[i].SD[0] == -1)
 			{
 //				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
-                armStore(PTR_CPU(GPR.r[i].UD[0]), RAX);
+                armStore(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), RAX);
 				g_cpuFlushedConstReg |= 1u << i;
 				if (delete_const)
 					g_cpuHasConstReg &= ~(1u << i);
@@ -192,13 +193,13 @@ void _flushConstRegs(bool delete_const)
 	}
 
 	// and whatever's left over..
-	for (u32 i = 0; i < 32; i++)
+	for (i = 0; i < 32; ++i)
 	{
 		if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 			continue;
 
 //		xWriteImm64ToMem(&cpuRegs.GPR.r[i].UD[0], rax, g_cpuConstRegs[i].UD[0]);
-        armStore64(PTR_CPU(GPR.r[i].UD[0]), g_cpuConstRegs[i].UD[0]);
+        armStore64(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), g_cpuConstRegs[i].UD[0]);
 		g_cpuFlushedConstReg |= 1u << i;
 		if (delete_const)
 			g_cpuHasConstReg &= ~(1u << i);
@@ -257,7 +258,8 @@ int _allocX86reg(int type, int reg, int mode)
 	int hostXMMreg = (type == X86TYPE_GPR) ? _checkXMMreg(XMMTYPE_GPRREG, reg, 0) : -1;
 	if (type != X86TYPE_TEMP)
 	{
-		for (int i = 0; i < static_cast<int>(iREGCNT_GPR); i++)
+        int i, e = static_cast<int>(iREGCNT_GPR);
+		for (i = 0; i < e; ++i)
 		{
 			if (!x86regs[i].inuse || x86regs[i].type != type || x86regs[i].reg != reg)
 				continue;
@@ -371,7 +373,7 @@ int _allocX86reg(int type, int reg, int mode)
 						// not loaded
 						RALOG("Loading guest reg %d to GPR %d\n", reg, regnum);
 //						xMOV(new_reg, ptr64[&cpuRegs.GPR.r[reg].UD[0]]);
-                        armLoad(new_reg, PTR_CPU(GPR.r[reg].UD[0]));
+                        armLoad(new_reg, PTR_CPU(cpuRegs.GPR.r[reg].UD[0]));
 					}
 				}
 			}
@@ -380,7 +382,7 @@ int _allocX86reg(int type, int reg, int mode)
 			case X86TYPE_FPRC:
 				RALOG("Loading guest reg FPCR %d to GPR %d\n", reg, regnum);
 //				xMOV(xRegister32(regnum), ptr32[&fpuRegs.fprc[reg]]);
-                armLoad(a64::WRegister(regnum), PTR_FPU(fprc[reg]));
+                armLoad(a64::WRegister(regnum), PTR_CPU(fpuRegs.fprc[reg]));
 				break;
 
 			case X86TYPE_PSX:
@@ -407,7 +409,7 @@ int _allocX86reg(int type, int reg, int mode)
 					{
 						RALOG("Loading guest PSX reg %d to GPR %d\n", reg, regnum);
 //						xMOV(new_reg32, ptr32[&psxRegs.GPR.r[reg]]);
-                        armLoad(new_reg32, PTR_PSX(GPR.r[reg]));
+                        armLoad(new_reg32, PTR_CPU(psxRegs.GPR.r[reg]));
 					}
 				}
 			}
@@ -417,7 +419,7 @@ int _allocX86reg(int type, int reg, int mode)
 			{
 				RALOG("Loading guest VI reg %d to GPR %d", reg, regnum);
 //				xMOVZX(xRegister32(regnum), ptr16[&VU0.VI[reg].US[0]]);
-                armAsm->Ldrh(a64::WRegister(regnum), armMemOperandPtr(&VU0.VI[reg].US[0]));
+                armAsm->Ldrh(a64::WRegister(regnum), PTR_CPU(vuRegs[0].VI[reg].US[0]));
 			}
 			break;
 
@@ -461,37 +463,37 @@ void _writebackX86Reg(int x86reg)
 		case X86TYPE_GPR:
 			RALOG("Writing back GPR reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr64[&cpuRegs.GPR.r[x86regs[x86reg].reg].UD[0]], xRegister64(x86reg));
-            armStore(PTR_CPU(GPR.r[x86regs[x86reg].reg].UD[0]), a64::XRegister(x86reg));
+            armStore(PTR_CPU(cpuRegs.GPR.r[x86regs[x86reg].reg].UD[0]), a64::XRegister(x86reg));
 			break;
 
 		case X86TYPE_FPRC:
 			RALOG("Writing back GPR reg %d for guest reg FPCR %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr32[&fpuRegs.fprc[x86regs[x86reg].reg]], xRegister32(x86reg));
-            armStore(PTR_FPU(fprc[x86regs[x86reg].reg]), a64::WRegister(x86reg));
+            armStore(PTR_CPU(fpuRegs.fprc[x86regs[x86reg].reg]), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_VIREG:
 			RALOG("Writing back VI reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr16[&VU0.VI[x86regs[x86reg].reg].UL], xRegister16(x86reg));
-            armAsm->Strh(a64::WRegister(x86reg), armMemOperandPtr(&VU0.VI[x86regs[x86reg].reg].UL));
+            armAsm->Strh(a64::WRegister(x86reg), PTR_CPU(vuRegs[0].VI[x86regs[x86reg].reg].UL));
 			break;
 
 		case X86TYPE_PCWRITEBACK:
 			RALOG("Writing back PC writeback in host reg %d\n", x86reg);
 //			xMOV(ptr32[&cpuRegs.pcWriteback], xRegister32(x86reg));
-            armStore(PTR_CPU(pcWriteback), a64::WRegister(x86reg));
+            armStore(PTR_CPU(cpuRegs.pcWriteback), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_PSX:
 			RALOG("Writing back PSX GPR reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr32[&psxRegs.GPR.r[x86regs[x86reg].reg]], xRegister32(x86reg));
-            armStore(PTR_PSX(GPR.r[x86regs[x86reg].reg]), a64::WRegister(x86reg));
+            armStore(PTR_CPU(psxRegs.GPR.r[x86regs[x86reg].reg]), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_PSX_PCWRITEBACK:
 			RALOG("Writing back PSX PC writeback in host reg %d\n", x86reg);
 //			xMOV(ptr32[&psxRegs.pcWriteback], xRegister32(x86reg));
-            armStore(PTR_PSX(pcWriteback), a64::WRegister(x86reg));
+            armStore(PTR_CPU(psxRegs.pcWriteback), a64::WRegister(x86reg));
 			break;
 
 		default:
@@ -502,12 +504,11 @@ void _writebackX86Reg(int x86reg)
 
 int _checkX86reg(int type, int reg, int mode)
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse && x86regs[i].reg == reg && x86regs[i].type == type)
 		{
-            int n1 = GPR_IS_DIRTY_CONST(reg);
-            int n2 = PSX_IS_DIRTY_CONST(reg);
 			// shouldn't have dirty constants...
 			pxAssert((type != X86TYPE_GPR || !GPR_IS_DIRTY_CONST(reg)) &&
 					 (type != X86TYPE_PSX || !PSX_IS_DIRTY_CONST(reg)));
@@ -542,7 +543,8 @@ int _checkX86reg(int type, int reg, int mode)
 
 void _addNeededX86reg(int type, int reg)
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (!x86regs[i].inuse || x86regs[i].reg != reg || x86regs[i].type != type)
 			continue;
@@ -554,7 +556,8 @@ void _addNeededX86reg(int type, int reg)
 
 void _clearNeededX86regs()
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].needed)
 		{
@@ -606,14 +609,17 @@ void _freeX86regWithoutWriteback(int x86reg)
 
 void _freeX86regs()
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++) {
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
+    {
         _freeX86reg(i);
     }
 }
 
 void _flushX86regs()
 {
-	for (u32 i = 0; i < iREGCNT_GPR; ++i)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse && x86regs[i].mode & MODE_WRITE)
 		{

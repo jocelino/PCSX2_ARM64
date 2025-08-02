@@ -244,18 +244,19 @@ protected:
 	bool        regAllocCOP2;    // Local COP2 check
 
 	// Helper functions to get VU regs
-	VURegs& regs() const { return ::vuRegs[index]; }
-	__fi REG_VI& getVI(uint reg) const { return regs().VI[reg]; }
-	__fi VECTOR& getVF(uint reg) const { return regs().VF[reg]; }
+//	VURegs& regs() const { return ::g_cpuRegistersPack.vuRegs[index]; }
+//	__fi REG_VI& getVI(uint reg) const { return regs().VI[reg]; }
+//	__fi VECTOR& getVF(uint reg) const { return regs().VF[reg]; }
 
 	__ri void loadIreg(const xmm& reg, int xyzw)
 	{
-		for (int i = 0; i < gprTotal; i++)
+        int i;
+		for (i = 0; i < gprTotal; ++i)
 		{
 			if (gprMap[i].VIreg == REG_I)
 			{
 //				xMOVDZX(reg, xRegister32(i));
-                armAsm->Fmov(reg.S(), a64::Register(i, a64::kWRegSize));
+                armAsm->Fmov(reg.S(), armWRegister(i));
                 if (!_XYZWss(xyzw)) {
 //                    xSHUF.PS(reg, reg, 0);
                     armSHUFPS(reg, reg, 0);
@@ -265,7 +266,7 @@ protected:
 		}
 
 //		xMOVSSZX(reg, ptr32[&getVI(REG_I)]);
-        armAsm->Ldr(reg.S(), armMemOperandPtr(&getVI(REG_I)));
+        armAsm->Ldr(reg.S(), PTR_CPU(vuRegs[index].VI[REG_I]));
         if (!_XYZWss(xyzw)) {
 //            xSHUF.PS(reg, reg, 0);
             armSHUFPS(reg, reg, 0);
@@ -274,7 +275,8 @@ protected:
 
 	int findFreeRegRec(int startIdx)
 	{
-		for (int i = startIdx; i < xmmTotal; i++)
+        int i;
+		for (i = startIdx; i < xmmTotal; ++i)
 		{
 			if (!xmmMap[i].isNeeded)
 			{
@@ -294,7 +296,8 @@ protected:
 			return _allocVFtoXMMreg(vfreg, 0);
 		}
 
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			if (!xmmMap[i].isNeeded && (xmmMap[i].VFreg < 0))
 			{
@@ -308,7 +311,8 @@ protected:
 
 	int findFreeGPRRec(int startIdx)
 	{
-		for (int i = startIdx; i < gprTotal; i++)
+        int i;
+		for (i = startIdx; i < gprTotal; ++i)
 		{
 			if (gprMap[i].usable && !gprMap[i].isNeeded)
 			{
@@ -326,7 +330,8 @@ protected:
 		if (regAllocCOP2)
 			return _allocX86reg(X86TYPE_VIREG, vireg, MODE_COP2);
 
-		for (int i = 0; i < gprTotal; i++)
+        int i;
+		for (i = 0; i < gprTotal; ++i)
 		{
 			if (gprMap[i].usable && !gprMap[i].isNeeded && (gprMap[i].VIreg < 0))
 			{
@@ -347,12 +352,13 @@ public:
 
 		// mark gpr registers as usable
 		gprMap.fill({0, 0, false, false, false, false});
-		for (uint i = 0; i < gprTotal; i++)
+
+        uint i, T1 = gprT1.GetCode(), T2 = gprT2.GetCode(), F0 = gprF0.GetCode(), F1 = gprF1.GetCode(), F2 = gprF2.GetCode(), F3 = gprF3.GetCode();
+		for (i = 0; i < gprTotal; ++i)
 		{
-			if (i == gprT1.GetCode() || i == gprT2.GetCode() ||
-				i == gprF0.GetCode() || i == gprF1.GetCode() || i == gprF2.GetCode() || i == gprF3.GetCode()
+			if (i == T1 || i == T2 || i == F0 || i == F1 || i == F2 || i == F3
                 || i == 4 //i == rsp.GetId()
-                || i == a64::x16.GetCode() || i == a64::x17.GetCode() || i == a64::x18.GetCode()
+                || i == 16 || i == 17 || i == 18 //i == a64::x16.GetCode() || i == a64::x17.GetCode() || i == a64::x18.GetCode()
                 || i >= iREGCNT_GPR
             ) {
 				continue;
@@ -372,9 +378,10 @@ public:
 		// we run this at the of cop2, so don't free fprs
 		regAllocCOP2 = false;
 
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 			clearReg(i);
-		for (int i = 0; i < gprTotal; i++)
+		for (i = 0; i < gprTotal; ++i)
 			clearGPR(i);
 
 		counter = 0;
@@ -383,7 +390,7 @@ public:
 
 		if (cop2mode)
 		{
-			for (int i = 0; i < xmmTotal; i++)
+			for (i = 0; i < xmmTotal; ++i)
 			{
 				if (!pxmmregs[i].inuse || pxmmregs[i].type != XMMTYPE_VFREG)
 					continue;
@@ -402,7 +409,7 @@ public:
 				}
 			}
 
-			for (int i = 0; i < gprTotal; i++)
+			for (i = 0; i < gprTotal; ++i)
 			{
 				if (!x86regs[i].inuse || x86regs[i].type != X86TYPE_VIREG)
 					continue;
@@ -431,9 +438,9 @@ public:
 
 	int getFreeXmmCount()
 	{
-		int count = 0;
+		int i, count = 0;
 
-		for (int i = 0; i < xmmTotal; i++)
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			if (!xmmMap[i].isNeeded && (xmmMap[i].VFreg < 0))
 				count++;
@@ -444,7 +451,8 @@ public:
 
 	bool hasRegVF(int vfreg)
 	{
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			if (xmmMap[i].VFreg == vfreg)
 				return true;
@@ -465,9 +473,9 @@ public:
 
 	int getFreeGPRCount()
 	{
-		int count = 0;
+		int i, count = 0;
 
-		for (int i = 0; i < gprTotal; i++)
+		for (i = 0; i < gprTotal; ++i)
 		{
 			if (!gprMap[i].usable && (gprMap[i].VIreg < 0))
 				count++;
@@ -478,7 +486,8 @@ public:
 
 	bool hasRegVI(int vireg)
 	{
-		for (int i = 0; i < gprTotal; i++)
+        int i;
+		for (i = 0; i < gprTotal; ++i)
 		{
 			if (gprMap[i].VIreg == vireg)
 				return true;
@@ -497,26 +506,29 @@ public:
 	// If clearState is 1, then it invalidates all cached reg data after write-back
 	void flushAll(bool clearState = true)
 	{
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			writeBackReg(xmm(i));
 			if (clearState)
 				clearReg(i);
 		}
 
-		for (int i = 0; i < gprTotal; i++)
+		for (i = 0; i < gprTotal; ++i)
 		{
 			writeBackReg(a64::WRegister(i), true);
 			if (clearState)
 				clearGPR(i);
 		}
 
-        usleep(1000);
+        // Wait flush
+        usleep(2000);
 	}
 
 	void flushCallerSavedRegisters(bool clearNeeded = false)
 	{
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			if (!armIsCallerSavedXmm(i))
 				continue;
@@ -526,7 +538,7 @@ public:
 				clearReg(i);
 		}
 
-		for (int i = 0; i < gprTotal; i++)
+		for (i = 0; i < gprTotal; ++i)
 		{
 			if (!armIsCallerSaved(i))
 				continue;
@@ -539,7 +551,8 @@ public:
 
 	void flushPartialForCOP2()
 	{
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			microMapXMM& clear = xmmMap[i];
 
@@ -562,7 +575,7 @@ public:
 			clear = {-1, 0, 0, false, false};
 		}
 
-		for (int i = 0; i < gprTotal; i++)
+		for (i = 0; i < gprTotal; ++i)
 		{
 			microMapGPR& clear = gprMap[i];
 			if (clear.VIreg < 0)
@@ -574,7 +587,8 @@ public:
 	{
 		// NOTE: We don't clear state here, this happens in an optional branch
 
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			microMapXMM& mapX = xmmMap[xmm(i).GetCode()];
 
@@ -582,20 +596,20 @@ public:
 			{
 				if (mapX.VFreg == 33) {
 //                    xMOVSS(ptr32[&getVI(REG_I)], xmm(i));
-                    armAsm->Str(xmm(i).S(), armMemOperandPtr(&getVI(REG_I)));
+                    armAsm->Str(xmm(i).S(), PTR_CPU(vuRegs[index].VI[REG_I]));
                 }
 				else if (mapX.VFreg == 32) {
 //                    mVUsaveReg(xmm(i), ptr[&regs().ACC], mapX.xyzw, 1);
-                    mVUsaveReg(xmm(i), armMemOperandPtr(&regs().ACC), mapX.xyzw, 1);
+                    mVUsaveReg(xmm(i), PTR_CPU(vuRegs[index].ACC), mapX.xyzw, 1);
                 }
 				else {
 //                    mVUsaveReg(xmm(i), ptr[&getVF(mapX.VFreg)], mapX.xyzw, 1);
-                    mVUsaveReg(xmm(i), armMemOperandPtr(&getVF(mapX.VFreg)), mapX.xyzw, 1);
+                    mVUsaveReg(xmm(i), PTR_CPU(vuRegs[index].VF[mapX.VFreg]), mapX.xyzw, 1);
                 }
 			}
 		}
 
-		for (int i = 0; i < gprTotal; i++) {
+		for (i = 0; i < gprTotal; ++i) {
             writeBackReg(a64::WRegister(i), false);
         }
 	}
@@ -639,7 +653,8 @@ public:
 
 	void clearRegVF(int VFreg)
 	{
-		for (int i = 0; i < xmmTotal; i++)
+        int i;
+		for (i = 0; i < xmmTotal; ++i)
 		{
 			if (xmmMap[i].VFreg == VFreg)
 				clearReg(i);
@@ -669,30 +684,32 @@ public:
 	// If reg was not modified, then keeps the VF reg cached in the xmm register.
 	void writeBackReg(const xmm& reg, bool invalidateRegs = true)
 	{
-		microMapXMM& mapX = xmmMap[reg.GetCode()];
+        u32 reg_code = reg.GetCode();
+		microMapXMM& mapX = xmmMap[reg_code];
 
 		if ((mapX.VFreg > 0) && mapX.xyzw) // Reg was modified and not Temp or vf0
 		{
 			if (mapX.VFreg == 33) {
 //                xMOVSS(ptr32[&getVI(REG_I)], reg);
-                armAsm->Str(reg.S(), armMemOperandPtr(&getVI(REG_I)));
+                armAsm->Str(reg.S(), PTR_CPU(vuRegs[index].VI[REG_I]));
             }
 			else if (mapX.VFreg == 32) {
 //                mVUsaveReg(reg, ptr[&regs().ACC], mapX.xyzw, true);
-                mVUsaveReg(reg, armMemOperandPtr(&regs().ACC), mapX.xyzw, true);
+                mVUsaveReg(reg, PTR_CPU(vuRegs[index].ACC), mapX.xyzw, true);
             }
 			else {
 //                mVUsaveReg(reg, ptr[&getVF(mapX.VFreg)], mapX.xyzw, true);
-                mVUsaveReg(reg, armMemOperandPtr(&getVF(mapX.VFreg)), mapX.xyzw, true);
+                mVUsaveReg(reg, PTR_CPU(vuRegs[index].VF[mapX.VFreg]), mapX.xyzw, true);
             }
 
 			if (invalidateRegs)
 			{
-				for (int i = 0; i < xmmTotal; i++)
+                u32 i;
+				for (i = 0; i < xmmTotal; ++i)
 				{
 					microMapXMM& mapI = xmmMap[i];
 
-					if ((i == reg.GetCode()) || mapI.isNeeded)
+					if ((i == reg_code) || mapI.isNeeded)
 						continue;
 
 					if (mapI.VFreg == mapX.VFreg)
@@ -708,7 +725,7 @@ public:
 				mapX.count    = counter;
 				mapX.xyzw     = 0;
 				mapX.isNeeded = false;
-				updateCOP2AllocState(reg.GetCode());
+				updateCOP2AllocState(reg_code);
 				return;
 			}
 			clearReg(reg);
@@ -726,11 +743,11 @@ public:
 	// writes into them.
 	void clearNeeded(const xmm& reg)
 	{
-
-		if ((reg.GetCode() < 0) || (reg.GetCode() >= xmmTotal)) // Sometimes xmmPQ hits this
+        u32 reg_code = reg.GetCode();
+		if ((reg_code < 0) || (reg_code >= xmmTotal)) // Sometimes xmmPQ hits this
 			return;
 
-		microMapXMM& clear = xmmMap[reg.GetCode()];
+		microMapXMM& clear = xmmMap[reg_code];
 		clear.isNeeded = false;
 		if (clear.xyzw) // Reg was modified
 		{
@@ -739,10 +756,13 @@ public:
 				int mergeRegs = 0;
 				if (clear.xyzw < 0xf) // Try to merge partial writes
 					mergeRegs = 1;
-				for (int i = 0; i < xmmTotal; i++) // Invalidate any other read-only regs of same vfReg
+
+                u32 i;
+				for (i = 0; i < xmmTotal; ++i) // Invalidate any other read-only regs of same vfReg
 				{
-					if (i == reg.GetCode())
+					if (i == reg_code)
 						continue;
+
 					microMapXMM& mapI = xmmMap[i];
 					if (mapI.VFreg == clear.VFreg)
 					{
@@ -773,8 +793,8 @@ public:
 		else if (regAllocCOP2 && clear.VFreg < 0)
 		{
 			// free on the EE side
-			pxAssert(pxmmregs[reg.GetCode()].type == XMMTYPE_VFREG);
-			pxmmregs[reg.GetCode()].inuse = false;
+			pxAssert(pxmmregs[reg_code].type == XMMTYPE_VFREG);
+			pxmmregs[reg_code].inuse = false;
 		}
 	}
 
@@ -792,7 +812,8 @@ public:
 		counter++;
 		if (vfLoadReg >= 0) // Search For Cached Regs
 		{
-			for (int i = 0; i < xmmTotal; i++)
+            int i;
+			for (i = 0; i < xmmTotal; ++i)
 			{
 //				const xmm& xmmI = xmm::GetInstance(i);
                 const xmm& xmmI = armQRegister(i);
@@ -861,6 +882,7 @@ public:
 				}
 			}
 		}
+
 		int x = findFreeReg((vfWriteReg >= 0) ? vfWriteReg : vfLoadReg);
 //		const xmm& xmmX = xmm::GetInstance(x);
         const xmm& xmmX = armQRegister(x);
@@ -877,11 +899,11 @@ public:
             }
 			else if (vfLoadReg == 32) {
 //                mVUloadReg(xmmX, ptr[&regs().ACC], xyzw);
-                mVUloadReg(xmmX, armMemOperandPtr(&regs().ACC), xyzw);
+                mVUloadReg(xmmX, PTR_CPU(vuRegs[index].ACC), xyzw);
             }
 			else if (vfLoadReg >= 0) {
 //                mVUloadReg(xmmX, ptr[&getVF(vfLoadReg)], xyzw);
-                mVUloadReg(xmmX, armMemOperandPtr(&getVF(vfLoadReg)), xyzw);
+                mVUloadReg(xmmX, PTR_CPU(vuRegs[index].VF[vfLoadReg]), xyzw);
             }
 
 			xmmMap[x].VFreg = vfWriteReg;
@@ -894,11 +916,11 @@ public:
             }
 			else if (vfLoadReg == 32) {
 //                xMOVAPS(xmmX, ptr128[&regs().ACC]);
-                armAsm->Ldr(xmmX.Q(), armMemOperandPtr(&regs().ACC));
+                armAsm->Ldr(xmmX.Q(), PTR_CPU(vuRegs[index].ACC));
             }
 			else if (vfLoadReg >= 0) {
 //                xMOVAPS(xmmX, ptr128[&getVF(vfLoadReg)]);
-                armAsm->Ldr(xmmX.Q(), armMemOperandPtr(&getVF(vfLoadReg)));
+                armAsm->Ldr(xmmX.Q(), PTR_CPU(vuRegs[index].VF[vfLoadReg]));
             }
 
 			xmmMap[x].VFreg = vfLoadReg;
@@ -962,7 +984,7 @@ public:
 			pxAssert(mapX.VIreg > 0);
 			if (mapX.VIreg < 16) {
 //                xMOV(ptr16[&getVI(mapX.VIreg)], xRegister16(reg));
-                armAsm->Strh(reg, armMemOperandPtr(&getVI(mapX.VIreg)));
+                armAsm->Strh(reg, PTR_CPU(vuRegs[index].VI[mapX.VIreg]));
             }
 			if (clearDirty)
 			{
@@ -974,16 +996,18 @@ public:
 
 	void clearNeeded(const a64::Register& reg)
 	{
-		pxAssert(reg.GetCode() < gprTotal);
-		microMapGPR& clear = gprMap[reg.GetCode()];
+        u32 reg_code = reg.GetCode();
+		pxAssert(reg_code < gprTotal);
+		microMapGPR& clear = gprMap[reg_code];
 		clear.isNeeded = false;
 		if (regAllocCOP2)
-			x86regs[reg.GetCode()].needed = false;
+			x86regs[reg_code].needed = false;
 	}
 
 	void unbindAnyVIAllocations(int reg, bool& backup)
 	{
-		for (int i = 0; i < gprTotal; i++)
+        int i, j;
+		for (i = 0; i < gprTotal; ++i)
 		{
 			microMapGPR& mapI = gprMap[i];
 			if (mapI.VIreg == reg)
@@ -1015,7 +1039,7 @@ public:
 				}
 
 				// shouldn't be any others...
-				for (int j = i + 1; j < gprTotal; j++)
+				for (j = i + 1; j < gprTotal; ++j)
 				{
 					pxAssert(gprMap[j].VIreg != reg);
 				}
@@ -1054,7 +1078,8 @@ public:
 
 		if (viLoadReg >= 0) // Search For Cached Regs
 		{
-			for (int i = 0; i < gprTotal; i++)
+            int i;
+			for (i = 0; i < gprTotal; ++i)
 			{
 				microMapGPR& mapI = gprMap[i];
 				if (mapI.VIreg == viLoadReg)
@@ -1080,7 +1105,7 @@ public:
 							if (backup && gprMap[x].VIreg != viWriteReg)
 							{
 //								xMOVZX(gprX, ptr16[&getVI(viWriteReg)]);
-                                armAsm->Ldrh(gprX, armMemOperandPtr(&getVI(viWriteReg)));
+                                armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viWriteReg]));
 								writeVIBackup(gprX);
 								backup = false;
 							}
@@ -1109,7 +1134,8 @@ public:
 					else if (zext_if_dirty && !gprMap[i].isZeroExtended)
 					{
 //						xMOVZX(xRegister32(i), xRegister16(i));
-                        armAsm->Uxth(a64::WRegister(i), a64::WRegister(i));
+                        auto reg32 = armWRegister(i);
+                        armAsm->Uxth(reg32, reg32);
 						gprMap[i].isZeroExtended = true;
 					}
 
@@ -1146,14 +1172,14 @@ public:
 		if (backup && viLoadReg >= 0 && viWriteReg > 0 && viLoadReg != viWriteReg)
 		{
 //			xMOVZX(gprX, ptr16[&getVI(viWriteReg)]);
-            armAsm->Ldrh(gprX, armMemOperandPtr(&getVI(viWriteReg)));
+            armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viWriteReg]));
 			writeVIBackup(gprX);
 			backup = false;
 		}
 
         if (viLoadReg > 0) {
 //            xMOVZX(gprX, ptr16[&getVI(viLoadReg)]);
-            armAsm->Ldrh(gprX, armMemOperandPtr(&getVI(viLoadReg)));
+            armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viLoadReg]));
         }
         else if (viLoadReg == 0) {
 //            xXOR(gprX, gprX);
@@ -1172,7 +1198,7 @@ public:
 			{
                 if (viLoadReg < 0 && viWriteReg > 0) {
 //                    xMOVZX(gprX, ptr16[&getVI(viWriteReg)]);
-                    armAsm->Ldrh(gprX, armMemOperandPtr(&getVI(viWriteReg)));
+                    armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viWriteReg]));
                 }
 
 				writeVIBackup(gprX);
@@ -1195,11 +1221,12 @@ public:
 
 	void moveVIToGPR(const a64::Register& reg, int vi, bool signext = false)
 	{
+        const auto reg32 = a64::WRegister(reg);
+
 		pxAssert(vi >= 0);
 		if (vi == 0)
 		{
 //			xXOR(xRegister32(reg), xRegister32(reg));
-            auto reg32 = a64::WRegister(reg);
             armAsm->Eor(reg32, reg32, reg32);
 			return;
 		}
@@ -1210,11 +1237,11 @@ public:
         const a64::Register& srcreg = allocGPR(vi);
 		if (signext) {
 //            xMOVSX(xRegister32(reg), xRegister16(srcreg));
-            armAsm->Sxth(a64::WRegister(reg), srcreg);
+            armAsm->Sxth(reg32, srcreg);
         }
 		else {
 //            xMOVZX(xRegister32(reg), xRegister16(srcreg));
-            armAsm->Uxth(a64::WRegister(reg), srcreg);
+            armAsm->Uxth(reg32, srcreg);
         }
 		clearNeeded(srcreg);
 	}

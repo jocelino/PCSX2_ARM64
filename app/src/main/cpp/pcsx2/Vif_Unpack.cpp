@@ -317,7 +317,7 @@ void releaseNewVif(int idx)
 
 static __fi u8* getVUptr(uint idx, int offset)
 {
-	return (u8*)(vuRegs[idx].Mem + (offset & (idx ? 0x3ff0 : 0xff0)));
+	return (u8*)(g_cpuRegistersPack.vuRegs[idx].Mem + (offset & (idx ? 0x3ff0 : 0xff0)));
 }
 
 

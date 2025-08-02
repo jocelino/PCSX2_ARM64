@@ -1134,12 +1134,12 @@ static __fi void _vuMR32(VURegs* VU)
 
 __fi u32* GET_VU_MEM(VURegs* VU, u32 addr) // non-static, also used by sVU for now.
 {
-	if (VU == &vuRegs[1])
-		return (u32*)(vuRegs[1].Mem + (addr & 0x3fff));
+	if (VU == &g_cpuRegistersPack.vuRegs[1])
+		return (u32*)(g_cpuRegistersPack.vuRegs[1].Mem + (addr & 0x3fff));
 	else if (addr & 0x4000)
-		return (u32*)((u8*)vuRegs[1].VF + (addr & 0x3ff)); // get VF and VI regs (they're mapped to 0x4xx0 in VU0 mem!)
+		return (u32*)((u8*)g_cpuRegistersPack.vuRegs[1].VF + (addr & 0x3ff)); // get VF and VI regs (they're mapped to 0x4xx0 in VU0 mem!)
 	else
-		return (u32*)(vuRegs[0].Mem + (addr & 0xfff)); // for addr 0x0000 to 0x4000 just wrap around
+		return (u32*)(g_cpuRegistersPack.vuRegs[0].Mem + (addr & 0xfff)); // for addr 0x0000 to 0x4000 just wrap around
 }
 
 static __ri void _vuLQ(VURegs* VU)
@@ -1832,7 +1832,7 @@ void _vuXGKICKTransfer(s32 cycles, bool flush)
 		if (VU1.xgkicksizeremaining == 0)
 		{
 			VUM_LOG("XGKICK reading new tag from %x", VU1.xgkickaddr);
-			u32 size = gifUnit.GetGSPacketSize(GIF_PATH_1, vuRegs[1].Mem, VU1.xgkickaddr, ~0u, flush);
+			u32 size = gifUnit.GetGSPacketSize(GIF_PATH_1, g_cpuRegistersPack.vuRegs[1].Mem, VU1.xgkickaddr, ~0u, flush);
 			VU1.xgkicksizeremaining = size & 0xFFFF;
 			VU1.xgkickendpacket = size >> 31;
 			VU1.xgkickdiff = 0x4000 - VU1.xgkickaddr;
@@ -1867,11 +1867,11 @@ void _vuXGKICKTransfer(s32 cycles, bool flush)
 			if ((transfersize * 0x10) < VU1.xgkicksizeremaining)
 				gifUnit.gifPath[GIF_PATH_1].CopyGSPacketData(&VU1.Mem[VU1.xgkickaddr], transfersize * 0x10, true);
 			else
-				gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &vuRegs[1].Mem[VU1.xgkickaddr], transfersize * 0x10, true);
+				gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize * 0x10, true);
 		}
 		else*/
 		//{
-			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &vuRegs[1].Mem[VU1.xgkickaddr], transfersize * 0x10, true);
+			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize * 0x10, true);
 		//}
 
 		if ((VU0.VI[REG_VPU_STAT].UL & 0x100) && flush)

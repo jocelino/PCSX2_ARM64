@@ -22,7 +22,7 @@ extern u32 g_psxMaxRecMem;
 #define REC_FUNC(f) \
 	static void rpsx##f() \
 	{ \
-		armStore(PTR_PSX(code), (u32)psxRegs.code); \
+		armStore(PTR_CPU(psxRegs.code), (u32)psxRegs.code); \
 		_psxFlushCall(FLUSH_EVERYTHING); \
 		armEmitCall(reinterpret_cast<void*>((uptr)psx##f)); \
 		PSX_DEL_CONST(_Rt_); \
@@ -33,7 +33,7 @@ extern u32 g_psxMaxRecMem;
 #define REC_GTE_FUNC(f) \
 	static void rgte##f() \
 	{ \
-		armStore(PTR_PSX(code), (u32)psxRegs.code); \
+		armStore(PTR_CPU(psxRegs.code), (u32)psxRegs.code); \
 		_psxFlushCall(FLUSH_EVERYTHING); \
 		armEmitCall(reinterpret_cast<void*>((uptr)gte##f)); \
 		PSX_DEL_CONST(_Rt_); \
@@ -71,7 +71,7 @@ static void rpsxMoveStoT(int info)
     }
 	else {
 //        xMOV(xRegister32(EEREC_T), ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(reg32, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(reg32, PTR_CPU(psxRegs.GPR.r[_Rs_]));
     }
 }
 
@@ -87,7 +87,7 @@ static void rpsxMoveStoD(int info)
     }
 	else {
 //        xMOV(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(reg32, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(reg32, PTR_CPU(psxRegs.GPR.r[_Rs_]));
     }
 }
 
@@ -103,7 +103,7 @@ static void rpsxMoveTtoD(int info)
     }
 	else {
 //        xMOV(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armLoad(reg32, PTR_PSX(GPR.r[_Rt_]));
+        armLoad(reg32, PTR_CPU(psxRegs.GPR.r[_Rt_]));
     }
 }
 
@@ -115,7 +115,7 @@ static void rpsxMoveSToECX(int info)
     }
 	else {
 //        xMOV(ecx, ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(ECX, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(ECX, PTR_CPU(psxRegs.GPR.r[_Rs_]));
     }
 //    armAsm->Uxth(ECX, ECX);
 }
@@ -143,7 +143,7 @@ static void rpsxCopyReg(int dest, int src)
             }
 			else {
 //                xMOV(ptr32[&psxRegs.GPR.r[dest]], g_psxConstRegs[src]);
-                armStore(PTR_PSX(GPR.r[dest]), g_psxConstRegs[src]);
+                armStore(PTR_CPU(psxRegs.GPR.r[dest]), g_psxConstRegs[src]);
             }
 		}
 
@@ -162,19 +162,19 @@ static void rpsxCopyReg(int dest, int src)
 	else if (rdest >= 0)
 	{
 //		xMOV(xRegister32(rdest), ptr32[&psxRegs.GPR.r[src]]);
-        armLoad(a64::WRegister(rdest), PTR_PSX(GPR.r[src]));
+        armLoad(a64::WRegister(rdest), PTR_CPU(psxRegs.GPR.r[src]));
 	}
 	else if (rsrc >= 0)
 	{
 //		xMOV(ptr32[&psxRegs.GPR.r[dest]], xRegister32(rsrc));
-        armStore(PTR_PSX(GPR.r[dest]), a64::WRegister(rsrc));
+        armStore(PTR_CPU(psxRegs.GPR.r[dest]), a64::WRegister(rsrc));
 	}
 	else
 	{
 //		xMOV(eax, ptr32[&psxRegs.GPR.r[src]]);
-        armLoad(EAX, PTR_PSX(GPR.r[src]));
+        armLoad(EAX, PTR_CPU(psxRegs.GPR.r[src]));
 //		xMOV(ptr32[&psxRegs.GPR.r[dest]], eax);
-        armStore(PTR_PSX(GPR.r[dest]), EAX);
+        armStore(PTR_CPU(psxRegs.GPR.r[dest]), EAX);
 	}
 }
 
@@ -216,7 +216,7 @@ static void rpsxSLTI_(int info)
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], _Imm_);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), _Imm_);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), _Imm_);
     }
 
 //	xSETL(xRegister8(dreg));
@@ -249,7 +249,7 @@ static void rpsxSLTIU_(int info)
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], _Imm_);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), _Imm_);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), _Imm_);
     }
 
 //	xSETB(xRegister8(dreg));
@@ -405,21 +405,21 @@ void rpsxADDU_(int info)
 //		xMOV(xRegister32(EEREC_D), xRegister32(EEREC_S));
         armAsm->Mov(reg32, a64::WRegister(EEREC_S));
 //		xADD(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armAsm->Add(reg32, reg32, armLoad(PTR_PSX(GPR.r[_Rt_])));
+        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
 	}
 	else if (info & PROCESS_EE_T)
 	{
 //		xMOV(xRegister32(EEREC_D), xRegister32(EEREC_T));
         armAsm->Mov(reg32, a64::WRegister(EEREC_T));
 //		xADD(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armAsm->Add(reg32, reg32, armLoad(PTR_PSX(GPR.r[_Rs_])));
+        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])));
 	}
 	else
 	{
 //		xMOV(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(reg32, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(reg32, PTR_CPU(psxRegs.GPR.r[_Rs_]));
 //		xADD(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armAsm->Add(reg32, reg32, armLoad(PTR_PSX(GPR.r[_Rt_])));
+        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
 	}
 }
 
@@ -446,7 +446,7 @@ static void rpsxSUBU_consts(int info)
     }
 	else {
 //        xSUB(dreg, ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armAsm->Sub(dreg, dreg, armLoad(PTR_PSX(GPR.r[_Rt_])));
+        armAsm->Sub(dreg, dreg, armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
     }
 
 //	xMOV(xRegister32(EEREC_D), dreg);
@@ -507,14 +507,14 @@ static void rpsxSUBU_(int info)
 //		xMOV(xRegister32(EEREC_D), xRegister32(EEREC_S));
         armAsm->Mov(reg32, a64::WRegister(EEREC_S));
 //		xSUB(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armAsm->Sub(reg32, reg32, armLoad(PTR_PSX(GPR.r[_Rt_])));
+        armAsm->Sub(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
 	}
 	else if (info & PROCESS_EE_T)
 	{
 		// D might equal T
 		const a64::WRegister dreg((_Rt_ == _Rd_) ? EAX.GetCode() : EEREC_D);
 //		xMOV(dreg, ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(dreg, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(dreg, PTR_CPU(psxRegs.GPR.r[_Rs_]));
 //		xSUB(dreg, xRegister32(EEREC_T));
         armAsm->Sub(dreg, dreg, a64::WRegister(EEREC_T));
 //		xMOV(xRegister32(EEREC_D), dreg);
@@ -523,9 +523,9 @@ static void rpsxSUBU_(int info)
 	else
 	{
 //		xMOV(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(reg32, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(reg32, PTR_CPU(psxRegs.GPR.r[_Rs_]));
 //		xSUB(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armAsm->Sub(reg32, reg32, armLoad(PTR_PSX(GPR.r[_Rt_])));
+        armAsm->Sub(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
 	}
 }
 
@@ -599,7 +599,7 @@ static void rpsxLogicalOp_constv(LogicalOp op, int info, int creg, u32 vreg, int
         }
 		else {
 //            xMOV(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[vreg]]);
-            armLoad(reg32, PTR_PSX(GPR.r[vreg]));
+            armLoad(reg32, PTR_CPU(psxRegs.GPR.r[vreg]));
         }
 		if (cval != identityInput) {
 //            xOP(xRegister32(EEREC_D), cval);
@@ -664,7 +664,7 @@ static void rpsxLogicalOp(LogicalOp op, int info)
         }
 		else {
 //            xMOV(xRegister32(EEREC_D), ptr32[&psxRegs.GPR.r[rs]]);
-            armLoad(reg32, PTR_PSX(GPR.r[rs]));
+            armLoad(reg32, PTR_CPU(psxRegs.GPR.r[rs]));
         }
 
 		if (regt >= 0) {
@@ -689,13 +689,13 @@ static void rpsxLogicalOp(LogicalOp op, int info)
             switch (xOP)
             {
                 case LogicalOp::AND:
-                    armAsm->And(reg32, reg32, armLoad(PTR_PSX(GPR.r[rt])));
+                    armAsm->And(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[rt])));
                     break;
                 case LogicalOp::NOR: case LogicalOp::OR:
-                    armAsm->Orr(reg32, reg32, armLoad(PTR_PSX(GPR.r[rt])));
+                    armAsm->Orr(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[rt])));
                     break;
                 case LogicalOp::XOR:
-                    armAsm->Eor(reg32, reg32, armLoad(PTR_PSX(GPR.r[rt])));
+                    armAsm->Eor(reg32, reg32, armLoad(PTR_CPU(psxRegs.GPR.r[rt])));
                     break;
                 case LogicalOp::BAD:
                     break;
@@ -823,7 +823,7 @@ static void rpsxSLTs_const(int info, int sign, int st)
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[st ? _Rs_ : _Rt_]], cval);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[st ? _Rs_ : _Rt_])), cval);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[st ? _Rs_ : _Rt_])), cval);
     }
 //	SET(xRegister8(dreg));
     armAsm->Cset(dreg, SET);
@@ -854,7 +854,7 @@ static void rpsxSLTs_(int info, int sign)
     }
 	else {
 //        xCMP(xRegister32(regs), ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armAsm->Cmp(a64::WRegister(regs), armLoad(PTR_PSX(GPR.r[_Rt_])));
+        armAsm->Cmp(a64::WRegister(regs), armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
     }
 
 //	SET(xRegister8(dreg));
@@ -916,9 +916,9 @@ static void rpsxMULT_const()
 	u64 res = (s64)((s64) * (int*)&g_psxConstRegs[_Rs_] * (s64) * (int*)&g_psxConstRegs[_Rt_]);
 
 //	xMOV(ptr32[&psxRegs.GPR.n.hi], (u32)((res >> 32) & 0xffffffff));
-    armStore(PTR_PSX(GPR.n.hi), (u32)((res >> 32) & 0xffffffff));
+    armStore(PTR_CPU(psxRegs.GPR.n.hi), (u32)((res >> 32) & 0xffffffff));
 //	xMOV(ptr32[&psxRegs.GPR.n.lo], (u32)(res & 0xffffffff));
-    armStore(PTR_PSX(GPR.n.lo), (u32)(res & 0xffffffff));
+    armStore(PTR_CPU(psxRegs.GPR.n.lo), (u32)(res & 0xffffffff));
 }
 
 static void rpsxWritebackHILO(int info)
@@ -931,7 +931,7 @@ static void rpsxWritebackHILO(int info)
         }
 		else {
 //            xMOV(ptr32[&psxRegs.GPR.n.lo], eax);
-            armStore(PTR_PSX(GPR.n.lo), EAX);
+            armStore(PTR_CPU(psxRegs.GPR.n.lo), EAX);
         }
 	}
 
@@ -943,7 +943,7 @@ static void rpsxWritebackHILO(int info)
         }
 		else {
 //            xMOV(ptr32[&psxRegs.GPR.n.hi], edx);
-            armStore(PTR_PSX(GPR.n.hi), EDX);
+            armStore(PTR_CPU(psxRegs.GPR.n.hi), EDX);
         }
 	}
 }
@@ -963,7 +963,7 @@ static void rpsxMULTsuperconst(int info, int sreg, int imm, int sign)
         }
 		else {
 //            xMUL(ptr32[&psxRegs.GPR.r[sreg]]);
-            armAsm->Smull(RAX, EAX, armLoad(PTR_PSX(GPR.r[sreg])));
+            armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(psxRegs.GPR.r[sreg])));
         }
 	}
 	else
@@ -974,7 +974,7 @@ static void rpsxMULTsuperconst(int info, int sreg, int imm, int sign)
         }
 		else {
 //            xUMUL(ptr32[&psxRegs.GPR.r[sreg]]);
-            armAsm->Umull(RAX, EAX, armLoad(PTR_PSX(GPR.r[sreg])));
+            armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(psxRegs.GPR.r[sreg])));
         }
 	}
     armAsm->Lsr(RDX, RAX, 32);
@@ -996,7 +996,7 @@ static void rpsxMULTsuper(int info, int sign)
         }
 		else {
 //            xMUL(ptr32[&psxRegs.GPR.r[_Rt_]]);
-            armAsm->Smull(RAX, EAX, armLoad(PTR_PSX(GPR.r[_Rt_])));
+            armAsm->Smull(RAX, EAX, armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
         }
 	}
 	else
@@ -1007,7 +1007,7 @@ static void rpsxMULTsuper(int info, int sign)
         }
 		else {
 //            xUMUL(ptr32[&psxRegs.GPR.r[_Rt_]]);
-            armAsm->Umull(RAX, EAX, armLoad(PTR_PSX(GPR.r[_Rt_])));
+            armAsm->Umull(RAX, EAX, armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
         }
 	}
     armAsm->Lsr(RDX, RAX, 32);
@@ -1041,9 +1041,9 @@ static void rpsxMULTU_const()
 	u64 res = (u64)((u64)g_psxConstRegs[_Rs_] * (u64)g_psxConstRegs[_Rt_]);
 
 //	xMOV(ptr32[&psxRegs.GPR.n.hi], (u32)((res >> 32) & 0xffffffff));
-    armStore(PTR_PSX(GPR.n.hi), (u32)((res >> 32) & 0xffffffff));
+    armStore(PTR_CPU(psxRegs.GPR.n.hi), (u32)((res >> 32) & 0xffffffff));
 //	xMOV(ptr32[&psxRegs.GPR.n.lo], (u32)(res & 0xffffffff));
-    armStore(PTR_PSX(GPR.n.lo), (u32)(res & 0xffffffff));
+    armStore(PTR_CPU(psxRegs.GPR.n.lo), (u32)(res & 0xffffffff));
 }
 
 static void rpsxMULTU_consts(int info)
@@ -1081,9 +1081,9 @@ static void rpsxDIV_const()
 	if (g_psxConstRegs[_Rs_] == 0x80000000u && g_psxConstRegs[_Rt_] == 0xFFFFFFFFu)
 	{
 //		xMOV(ptr32[&psxRegs.GPR.n.hi], 0);
-        armStore(PTR_PSX(GPR.n.hi), 0);
+        armStore(PTR_CPU(psxRegs.GPR.n.hi), 0);
 //		xMOV(ptr32[&psxRegs.GPR.n.lo], 0x80000000);
-        armStore(PTR_PSX(GPR.n.lo), 0x80000000);
+        armStore(PTR_CPU(psxRegs.GPR.n.lo), 0x80000000);
 		return;
 	}
 
@@ -1092,23 +1092,23 @@ static void rpsxDIV_const()
 		lo = *(int*)&g_psxConstRegs[_Rs_] / *(int*)&g_psxConstRegs[_Rt_];
 		hi = *(int*)&g_psxConstRegs[_Rs_] % *(int*)&g_psxConstRegs[_Rt_];
 //		xMOV(ptr32[&psxRegs.GPR.n.hi], hi);
-        armStore(PTR_PSX(GPR.n.hi), hi);
+        armStore(PTR_CPU(psxRegs.GPR.n.hi), hi);
 //		xMOV(ptr32[&psxRegs.GPR.n.lo], lo);
-        armStore(PTR_PSX(GPR.n.lo), lo);
+        armStore(PTR_CPU(psxRegs.GPR.n.lo), lo);
 	}
 	else
 	{
 //		xMOV(ptr32[&psxRegs.GPR.n.hi], g_psxConstRegs[_Rs_]);
-        armStore(PTR_PSX(GPR.n.hi), g_psxConstRegs[_Rs_]);
+        armStore(PTR_CPU(psxRegs.GPR.n.hi), g_psxConstRegs[_Rs_]);
 		if (g_psxConstRegs[_Rs_] & 0x80000000u)
 		{
 //			xMOV(ptr32[&psxRegs.GPR.n.lo], 0x1);
-            armStore(PTR_PSX(GPR.n.lo), 0x1);
+            armStore(PTR_CPU(psxRegs.GPR.n.lo), 0x1);
 		}
 		else
 		{
 //			xMOV(ptr32[&psxRegs.GPR.n.lo], 0xFFFFFFFFu);
-            armStore(PTR_PSX(GPR.n.lo), 0xFFFFFFFFu);
+            armStore(PTR_CPU(psxRegs.GPR.n.lo), 0xFFFFFFFFu);
 		}
 	}
 }
@@ -1126,7 +1126,7 @@ static void rpsxDIVsuper(int info, int sign, int process = 0)
     }
 	else {
 //        xMOV(ecx, ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armLoad(ECX, PTR_PSX(GPR.r[_Rt_]));
+        armLoad(ECX, PTR_CPU(psxRegs.GPR.r[_Rt_]));
     }
 
 	if (process & PROCESS_CONSTS) {
@@ -1139,7 +1139,7 @@ static void rpsxDIVsuper(int info, int sign, int process = 0)
     }
 	else {
 //        xMOV(eax, ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(EAX, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(EAX, PTR_CPU(psxRegs.GPR.r[_Rs_]));
     }
 
 //	u8* end1;
@@ -1254,16 +1254,16 @@ void rpsxDIVU_const()
 		lo = g_psxConstRegs[_Rs_] / g_psxConstRegs[_Rt_];
 		hi = g_psxConstRegs[_Rs_] % g_psxConstRegs[_Rt_];
 //		xMOV(ptr32[&psxRegs.GPR.n.hi], hi);
-        armStore(PTR_PSX(GPR.n.hi), hi);
+        armStore(PTR_CPU(psxRegs.GPR.n.hi), hi);
 //		xMOV(ptr32[&psxRegs.GPR.n.lo], lo);
-        armStore(PTR_PSX(GPR.n.lo), lo);
+        armStore(PTR_CPU(psxRegs.GPR.n.lo), lo);
 	}
 	else
 	{
 //		xMOV(ptr32[&psxRegs.GPR.n.hi], g_psxConstRegs[_Rs_]);
-        armStore(PTR_PSX(GPR.n.hi), g_psxConstRegs[_Rs_]);
+        armStore(PTR_CPU(psxRegs.GPR.n.hi), g_psxConstRegs[_Rs_]);
 //		xMOV(ptr32[&psxRegs.GPR.n.lo], 0xFFFFFFFFu);
-        armStore(PTR_PSX(GPR.n.lo), 0xFFFFFFFFu);
+        armStore(PTR_CPU(psxRegs.GPR.n.lo), 0xFFFFFFFFu);
 	}
 }
 
@@ -1318,7 +1318,7 @@ static void rpsxCalcAddressOperand()
     }
 	else {
 //        xMOV(arg1regd, ptr32[&psxRegs.GPR.r[_Rs_]]);
-        armLoad(EAX, PTR_PSX(GPR.r[_Rs_]));
+        armLoad(EAX, PTR_CPU(psxRegs.GPR.r[_Rs_]));
     }
 
 	if (_Imm_) {
@@ -1344,7 +1344,7 @@ static void rpsxCalcStoreOperand()
     }
 	else {
 //        xMOV(arg2regd, ptr32[&psxRegs.GPR.r[_Rt_]]);
-        armLoad(ECX, PTR_PSX(GPR.r[_Rt_]));
+        armLoad(ECX, PTR_CPU(psxRegs.GPR.r[_Rt_]));
     }
 }
 
@@ -1451,7 +1451,7 @@ static void rpsxLoad(int size, bool sign)
 	// if not caching, write back
 	if (rt < 0) {
 //        xMOV(ptr32[&psxRegs.GPR.r[_Rt_]], eax);
-        armStore(PTR_PSX(GPR.r[_Rt_]), EAX);
+        armStore(PTR_CPU(psxRegs.GPR.r[_Rt_]), EAX);
     }
 }
 
@@ -1793,15 +1793,15 @@ static void rpsxJALR()
 		if (x86regs[wbreg].inuse && x86regs[wbreg].type == X86TYPE_PCWRITEBACK)
 		{
 //			xMOV(ptr32[&psxRegs.pc], xRegister32(wbreg));
-            armStore(PTR_PSX(pc), a64::WRegister(wbreg));
+            armStore(PTR_CPU(psxRegs.pc), a64::WRegister(wbreg));
 			x86regs[wbreg].inuse = 0;
 		}
 		else
 		{
 //			xMOV(eax, ptr32[&psxRegs.pcWriteback]);
-            armLoad(EAX, PTR_PSX(pcWriteback));
+            armLoad(EAX, PTR_CPU(psxRegs.pcWriteback));
 //			xMOV(ptr32[&psxRegs.pc], eax);
-            armStore(PTR_PSX(pc), EAX);
+            armStore(PTR_CPU(psxRegs.pc), EAX);
 		}
 	}
 	else
@@ -1810,7 +1810,7 @@ static void rpsxJALR()
 		{
 			const int x86reg = _allocX86reg(X86TYPE_PSX, _Rs_, MODE_READ);
 //			xMOV(ptr32[&psxRegs.pc], xRegister32(x86reg));
-            armStore(PTR_PSX(pc), a64::WRegister(x86reg));
+            armStore(PTR_CPU(psxRegs.pc), a64::WRegister(x86reg));
 		}
 		else
 		{
@@ -1835,7 +1835,7 @@ static void rpsxSetBranchEQ(int process, a64::Label* p_pbranchjmp)
         }
 		else {
 //            xCMP(ptr32[&psxRegs.GPR.r[_Rt_]], g_psxConstRegs[_Rs_]);
-            armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rt_])), g_psxConstRegs[_Rs_]);
+            armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])), g_psxConstRegs[_Rs_]);
         }
 	}
 	else if (process & PROCESS_CONSTT)
@@ -1847,7 +1847,7 @@ static void rpsxSetBranchEQ(int process, a64::Label* p_pbranchjmp)
         }
 		else {
 //            xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], g_psxConstRegs[_Rt_]);
-            armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), g_psxConstRegs[_Rt_]);
+            armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), g_psxConstRegs[_Rt_]);
         }
 	}
 	else
@@ -1862,7 +1862,7 @@ static void rpsxSetBranchEQ(int process, a64::Label* p_pbranchjmp)
         }
 		else {
 //            xCMP(xRegister32(regs), ptr32[&psxRegs.GPR.r[_Rt_]]);
-            armAsm->Cmp(a64::WRegister(regs), armLoad(PTR_PSX(GPR.r[_Rt_])));
+            armAsm->Cmp(a64::WRegister(regs), armLoad(PTR_CPU(psxRegs.GPR.r[_Rt_])));
         }
 	}
 
@@ -2027,7 +2027,7 @@ static void rpsxBLTZ()
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], 0);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), 0);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), 0);
     }
 
 //	u32* pjmp = JL32(0);
@@ -2081,7 +2081,7 @@ static void rpsxBGEZ()
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], 0);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), 0);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), 0);
     }
 
 //	u32* pjmp = JGE32(0);
@@ -2141,7 +2141,7 @@ static void rpsxBLTZAL()
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], 0);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), 0);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), 0);
     }
 
 //	u32* pjmp = JL32(0);
@@ -2200,7 +2200,7 @@ static void rpsxBGEZAL()
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], 0);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), 0);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), 0);
     }
 
 //	u32* pjmp = JGE32(0);
@@ -2255,7 +2255,7 @@ static void rpsxBLEZ()
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], 0);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), 0);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), 0);
     }
 
 //	u32* pjmp = JLE32(0);
@@ -2311,7 +2311,7 @@ static void rpsxBGTZ()
     }
 	else {
 //        xCMP(ptr32[&psxRegs.GPR.r[_Rs_]], 0);
-        armAsm->Cmp(armLoad(PTR_PSX(GPR.r[_Rs_])), 0);
+        armAsm->Cmp(armLoad(PTR_CPU(psxRegs.GPR.r[_Rs_])), 0);
     }
 
 //	u32* pjmp = JG32(0);
@@ -2347,7 +2347,7 @@ static void rpsxMFC0()
 
 	const int rt = _allocX86reg(X86TYPE_PSX, _Rt_, MODE_WRITE);
 //	xMOV(xRegister32(rt), ptr32[&psxRegs.CP0.r[_Rd_]]);
-    armLoad(a64::WRegister(rt), PTR_PSX(CP0.r[_Rd_]));
+    armLoad(a64::WRegister(rt), PTR_CPU(psxRegs.CP0.r[_Rd_]));
 }
 
 static void rpsxCFC0()
@@ -2358,7 +2358,7 @@ static void rpsxCFC0()
 
 	const int rt = _allocX86reg(X86TYPE_PSX, _Rt_, MODE_WRITE);
 //	xMOV(xRegister32(rt), ptr32[&psxRegs.CP0.r[_Rd_]]);
-    armLoad(a64::WRegister(rt), PTR_PSX(CP0.r[_Rd_]));
+    armLoad(a64::WRegister(rt), PTR_CPU(psxRegs.CP0.r[_Rd_]));
 }
 
 static void rpsxMTC0()
@@ -2367,13 +2367,13 @@ static void rpsxMTC0()
 	if (PSX_IS_CONST1(_Rt_))
 	{
 //		xMOV(ptr32[&psxRegs.CP0.r[_Rd_]], g_psxConstRegs[_Rt_]);
-        armStore(PTR_PSX(CP0.r[_Rd_]), g_psxConstRegs[_Rt_]);
+        armStore(PTR_CPU(psxRegs.CP0.r[_Rd_]), g_psxConstRegs[_Rt_]);
 	}
 	else
 	{
 		const int rt = _allocX86reg(X86TYPE_PSX, _Rt_, MODE_READ);
 //		xMOV(ptr32[&psxRegs.CP0.r[_Rd_]], xRegister32(rt));
-        armStore(PTR_PSX(CP0.r[_Rd_]), a64::WRegister(rt));
+        armStore(PTR_CPU(psxRegs.CP0.r[_Rd_]), a64::WRegister(rt));
 	}
 }
 
@@ -2386,7 +2386,7 @@ static void rpsxCTC0()
 static void rpsxRFE()
 {
 //	xMOV(eax, ptr32[&psxRegs.CP0.n.Status]);
-    armLoad(EAX, PTR_PSX(CP0.n.Status));
+    armLoad(EAX, PTR_CPU(psxRegs.CP0.n.Status));
 //	xMOV(ecx, eax);
     armAsm->Mov(ECX, EAX);
 //	xAND(eax, 0xfffffff0);
@@ -2398,7 +2398,7 @@ static void rpsxRFE()
 //	xOR(eax, ecx);
     armAsm->Orr(EAX, EAX, ECX);
 //	xMOV(ptr32[&psxRegs.CP0.n.Status], eax);
-    armStore(PTR_PSX(CP0.n.Status), EAX);
+    armStore(PTR_CPU(psxRegs.CP0.n.Status), EAX);
 
 	// Test the IOP's INTC status, so that any pending ints get raised.
 

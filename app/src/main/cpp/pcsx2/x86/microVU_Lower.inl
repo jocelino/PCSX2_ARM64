@@ -33,7 +33,7 @@ static __fi void testNeg(mV, const xmm& xmmReg, const x32& gprTemp)
     a64::Label skip;
     armAsm->B(&skip, a64::Condition::eq);
 //		xMOV(ptr32[&mVU.divFlag], divI);
-        armStorePtr(divI, &mVU.divFlag);
+        armStorePtr(divI, PTR_MVU(microVU[mVU.index].divFlag));
 //		xAND.PS(xmmReg, ptr128[mVUglob.absclip]);
         armAsm->And(xmmReg.V16B(), xmmReg.V16B(), armLoadPtrV(mVUglob.absclip).V16B());
 //	skip.SetTarget();
@@ -61,14 +61,14 @@ mVUop(mVU_DIV)
             a64::Label ajmp;
             armAsm->B(&ajmp, a64::Condition::eq);
 //				xMOV(ptr32[&mVU.divFlag], divI); // Set invalid flag (0/0)
-                armStorePtr(divI, &mVU.divFlag);
+                armStorePtr(divI, PTR_MVU(microVU[mVU.index].divFlag));
 //				xForwardJump8 bjmp;
                 a64::Label bjmp;
                 armAsm->B(&bjmp);
 //			ajmp.SetTarget();
             armBind(&ajmp);
 //				xMOV(ptr32[&mVU.divFlag], divD); // Zero divide (only when not 0/0)
-                armStorePtr(divD, &mVU.divFlag);
+                armStorePtr(divD, PTR_MVU(microVU[mVU.index].divFlag));
 //			bjmp.SetTarget();
             armBind(&bjmp);
 
@@ -85,7 +85,7 @@ mVUop(mVU_DIV)
 //		cjmp.SetTarget();
         armBind(&cjmp);
 //			xMOV(ptr32[&mVU.divFlag], 0); // Clear I/D flags
-            armStorePtr(0, &mVU.divFlag);
+            armStorePtr(0, PTR_MVU(microVU[mVU.index].divFlag));
 			SSE_DIVSS(mVU, Fs, Ft);
 			mVUclamp1(mVU, Fs, t1, 8, true);
 //		djmp.SetTarget();
@@ -98,7 +98,7 @@ mVUop(mVU_DIV)
 //			xAND(gprF0, ~0xc0000);
             armAsm->And(gprF0, gprF0, ~0xc0000);
 //			xOR(gprF0, ptr32[&mVU.divFlag]);
-            armAsm->Orr(gprF0, gprF0, armLoadPtr(&mVU.divFlag));
+            armAsm->Orr(gprF0, gprF0, armLoadPtr(PTR_MVU(microVU[mVU.index].divFlag)));
 		}
 
 		mVU.regAlloc->clearNeeded(Fs);
@@ -117,7 +117,7 @@ mVUop(mVU_SQRT)
 		const xmm& Ft = mVU.regAlloc->allocReg(_Ft_, 0, (1 << (3 - _Ftf_)));
 
 //		xMOV(ptr32[&mVU.divFlag], 0); // Clear I/D flags
-        armStorePtr(0, &mVU.divFlag);
+        armStorePtr(0, PTR_MVU(microVU[mVU.index].divFlag));
 		testNeg(mVU, Ft, gprT1); // Check for negative sqrt
 
 		if (CHECK_VU_OVERFLOW(mVU.index)) { // Clamp infinities (only need to do positive clamp since xmmFt is positive)
@@ -133,7 +133,7 @@ mVUop(mVU_SQRT)
 //			xAND(gprF0, ~0xc0000);
             armAsm->And(gprF0, gprF0, ~0xc0000);
 //			xOR(gprF0, ptr32[&mVU.divFlag]);
-            armAsm->Orr(gprF0, gprF0, armLoadPtr(&mVU.divFlag));
+            armAsm->Orr(gprF0, gprF0, armLoadPtr(PTR_MVU(microVU[mVU.index].divFlag)));
 		}
 
 		mVU.regAlloc->clearNeeded(Ft);
@@ -152,7 +152,7 @@ mVUop(mVU_RSQRT)
 		const xmm& t1 = mVU.regAlloc->allocReg();
 
 //		xMOV(ptr32[&mVU.divFlag], 0); // Clear I/D flags
-        armStorePtr(0, &mVU.divFlag);
+        armStorePtr(0, PTR_MVU(microVU[mVU.index].divFlag));
 		testNeg(mVU, Ft, gprT1); // Check for negative sqrt
 
 //		xSQRT.SS(Ft, Ft);
@@ -167,14 +167,14 @@ mVUop(mVU_RSQRT)
             a64::Label bjmp;
             armAsm->B(&bjmp, a64::Condition::eq);
 //				xMOV(ptr32[&mVU.divFlag], divI); // Set invalid flag (0/0)
-                armStorePtr(divI, &mVU.divFlag);
+                armStorePtr(divI, PTR_MVU(microVU[mVU.index].divFlag));
 //				xForwardJump8 cjmp;
                 a64::Label cjmp;
                 armAsm->B(&cjmp);
 //			bjmp.SetTarget();
             armBind(&bjmp);
 //				xMOV(ptr32[&mVU.divFlag], divD); // Zero divide flag (only when not 0/0)
-                armStorePtr(divD, &mVU.divFlag);
+                armStorePtr(divD, PTR_MVU(microVU[mVU.index].divFlag));
 //			cjmp.SetTarget();
             armBind(&cjmp);
 
@@ -200,7 +200,7 @@ mVUop(mVU_RSQRT)
 //			xAND(gprF0, ~0xc0000);
             armAsm->And(gprF0, gprF0, ~0xc0000);
 //			xOR(gprF0, ptr32[&mVU.divFlag]);
-            armAsm->Orr(gprF0, gprF0, armLoadPtr(&mVU.divFlag));
+            armAsm->Orr(gprF0, gprF0, armLoadPtr(PTR_MVU(microVU[mVU.index].divFlag)));
 		}
 
 		mVU.regAlloc->clearNeeded(Fs);
@@ -1912,12 +1912,12 @@ mVUop(mVU_RINIT)
 //			xOR (gprT1, 0x3f800000);
             armAsm->Orr(gprT1, gprT1, 0x3f800000);
 //			xMOV(ptr32[Rmem], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(Rmem));
+            armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_R].UL));
 			mVU.regAlloc->clearNeeded(Fs);
 		}
         else {
 //            xMOV(ptr32[Rmem], 0x3f800000);
-            armStorePtr(0x3f800000, Rmem);
+            armStorePtr(0x3f800000, PTR_CPU(vuRegs[mVU.index].VI[REG_R].UL));
         }
 		mVU.profiler.EmitOp(opRINIT);
 	}
@@ -1943,7 +1943,7 @@ mVUop(mVU_RGET)
 	pass2
 	{
 //		xMOV(gprT1, ptr32[Rmem]);
-        armAsm->Ldr(gprT1, armMemOperandPtr(Rmem));
+        armAsm->Ldr(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_R].UL));
 		mVU_RGET_(mVU, gprT1);
 		mVU.profiler.EmitOp(opRGET);
 	}
@@ -1958,7 +1958,7 @@ mVUop(mVU_RNEXT)
 		// algorithm from www.project-fao.org
 		const a64::Register& temp3 = mVU.regAlloc->allocGPR();
 //		xMOV(temp3, ptr32[Rmem]);
-        armAsm->Ldr(temp3, armMemOperandPtr(Rmem));
+        armAsm->Ldr(temp3, PTR_CPU(vuRegs[mVU.index].VI[REG_R].UL));
 //		xMOV(gprT1, temp3);
         armAsm->Mov(gprT1, temp3);
 //		xSHR(gprT1, 4);
@@ -1984,7 +1984,7 @@ mVUop(mVU_RNEXT)
 //		xOR (temp3, 0x3f800000);
         armAsm->Orr(temp3, temp3, 0x3f800000);
 //		xMOV(ptr32[Rmem], temp3);
-        armAsm->Str(temp3, armMemOperandPtr(Rmem));
+        armAsm->Str(temp3, PTR_CPU(vuRegs[mVU.index].VI[REG_R].UL));
 		mVU_RGET_(mVU, temp3);
 		mVU.regAlloc->clearNeeded(temp3);
 		mVU.profiler.EmitOp(opRNEXT);
@@ -2005,7 +2005,7 @@ mVUop(mVU_RXOR)
 //			xAND(gprT1, 0x7fffff);
             armAsm->And(gprT1, gprT1, 0x7fffff);
 //			xXOR(ptr32[Rmem], gprT1);
-            armEor(Rmem, gprT1);
+            armEor(PTR_CPU(vuRegs[mVU.index].VI[REG_R].UL), gprT1);
 			mVU.regAlloc->clearNeeded(Fs);
 		}
 		mVU.profiler.EmitOp(opRXOR);
@@ -2099,17 +2099,17 @@ void mVU_XGKICK_(u32 addr)
 {
 	addr = (addr & 0x3ff) * 16;
 	u32 diff = 0x4000 - addr;
-	u32 size = gifUnit.GetGSPacketSize(GIF_PATH_1, vuRegs[1].Mem, addr, ~0u, true);
+	u32 size = gifUnit.GetGSPacketSize(GIF_PATH_1, g_cpuRegistersPack.vuRegs[1].Mem, addr, ~0u, true);
 
 	if (size > diff)
 	{
 		//DevCon.WriteLn(Color_Green, "microVU1: XGkick Wrap!");
-		gifUnit.gifPath[GIF_PATH_1].CopyGSPacketData(&vuRegs[1].Mem[addr], diff, true);
-		gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &vuRegs[1].Mem[0], size - diff, true);
+		gifUnit.gifPath[GIF_PATH_1].CopyGSPacketData(&g_cpuRegistersPack.vuRegs[1].Mem[addr], diff, true);
+		gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[0], size - diff, true);
 	}
 	else
 	{
-		gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &vuRegs[1].Mem[addr], size, true);
+		gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[addr], size, true);
 	}
 }
 
@@ -2122,7 +2122,7 @@ void _vuXGKICKTransfermVU(bool flush)
 		if (VU1.xgkicksizeremaining == 0)
 		{
 			//VUM_LOG("XGKICK reading new tag from %x", VU1.xgkickaddr);
-			u32 size = gifUnit.GetGSPacketSize(GIF_PATH_1, vuRegs[1].Mem, VU1.xgkickaddr, ~0u, flush);
+			u32 size = gifUnit.GetGSPacketSize(GIF_PATH_1, g_cpuRegistersPack.vuRegs[1].Mem, VU1.xgkickaddr, ~0u, flush);
 			VU1.xgkicksizeremaining = size & 0xFFFF;
 			VU1.xgkickendpacket = size >> 31;
 			VU1.xgkickdiff = 0x4000 - VU1.xgkickaddr;
@@ -2157,11 +2157,11 @@ void _vuXGKICKTransfermVU(bool flush)
 			if (transfersize < VU1.xgkicksizeremaining)
 				gifUnit.gifPath[GIF_PATH_1].CopyGSPacketData(&VU1.Mem[VU1.xgkickaddr], transfersize, true);
 			else
-				gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &vuRegs[1].Mem[VU1.xgkickaddr], transfersize, true);
+				gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize, true);
 		}
 		else
 		{
-			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &vuRegs[1].Mem[VU1.xgkickaddr], transfersize, true);
+			gifUnit.TransferGSPacketData(GIF_TRANS_XGKICK, &g_cpuRegistersPack.vuRegs[1].Mem[VU1.xgkickaddr], transfersize, true);
 		}
 
 		if (flush)
@@ -2193,14 +2193,14 @@ static __fi void mVU_XGKICK_SYNC(mV, bool flush)
 	// on the second instruction after the kick and that needs to go through first
 	// but that's VERY close..
 //	xTEST(ptr32[&VU1.xgkickenable], 0x1);
-    armAsm->Tst(armLoadPtr(&VU1.xgkickenable), 0x1);
+    armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[1].xgkickenable)), 0x1);
 //	xForwardJZ32 skipxgkick;
     a64::Label skipxgkick;
     armAsm->B(&skipxgkick, a64::Condition::eq);
 //	xADD(ptr32[&VU1.xgkickcyclecount], mVUlow.kickcycles-1);
-    armAdd(&VU1.xgkickcyclecount, mVUlow.kickcycles-1);
+    armAdd(PTR_CPU(vuRegs[1].xgkickcyclecount), mVUlow.kickcycles-1);
 //	xCMP(ptr32[&VU1.xgkickcyclecount], 2);
-    armAsm->Cmp(armLoadPtr(&VU1.xgkickcyclecount), 2);
+    armAsm->Cmp(armLoadPtr(PTR_CPU(vuRegs[1].xgkickcyclecount)), 2);
 //	xForwardJL32 needcycles;
     a64::Label needcycles;
     armAsm->B(&needcycles, a64::Condition::lt);
@@ -2212,7 +2212,7 @@ static __fi void mVU_XGKICK_SYNC(mV, bool flush)
 //	needcycles.SetTarget();
     armBind(&needcycles);
 //	xADD(ptr32[&VU1.xgkickcyclecount], 1);
-    armAdd(&VU1.xgkickcyclecount, 1);
+    armAdd(PTR_CPU(vuRegs[1].xgkickcyclecount), 1);
 //	skipxgkick.SetTarget();
     armBind(&skipxgkick);
 }
@@ -2228,7 +2228,7 @@ static __fi void mVU_XGKICK_DELAY(mV)
 	xJcc32(Jcc_NotZero, (uptr)mVU.exitFunctXG - ((uptr)xGetPtr()+6));
 #endif
 //	xFastCall(mVU_XGKICK_, ptr32[&mVU.VIxgkick]);
-    armAsm->Ldr(EAX, armMemOperandPtr(&mVU.VIxgkick));
+    armAsm->Ldr(EAX, PTR_MVU(microVU[mVU.index].VIxgkick));
     armEmitCall(reinterpret_cast<void*>(mVU_XGKICK_));
 	mVUrestoreRegs(mVU, true, true);
 }
@@ -2262,26 +2262,26 @@ mVUop(mVU_XGKICK)
 		if (!CHECK_XGKICKHACK)
 		{
 //			xMOV(ptr32[&mVU.VIxgkick], regS);
-            armAsm->Str(regS, armMemOperandPtr(&mVU.VIxgkick));
+            armAsm->Str(regS, PTR_MVU(microVU[mVU.index].VIxgkick));
 		}
 		else
 		{
 //			xMOV(ptr32[&VU1.xgkickenable], 1);
-            armStorePtr(1, &VU1.xgkickenable);
+            armStorePtr(1, PTR_CPU(vuRegs[1].xgkickenable));
 //			xMOV(ptr32[&VU1.xgkickendpacket], 0);
-            armStorePtr(0, &VU1.xgkickendpacket);
+            armStorePtr(0, PTR_CPU(vuRegs[1].xgkickendpacket));
 //			xMOV(ptr32[&VU1.xgkicksizeremaining], 0);
-            armStorePtr(0, &VU1.xgkicksizeremaining);
+            armStorePtr(0, PTR_CPU(vuRegs[1].xgkicksizeremaining));
 //			xMOV(ptr32[&VU1.xgkickcyclecount], 0);
-            armStorePtr(0, &VU1.xgkickcyclecount);
+            armStorePtr(0, PTR_CPU(vuRegs[1].xgkickcyclecount));
 //			xMOV(gprT2, ptr32[&mVU.totalCycles]);
-            armAsm->Ldr(gprT2, armMemOperandPtr(&mVU.totalCycles));
+            armAsm->Ldr(gprT2, PTR_MVU(microVU[mVU.index].totalCycles));
 //			xSUB(gprT2, ptr32[&mVU.cycles]);
-            armAsm->Sub(gprT2, gprT2, armLoadPtr(&mVU.cycles));
+            armAsm->Sub(gprT2, gprT2, armLoadPtr(PTR_MVU(microVU[mVU.index].cycles)));
 //			xADD(gprT2, ptr32[&VU1.cycle]);
-            armAsm->Add(gprT2, gprT2, armLoadPtr(&VU1.cycle));
+            armAsm->Add(gprT2, gprT2, armLoadPtr(PTR_CPU(vuRegs[1].cycle)));
 //			xMOV(ptr32[&VU1.xgkicklastcycle], gprT2);
-            armAsm->Str(gprT2, armMemOperandPtr(&VU1.xgkicklastcycle));
+            armAsm->Str(gprT2, PTR_CPU(vuRegs[1].xgkicklastcycle));
 //			xMOV(gprT1, regS);
             armAsm->Mov(gprT1, regS);
 //			xAND(gprT1, 0x3FF);
@@ -2289,7 +2289,7 @@ mVUop(mVU_XGKICK)
 //			xSHL(gprT1, 4);
             armAsm->Lsl(gprT1, gprT1, 4);
 //			xMOV(ptr32[&VU1.xgkickaddr], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&VU1.xgkickaddr));
+            armAsm->Str(gprT1, PTR_CPU(vuRegs[1].xgkickaddr));
 		}
 		mVU.regAlloc->clearNeeded(regS);
 		mVU.profiler.EmitOp(opXGKICK);
@@ -2331,9 +2331,9 @@ void condEvilBranch(mV, a64::Condition JMPcc)
 	if (mVUlow.badBranch)
 	{
 //		xMOV(ptr32[&mVU.branch], gprT1);
-        armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+        armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
 //		xMOV(ptr32[&mVU.badBranch], branchAddr(mVU));
-        armStorePtr(branchAddr(mVU), &mVU.badBranch);
+        armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].badBranch));
 
 //		xCMP(gprT1b, 0);
         armAsm->Cmp(gprT1b, 0);
@@ -2342,7 +2342,7 @@ void condEvilBranch(mV, a64::Condition JMPcc)
         armAsm->B(&cJMP, JMPcc);
 			incPC(4); // Branch Not Taken Addr
 //			xMOV(ptr32[&mVU.badBranch], xPC);
-            armStorePtr(xPC, &mVU.badBranch);
+            armStorePtr(xPC, PTR_MVU(microVU[mVU.index].badBranch));
 			incPC(-4);
 //		cJMP.SetTarget();
         armBind(&cJMP);
@@ -2351,36 +2351,36 @@ void condEvilBranch(mV, a64::Condition JMPcc)
 	if (isEvilBlock)
 	{
 //		xMOV(ptr32[&mVU.evilevilBranch], branchAddr(mVU));
-        armStorePtr(branchAddr(mVU), &mVU.evilevilBranch);
+        armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].evilevilBranch));
 //		xCMP(gprT1b, 0);
         armAsm->Cmp(gprT1b, 0);
 //		xForwardJump8 cJMP((JccComparisonType)JMPcc);
         a64::Label cJMP;
         armAsm->B(&cJMP, JMPcc);
 //		xMOV(gprT1, ptr32[&mVU.evilBranch]); // Branch Not Taken
-        armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.evilBranch));
+        armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].evilBranch));
 //		xADD(gprT1, 8); // We have already executed 1 instruction from the original branch
         armAsm->Add(gprT1, gprT1, 8);
 //		xMOV(ptr32[&mVU.evilevilBranch], gprT1);
-        armAsm->Str(gprT1, armMemOperandPtr(&mVU.evilevilBranch));
+        armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].evilevilBranch));
 //		cJMP.SetTarget();
         armBind(&cJMP);
 	}
 	else
 	{
 //		xMOV(ptr32[&mVU.evilBranch], branchAddr(mVU));
-        armStorePtr(branchAddr(mVU), &mVU.evilBranch);
+        armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].evilBranch));
 //		xCMP(gprT1b, 0);
         armAsm->Cmp(gprT1b, 0);
 //		xForwardJump8 cJMP((JccComparisonType)JMPcc);
         a64::Label cJMP;
         armAsm->B(&cJMP, JMPcc);
 //		xMOV(gprT1, ptr32[&mVU.badBranch]); // Branch Not Taken
-        armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.badBranch));
+        armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].badBranch));
 //		xADD(gprT1, 8); // We have already executed 1 instruction from the original branch
         armAsm->Add(gprT1, gprT1, 8);
 //		xMOV(ptr32[&mVU.evilBranch], gprT1);
-        armAsm->Str(gprT1, armMemOperandPtr(&mVU.evilBranch));
+        armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].evilBranch));
 //		cJMP.SetTarget();
         armBind(&cJMP);
 		incPC(-2);
@@ -2398,16 +2398,16 @@ mVUop(mVU_B)
 	{
         if (mVUlow.badBranch)  {
 //            xMOV(ptr32[&mVU.badBranch],  branchAddr(mVU));
-            armStorePtr(branchAddr(mVU), &mVU.badBranch);
+            armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].badBranch));
         }
         if (mVUlow.evilBranch) {
             if(isEvilBlock) {
 //                xMOV(ptr32[&mVU.evilevilBranch], branchAddr(mVU));
-                armStorePtr(branchAddr(mVU), &mVU.evilevilBranch);
+                armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].evilevilBranch));
             }
             else {
 //                xMOV(ptr32[&mVU.evilBranch], branchAddr(mVU));
-                armStorePtr(branchAddr(mVU), &mVU.evilBranch);
+                armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].evilBranch));
             }
         }
 		mVU.profiler.EmitOp(opB);
@@ -2437,11 +2437,11 @@ mVUop(mVU_BAL)
 			const a64::Register& regT = mVU.regAlloc->allocGPR(-1, _It_, mVUlow.backupVI);
             if (isEvilBlock) {
 //                xMOV(regT, ptr32[&mVU.evilBranch]);
-                armAsm->Ldr(regT, armMemOperandPtr(&mVU.evilBranch));
+                armAsm->Ldr(regT, PTR_MVU(microVU[mVU.index].evilBranch));
             }
             else {
 //                xMOV(regT, ptr32[&mVU.badBranch]);
-                armAsm->Ldr(regT, armMemOperandPtr(&mVU.badBranch));
+                armAsm->Ldr(regT, PTR_MVU(microVU[mVU.index].badBranch));
             }
 
 //			xADD(regT, 8);
@@ -2453,16 +2453,16 @@ mVUop(mVU_BAL)
 
         if (mVUlow.badBranch)  {
 //            xMOV(ptr32[&mVU.badBranch],  branchAddr(mVU));
-            armStorePtr(branchAddr(mVU), &mVU.badBranch);
+            armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].badBranch));
         }
         if (mVUlow.evilBranch) {
             if (isEvilBlock) {
 //                xMOV(ptr32[&mVU.evilevilBranch], branchAddr(mVU));
-                armStorePtr(branchAddr(mVU), &mVU.evilevilBranch);
+                armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].evilevilBranch));
             }
             else {
 //                xMOV(ptr32[&mVU.evilBranch], branchAddr(mVU));
-                armStorePtr(branchAddr(mVU), &mVU.evilBranch);
+                armStorePtr(branchAddr(mVU), PTR_MVU(microVU[mVU.index].evilBranch));
             }
         }
 		mVU.profiler.EmitOp(opBAL);
@@ -2478,7 +2478,7 @@ mVUop(mVU_IBEQ)
 	{
         if (mVUlow.memReadIs) {
 //            xMOV(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.VIbackup));
+            armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].VIbackup));
         }
         else {
             mVU.regAlloc->moveVIToGPR(gprT1, _Is_);
@@ -2486,7 +2486,7 @@ mVUop(mVU_IBEQ)
 
         if (mVUlow.memReadIt) {
 //            xXOR(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Eor(gprT1, gprT1, armLoadPtr(&mVU.VIbackup));
+            armAsm->Eor(gprT1, gprT1, armLoadPtr(PTR_MVU(microVU[mVU.index].VIbackup)));
         }
         else
         {
@@ -2498,7 +2498,7 @@ mVUop(mVU_IBEQ)
 
         if (!(isBadOrEvil)) {
 //            xMOV(ptr32[&mVU.branch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
         }
         else {
 //            condEvilBranch(mVU, Jcc_Equal);
@@ -2517,14 +2517,14 @@ mVUop(mVU_IBGEZ)
 	{
         if (mVUlow.memReadIs) {
 //            xMOV(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.VIbackup));
+            armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].VIbackup));
         }
         else {
             mVU.regAlloc->moveVIToGPR(gprT1, _Is_);
         }
         if (!(isBadOrEvil)) {
 //            xMOV(ptr32[&mVU.branch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
         }
         else {
 //            condEvilBranch(mVU, Jcc_GreaterOrEqual);
@@ -2543,14 +2543,14 @@ mVUop(mVU_IBGTZ)
 	{
         if (mVUlow.memReadIs) {
 //            xMOV(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.VIbackup));
+            armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].VIbackup));
         }
         else {
             mVU.regAlloc->moveVIToGPR(gprT1, _Is_);
         }
         if (!(isBadOrEvil)) {
 //            xMOV(ptr32[&mVU.branch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
         }
         else {
 //            condEvilBranch(mVU, Jcc_Greater);
@@ -2569,14 +2569,14 @@ mVUop(mVU_IBLEZ)
 	{
         if (mVUlow.memReadIs) {
 //            xMOV(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.VIbackup));
+            armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].VIbackup));
         }
         else {
             mVU.regAlloc->moveVIToGPR(gprT1, _Is_);
         }
         if (!(isBadOrEvil)) {
 //            xMOV(ptr32[&mVU.branch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
         }
         else {
 //            condEvilBranch(mVU, Jcc_LessOrEqual);
@@ -2595,14 +2595,14 @@ mVUop(mVU_IBLTZ)
 	{
         if (mVUlow.memReadIs) {
 //            xMOV(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.VIbackup));
+            armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].VIbackup));
         }
         else {
             mVU.regAlloc->moveVIToGPR(gprT1, _Is_);
         }
         if (!(isBadOrEvil)) {
 //            xMOV(ptr32[&mVU.branch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
         }
         else {
 //            condEvilBranch(mVU, Jcc_Less);
@@ -2621,7 +2621,7 @@ mVUop(mVU_IBNE)
 	{
         if (mVUlow.memReadIs) {
 //            xMOV(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Ldr(gprT1, armMemOperandPtr(&mVU.VIbackup));
+            armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].VIbackup));
         }
         else {
             mVU.regAlloc->moveVIToGPR(gprT1, _Is_);
@@ -2629,7 +2629,7 @@ mVUop(mVU_IBNE)
 
         if (mVUlow.memReadIt) {
 //            xXOR(gprT1, ptr32[&mVU.VIbackup]);
-            armAsm->Eor(gprT1, gprT1, armLoadPtr(&mVU.VIbackup));
+            armAsm->Eor(gprT1, gprT1, armLoadPtr(PTR_MVU(microVU[mVU.index].VIbackup)));
         }
         else
         {
@@ -2641,7 +2641,7 @@ mVUop(mVU_IBNE)
 
         if (!(isBadOrEvil)) {
 //            xMOV(ptr32[&mVU.branch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
         }
         else {
 //            condEvilBranch(mVU, Jcc_NotEqual);
@@ -2665,24 +2665,24 @@ void normJumpPass2(mV)
 		if (!mVUlow.evilBranch)
 		{
 //			xMOV(ptr32[&mVU.branch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.branch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].branch));
 		}
 		else
 		{
             if(isEvilBlock) {
 //                xMOV(ptr32[&mVU.evilevilBranch], gprT1);
-                armAsm->Str(gprT1, armMemOperandPtr(&mVU.evilevilBranch));
+                armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].evilevilBranch));
             }
             else {
 //                xMOV(ptr32[&mVU.evilBranch], gprT1);
-                armAsm->Str(gprT1, armMemOperandPtr(&mVU.evilBranch));
+                armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].evilBranch));
             }
 		}
 		//If delay slot is conditional, it uses badBranch to go to its target
 		if (mVUlow.badBranch)
 		{
 //			xMOV(ptr32[&mVU.badBranch], gprT1);
-            armAsm->Str(gprT1, armMemOperandPtr(&mVU.badBranch));
+            armAsm->Str(gprT1, PTR_MVU(microVU[mVU.index].badBranch));
 		}
 	}
 }
@@ -2719,7 +2719,7 @@ mVUop(mVU_JALR)
 			if (isEvilBlock)
 			{
 //				xMOV(regT, ptr32[&mVU.evilBranch]);
-                armAsm->Ldr(regT, armMemOperandPtr(&mVU.evilBranch));
+                armAsm->Ldr(regT, PTR_MVU(microVU[mVU.index].evilBranch));
 //				xADD(regT, 8);
                 armAsm->Add(regT, regT, 8);
 //				xSHR(regT, 3);
@@ -2732,7 +2732,7 @@ mVUop(mVU_JALR)
 				incPC(2);
 
 //				xMOV(regT, ptr32[&mVU.badBranch]);
-                armAsm->Ldr(regT, armMemOperandPtr(&mVU.badBranch));
+                armAsm->Ldr(regT, PTR_MVU(microVU[mVU.index].badBranch));
 //				xADD(regT, 8);
                 armAsm->Add(regT, regT, 8);
 //				xSHR(regT, 3);

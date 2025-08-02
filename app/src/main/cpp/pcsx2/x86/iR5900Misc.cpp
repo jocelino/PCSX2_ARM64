@@ -89,7 +89,7 @@ void recMFSA()
 		// have to zero out bits 63:32
 		const int temp = _allocTempXMMreg(XMMT_INT);
 //		xMOVSSZX(xRegisterSSE(temp), ptr32[&cpuRegs.sa]);
-        armLoad(a64::QRegister(temp).S(), PTR_CPU(sa));
+        armLoad(a64::QRegister(temp).S(), PTR_CPU(cpuRegs.sa));
 //		xBLEND.PD(xRegisterSSE(mmreg), xRegisterSSE(temp), 1);
         armAsm->Mov(a64::QRegister(mmreg).V2D(), 0, a64::QRegister(temp).V2D(), 0);
 		_freeXMMreg(temp);
@@ -97,15 +97,15 @@ void recMFSA()
 	else if (const int gprreg = _allocIfUsedGPRtoX86(_Rd_, MODE_WRITE); gprreg >= 0)
 	{
 //		xMOV(xRegister32(gprreg), ptr32[&cpuRegs.sa]);
-        armLoad(a64::WRegister(gprreg), PTR_CPU(sa));
+        armLoad(a64::WRegister(gprreg), PTR_CPU(cpuRegs.sa));
 	}
 	else
 	{
 		_deleteEEreg(_Rd_, 0);
 //		xMOV(eax, ptr32[&cpuRegs.sa]);
-        armLoad(EAX, PTR_CPU(sa));
+        armLoad(EAX, PTR_CPU(cpuRegs.sa));
 //		xMOV(ptr64[&cpuRegs.GPR.r[_Rd_].UD[0]], rax);
-        armStore(PTR_CPU(GPR.r[_Rd_].UD[0]), RAX);
+        armStore(PTR_CPU(cpuRegs.GPR.r[_Rd_].UD[0]), RAX);
 	}
 }
 
@@ -115,7 +115,7 @@ void recMTSA()
 	if (GPR_IS_CONST1(_Rs_))
 	{
 //		xMOV(ptr32[&cpuRegs.sa], g_cpuConstRegs[_Rs_].UL[0] & 0xf);
-        armStore(PTR_CPU(sa), g_cpuConstRegs[_Rs_].UL[0] & 0xf);
+        armStore(PTR_CPU(cpuRegs.sa), g_cpuConstRegs[_Rs_].UL[0] & 0xf);
 	}
 	else
 	{
@@ -124,22 +124,22 @@ void recMTSA()
 		if ((mmreg = _checkXMMreg(XMMTYPE_GPRREG, _Rs_, MODE_READ)) >= 0)
 		{
 //			xMOVSS(ptr[&cpuRegs.sa], xRegisterSSE(mmreg));
-            armStore(PTR_CPU(sa), a64::QRegister(mmreg).S());
+            armStore(PTR_CPU(cpuRegs.sa), a64::QRegister(mmreg).S());
 		}
 		else if ((mmreg = _checkX86reg(X86TYPE_GPR, _Rs_, MODE_READ)) >= 0)
 		{
 //			xMOV(ptr[&cpuRegs.sa], xRegister32(mmreg));
-            armStore(PTR_CPU(sa), a64::WRegister(mmreg));
+            armStore(PTR_CPU(cpuRegs.sa), a64::WRegister(mmreg));
 		}
 		else
 		{
 //			xMOV(eax, ptr[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-            armLoad(EAX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+            armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
 //			xMOV(ptr[&cpuRegs.sa], eax);
-            armStore(PTR_CPU(sa), EAX);
+            armStore(PTR_CPU(cpuRegs.sa), EAX);
 		}
 //		xAND(ptr32[&cpuRegs.sa], 0xf);
-        armAnd(PTR_CPU(sa), 0xf);
+        armAnd(PTR_CPU(cpuRegs.sa), 0xf);
 	}
 }
 
@@ -148,7 +148,7 @@ void recMTSAB()
 	if (GPR_IS_CONST1(_Rs_))
 	{
 //		xMOV(ptr32[&cpuRegs.sa], ((g_cpuConstRegs[_Rs_].UL[0] & 0xF) ^ (_Imm_ & 0xF)));
-        armStore(PTR_CPU(sa), ((g_cpuConstRegs[_Rs_].UL[0] & 0xF) ^ (_Imm_ & 0xF)));
+        armStore(PTR_CPU(cpuRegs.sa), ((g_cpuConstRegs[_Rs_].UL[0] & 0xF) ^ (_Imm_ & 0xF)));
 	}
 	else
 	{
@@ -158,7 +158,7 @@ void recMTSAB()
 //		xXOR(eax, _Imm_ & 0xf);
         armAsm->Eor(EAX, EAX, _Imm_ & 0xf);
 //		xMOV(ptr[&cpuRegs.sa], eax);
-        armStore(PTR_CPU(sa), EAX);
+        armStore(PTR_CPU(cpuRegs.sa), EAX);
 	}
 }
 
@@ -167,7 +167,7 @@ void recMTSAH()
 	if (GPR_IS_CONST1(_Rs_))
 	{
 //		xMOV(ptr32[&cpuRegs.sa], ((g_cpuConstRegs[_Rs_].UL[0] & 0x7) ^ (_Imm_ & 0x7)) << 1);
-        armStore(PTR_CPU(sa), ((g_cpuConstRegs[_Rs_].UL[0] & 0x7) ^ (_Imm_ & 0x7)) << 1);
+        armStore(PTR_CPU(cpuRegs.sa), ((g_cpuConstRegs[_Rs_].UL[0] & 0x7) ^ (_Imm_ & 0x7)) << 1);
 	}
 	else
 	{
@@ -179,7 +179,7 @@ void recMTSAH()
 //		xSHL(eax, 1);
         armAsm->Lsl(EAX, EAX, 1);
 //		xMOV(ptr[&cpuRegs.sa], eax);
-        armStore(PTR_CPU(sa), EAX);
+        armStore(PTR_CPU(cpuRegs.sa), EAX);
 	}
 }
 

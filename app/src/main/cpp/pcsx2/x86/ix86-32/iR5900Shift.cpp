@@ -48,7 +48,7 @@ static void recMoveTtoD(int info)
     }
 	else {
 //        xMOV(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armLoad(reg32, PTR_CPU(GPR.r[_Rt_].UL[0]));
+        armLoad(reg32, PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0]));
     }
 }
 
@@ -61,7 +61,7 @@ static void recMoveTtoD64(int info)
     }
 	else {
 //        xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armLoad(reg64, PTR_CPU(GPR.r[_Rt_].UD[0]));
+        armLoad(reg64, PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0]));
     }
 }
 
@@ -74,7 +74,7 @@ static void recMoveSToRCX(int info)
     }
 	else {
 //        xMOV(rcx, ptr64[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(RCX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(RCX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
     }
 //    armAsm->Uxth(RCX, RCX);
 }

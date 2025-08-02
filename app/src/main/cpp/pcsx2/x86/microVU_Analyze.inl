@@ -371,7 +371,8 @@ __ri void flagSet(mV, bool setMacFlag)
 
 	//Check which ops need to do the flag settings, also check for runs of ops as they can do multiple calculations to get the sticky status flags (VP2)
 	//Make sure we get the last 4 calculations (Bloody Roar 3, possibly others)
-	for (int i = mVUcount, j = 0; i > 0; i--, j++)
+    int i, j;
+	for (i = mVUcount, j = 0; i > 0; --i, ++j)
 	{
 		j += mVUstall;
 		incPC(-2);
@@ -505,7 +506,7 @@ static void analyzeBranchVI(mV, int xReg, bool& infoVar)
 	int iEnd = 4;
 	int bPC  = iPC;
 	incPC2(-2);
-	for (i = 0; i < iEnd && cyc < iEnd; i++)
+	for (i = 0; i < iEnd && cyc < iEnd; ++i)
 	{
 		if (i && mVUstall)
 		{

@@ -47,7 +47,7 @@ static void recMoveStoD(int info)
     }
 	else {
 //        xMOV(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(a64::WRegister(EEREC_D), PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(a64::WRegister(EEREC_D), PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
     }
 }
 
@@ -59,7 +59,7 @@ static void recMoveStoD64(int info)
     }
 	else {
 //        xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armLoad(a64::XRegister(EEREC_D), PTR_CPU(GPR.r[_Rs_].UD[0]));
+        armLoad(a64::XRegister(EEREC_D), PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0]));
     }
 }
 
@@ -71,7 +71,7 @@ static void recMoveTtoD(int info)
     }
 	else {
 //        xMOV(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armLoad(a64::WRegister(EEREC_D), PTR_CPU(GPR.r[_Rt_].UL[0]));
+        armLoad(a64::WRegister(EEREC_D), PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0]));
     }
 }
 
@@ -83,7 +83,7 @@ static void recMoveTtoD64(int info)
     }
 	else {
 //        xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armLoad(a64::XRegister(EEREC_D), PTR_CPU(GPR.r[_Rt_].UD[0]));
+        armLoad(a64::XRegister(EEREC_D), PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0]));
     }
 }
 
@@ -155,21 +155,21 @@ static void recADD_(int info)
 //		xMOV(xRegister32(EEREC_D), xRegister32(EEREC_S));
         armAsm->Mov(reg32, a64::WRegister(EEREC_S));
 //		xADD(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(GPR.r[_Rt_].UD[0])));
+        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])));
 	}
 	else if (info & PROCESS_EE_T)
 	{
 //		xMOV(xRegister32(EEREC_D), xRegister32(EEREC_T));
         armAsm->Mov(reg32, a64::WRegister(EEREC_T));
 //		xADD(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(GPR.r[_Rs_].UD[0])));
+        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])));
 	}
 	else
 	{
 //		xMOV(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armLoad(reg32, PTR_CPU(GPR.r[_Rs_].UD[0]));
+        armLoad(reg32, PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0]));
 //		xADD(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(GPR.r[_Rt_].UD[0])));
+        armAsm->Add(reg32, reg32, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])));
 	}
 
 //	xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
@@ -248,21 +248,21 @@ static void recDADD_(int info)
 //		xMOV(xRegister64(EEREC_D), xRegister64(EEREC_S));
         armAsm->Mov(reg64, a64::XRegister(EEREC_S));
 //		xADD(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armAsm->Add(reg64, reg64, armLoad64(PTR_CPU(GPR.r[_Rt_].UD[0])));
+        armAsm->Add(reg64, reg64, armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])));
 	}
 	else if (info & PROCESS_EE_T)
 	{
 //		xMOV(xRegister64(EEREC_D), xRegister64(EEREC_T));
         armAsm->Mov(reg64, a64::XRegister(EEREC_T));
 //		xADD(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armAsm->Add(reg64, reg64, armLoad64(PTR_CPU(GPR.r[_Rs_].UD[0])));
+        armAsm->Add(reg64, reg64, armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0])));
 	}
 	else
 	{
 //		xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armLoad(reg64, PTR_CPU(GPR.r[_Rs_].UD[0]));
+        armLoad(reg64, PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0]));
 //		xADD(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armAsm->Add(reg64, reg64, armLoad64(PTR_CPU(GPR.r[_Rt_].UD[0])));
+        armAsm->Add(reg64, reg64, armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])));
 	}
 }
 
@@ -295,7 +295,7 @@ static void recSUB_consts(int info)
     }
 	else {
 //        xSUB(eax, ptr32[&cpuRegs.GPR.r[_Rt_].SL[0]]);
-        armAsm->Sub(EAX, EAX, armLoad(PTR_CPU(GPR.r[_Rt_].SL[0])));
+        armAsm->Sub(EAX, EAX, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].SL[0])));
     }
 
 //	xMOVSX(xRegister64(EEREC_D), eax);
@@ -365,7 +365,7 @@ static void recSUB_(int info)
 //		xMOV(xRegister32(EEREC_D), xRegister32(EEREC_S));
         armAsm->Mov(reg32, a64::WRegister(EEREC_S));
 //		xSUB(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Sub(reg32, reg32, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Sub(reg32, reg32, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 //		xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
         armAsm->Sxtw(a64::XRegister(EEREC_D), reg32);
 	}
@@ -373,7 +373,7 @@ static void recSUB_(int info)
 	{
 		// D might equal T
 //		xMOV(eax, ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(EAX, PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
 //		xSUB(eax, xRegister32(EEREC_T));
         armAsm->Sub(EAX, EAX, a64::WRegister(EEREC_T));
 //		xMOVSX(xRegister64(EEREC_D), eax);
@@ -382,9 +382,9 @@ static void recSUB_(int info)
 	else
 	{
 //		xMOV(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rs_].UL[0]]);
-        armLoad(reg32, PTR_CPU(GPR.r[_Rs_].UL[0]));
+        armLoad(reg32, PTR_CPU(cpuRegs.GPR.r[_Rs_].UL[0]));
 //		xSUB(xRegister32(EEREC_D), ptr32[&cpuRegs.GPR.r[_Rt_].UL[0]]);
-        armAsm->Sub(reg32, reg32, armLoad(PTR_CPU(GPR.r[_Rt_].UL[0])));
+        armAsm->Sub(reg32, reg32, armLoad(PTR_CPU(cpuRegs.GPR.r[_Rt_].UL[0])));
 //		xMOVSX(xRegister64(EEREC_D), xRegister32(EEREC_D));
         armAsm->Sxtw(a64::XRegister(EEREC_D), reg32);
 	}
@@ -420,7 +420,7 @@ static void recDSUB_consts(int info)
     }
 	else {
 //        xSUB(regd, ptr64[&cpuRegs.GPR.r[_Rt_].SD[0]]);
-        armAsm->Sub(regd, regd, armLoad64(PTR_CPU(GPR.r[_Rt_].SD[0])));
+        armAsm->Sub(regd, regd, armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_].SD[0])));
     }
 
 	// emitter will eliminate redundant moves.
@@ -469,14 +469,14 @@ static void recDSUB_(int info)
 //		xMOV(xRegister64(EEREC_D), xRegister64(EEREC_S));
         armAsm->Mov(a64::XRegister(EEREC_D), a64::XRegister(EEREC_S));
 //		xSUB(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armAsm->Sub(a64::XRegister(EEREC_D), a64::XRegister(EEREC_D), armLoad64(PTR_CPU(GPR.r[_Rt_].UD[0])));
+        armAsm->Sub(a64::XRegister(EEREC_D), a64::XRegister(EEREC_D), armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])));
 	}
 	else if (info & PROCESS_EE_T)
 	{
 		// D might equal T
 		const a64::XRegister regd(EEREC_D == EEREC_T ? RAX.GetCode() : EEREC_D);
 //		xMOV(regd, ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armLoad(regd, PTR_CPU(GPR.r[_Rs_].UD[0]));
+        armLoad(regd, PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0]));
 //		xSUB(regd, xRegister64(EEREC_T));
         armAsm->Sub(regd, regd, a64::XRegister(EEREC_T));
 //		xMOV(xRegister64(EEREC_D), regd);
@@ -485,9 +485,9 @@ static void recDSUB_(int info)
 	else
 	{
 //		xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
-        armLoad(a64::XRegister(EEREC_D), PTR_CPU(GPR.r[_Rs_].UD[0]));
+        armLoad(a64::XRegister(EEREC_D), PTR_CPU(cpuRegs.GPR.r[_Rs_].UD[0]));
 //		xSUB(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armAsm->Sub(a64::XRegister(EEREC_D), a64::XRegister(EEREC_D), armLoad64(PTR_CPU(GPR.r[_Rt_].UD[0])));
+        armAsm->Sub(a64::XRegister(EEREC_D), a64::XRegister(EEREC_D), armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])));
 	}
 }
 
@@ -568,7 +568,7 @@ static void recLogicalOp_constv(LogicalOp op, int info, int creg, u32 vreg, int 
         }
 		else {
 //            xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[vreg].UD[0]]);
-            armLoad(reg64, PTR_CPU(GPR.r[vreg].UD[0]));
+            armLoad(reg64, PTR_CPU(cpuRegs.GPR.r[vreg].UD[0]));
         }
 		if (cval.SD[0] != identityInput) {
 //            xImm64Op(xOP, xRegister64(EEREC_D), rax, cval.UD[0]);
@@ -634,7 +634,7 @@ static void recLogicalOp(LogicalOp op, int info)
         }
 		else {
 //            xMOV(xRegister64(EEREC_D), ptr64[&cpuRegs.GPR.r[rs].UD[0]]);
-            armLoad(reg64, PTR_CPU(GPR.r[rs].UD[0]));
+            armLoad(reg64, PTR_CPU(cpuRegs.GPR.r[rs].UD[0]));
         }
 
 		if (regt >= 0) {
@@ -659,13 +659,13 @@ static void recLogicalOp(LogicalOp op, int info)
             switch (xOP)
             {
                 case LogicalOp::AND:
-                    armAsm->And(reg64, reg64, armLoad64(PTR_CPU(GPR.r[rt].UD[0])));
+                    armAsm->And(reg64, reg64, armLoad64(PTR_CPU(cpuRegs.GPR.r[rt].UD[0])));
                     break;
                 case LogicalOp::NOR: case LogicalOp::OR:
-                    armAsm->Orr(reg64, reg64, armLoad64(PTR_CPU(GPR.r[rt].UD[0])));
+                    armAsm->Orr(reg64, reg64, armLoad64(PTR_CPU(cpuRegs.GPR.r[rt].UD[0])));
                     break;
                 case LogicalOp::XOR:
-                    armAsm->Eor(reg64, reg64, armLoad64(PTR_CPU(GPR.r[rt].UD[0])));
+                    armAsm->Eor(reg64, reg64, armLoad64(PTR_CPU(cpuRegs.GPR.r[rt].UD[0])));
                     break;
                 case LogicalOp::BAD:
                     break;
@@ -799,7 +799,7 @@ static void recSLTs_const(int info, int sign, int st)
     }
 	else {
 //        xImm64Op(xCMP, ptr64[&cpuRegs.GPR.r[st ? _Rs_ : _Rt_].UD[0]], rcx, cval);
-        armAsm->Cmp(armLoad64(PTR_CPU(GPR.r[st ? _Rs_ : _Rt_].UD[0])), cval);
+        armAsm->Cmp(armLoad64(PTR_CPU(cpuRegs.GPR.r[st ? _Rs_ : _Rt_].UD[0])), cval);
     }
 //	SET(xRegister8(dreg));
     armAsm->Cset(dreg, SET);
@@ -832,7 +832,7 @@ static void recSLTs_(int info, int sign)
     }
 	else {
 //        xCMP(xRegister64(regs), ptr64[&cpuRegs.GPR.r[_Rt_].UD[0]]);
-        armAsm->Cmp(a64::XRegister(regs), armLoad64(PTR_CPU(GPR.r[_Rt_].UD[0])));
+        armAsm->Cmp(a64::XRegister(regs), armLoad64(PTR_CPU(cpuRegs.GPR.r[_Rt_].UD[0])));
     }
 
 //	SET(xRegister8(dreg));

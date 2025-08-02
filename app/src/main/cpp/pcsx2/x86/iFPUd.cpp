@@ -188,11 +188,11 @@ void ToPS2FPU_Full(int reg, bool flags, int absreg, bool acc, bool addsub)
 
 	if (flags) {
 //        xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagO | FPUflagU));
-        armAnd(PTR_FPU(fprc[31]), ~(FPUflagO | FPUflagU));
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagO | FPUflagU));
     }
 	if (flags && acc) {
 //        xAND(ptr32[&fpuRegs.ACCflag], ~1);
-        armAnd(PTR_FPU(ACCflag), ~1);
+        armAnd(PTR_CPU(fpuRegs.ACCflag), ~1);
     }
 
 //	xMOVAPS(xRegisterSSE(absreg), xRegisterSSE(reg));
@@ -246,11 +246,11 @@ void ToPS2FPU_Full(int reg, bool flags, int absreg, bool acc, bool addsub)
     armAsm->Orr(regQ.V16B(), regQ.V16B(), armLoadPtrV(&s_const.pos).V16B());
 	if (flags && FPU_FLAGS_OVERFLOW) {
 //        xOR(ptr32[&fpuRegs.fprc[31]], (FPUflagO | FPUflagSO));
-        armOrr(PTR_FPU(fprc[31]), (FPUflagO | FPUflagSO));
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), (FPUflagO | FPUflagSO));
     }
 	if (flags && FPU_FLAGS_OVERFLOW && acc) {
 //        xOR(ptr32[&fpuRegs.ACCflag], 1);
-        armOrr(PTR_FPU(ACCflag), 1);
+        armOrr(PTR_CPU(fpuRegs.ACCflag), 1);
     }
 //	u8* end3 = JMP8(0);
     a64::Label end3;
@@ -271,7 +271,7 @@ void ToPS2FPU_Full(int reg, bool flags, int absreg, bool acc, bool addsub)
         armAsm->B(&is_zero, a64::Condition::eq);
 
 //		xOR(ptr32[&fpuRegs.fprc[31]], (FPUflagU | FPUflagSU));
-        armOrr(PTR_FPU(fprc[31]), (FPUflagU | FPUflagSU));
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), (FPUflagU | FPUflagSU));
 		if (addsub)
 		{
 			//On ADD/SUB, the PS2 simply leaves the mantissa bits as they are (after normalization)
@@ -355,7 +355,7 @@ void SetMaxValue(int regd)
 		if (info & PROCESS_EE_S) \
 			armAsm->Mov(a64::QRegister(sreg).S(), 0, a64::QRegister(EEREC_S).S(), 0); \
 		else \
-			armLoad(a64::QRegister(sreg).S(), PTR_FPU(fpr[_Fs_])); \
+			armLoad(a64::QRegister(sreg).S(), PTR_CPU(fpuRegs.fpr[_Fs_])); \
 	} while (0)
 
 #define ALLOC_S(sreg) \
@@ -369,7 +369,7 @@ void SetMaxValue(int regd)
 		if (info & PROCESS_EE_T) \
 			armAsm->Mov(a64::QRegister(treg).S(), 0, a64::QRegister(EEREC_T).S(), 0); \
 		else \
-			armLoad(a64::QRegister(treg).S(), PTR_FPU(fpr[_Ft_])); \
+			armLoad(a64::QRegister(treg).S(), PTR_CPU(fpuRegs.fpr[_Ft_])); \
 	} while (0)
 
 #define ALLOC_T(treg) \
@@ -383,7 +383,7 @@ void SetMaxValue(int regd)
 		if (info & PROCESS_EE_ACC) \
 			armAsm->Mov(a64::QRegister(areg).S(), 0, a64::QRegister(EEREC_ACC).S(), 0); \
 		else \
-			armLoad(a64::QRegister(areg).S(), PTR_FPU(ACC)); \
+			armLoad(a64::QRegister(areg).S(), PTR_CPU(fpuRegs.ACC)); \
 	} while (0)
 
 #define ALLOC_ACC(areg) \
@@ -394,7 +394,7 @@ void SetMaxValue(int regd)
 
 #define CLEAR_OU_FLAGS \
 	do { \
-		armAnd(PTR_FPU(fprc[31]), ~(FPUflagO | FPUflagU)); \
+		armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagO | FPUflagU)); \
 	} while (0)
 
 
@@ -560,12 +560,9 @@ void FPU_MUL(int info, int regd, int sreg, int treg, bool acc)
 //		xOR(edx, ecx);
         armAsm->Orr(EDX, EDX, ECX);
 
-        // flag test
-        armAsm->Tst(EDX, EDX);
-
 //		u8* noHack = JNZ8(0);
         a64::Label noHack;
-        armAsm->B(&noHack, a64::Condition::ne);
+        armAsm->Cbnz(EDX, &noHack);
 //			xMOVAPS(xRegisterSSE(regd), ptr128[result]);
             armAsm->Ldr(regD.Q(), armMemOperandPtr(result));
 //			endMul = JMP32(0);
@@ -670,13 +667,13 @@ void recC_EQ_xmm(int info)
 //	j8Ptr[0] = JZ8(0);
     armAsm->B(&j8Ptr0, a64::Condition::eq);
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-        armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //		j8Ptr[1] = JMP8(0);
         armAsm->B(&j8Ptr1);
 //	x86SetJ8(j8Ptr[0]);
     armBind(&j8Ptr0);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-        armOrr(PTR_FPU(fprc[31]), FPUflagC);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //	x86SetJ8(j8Ptr[1]);
     armBind(&j8Ptr1);
 }
@@ -693,13 +690,13 @@ void recC_LE_xmm(int info)
 //	j8Ptr[0] = JBE8(0);
     armAsm->B(&j8Ptr0, a64::Condition::ls);
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-        armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //		j8Ptr[1] = JMP8(0);
         armAsm->B(&j8Ptr1);
 //	x86SetJ8(j8Ptr[0]);
     armBind(&j8Ptr0);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-        armOrr(PTR_FPU(fprc[31]), FPUflagC);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //	x86SetJ8(j8Ptr[1]);
     armBind(&j8Ptr1);
 }
@@ -716,13 +713,13 @@ void recC_LT_xmm(int info)
 //	j8Ptr[0] = JB8(0);
     armAsm->B(&j8Ptr0, a64::Condition::cc);
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~FPUflagC);
-        armAnd(PTR_FPU(fprc[31]), ~FPUflagC);
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~FPUflagC);
 //		j8Ptr[1] = JMP8(0);
         armAsm->B(&j8Ptr1);
 //	x86SetJ8(j8Ptr[0]);
     armBind(&j8Ptr0);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagC);
-        armOrr(PTR_FPU(fprc[31]), FPUflagC);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagC);
 //	x86SetJ8(j8Ptr[1]);
     armBind(&j8Ptr1);
 }
@@ -758,7 +755,7 @@ void recDIVhelper1(int regd, int regt) // Sets flags
     auto regT1 = a64::QRegister(t1reg);
 
 //	xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagI | FPUflagD)); // Clear I and D flags
-    armAnd(PTR_FPU(fprc[31]), ~(FPUflagI | FPUflagD));
+    armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagI | FPUflagD));
 
 	//--- Check for divide by zero ---
 //	xXOR.PS(xRegisterSSE(t1reg), xRegisterSSE(t1reg));
@@ -784,13 +781,13 @@ void recDIVhelper1(int regd, int regt) // Sets flags
 //		pjmp1 = JZ8(0); //Skip if not set
         armAsm->B(&pjmp1, a64::Condition::eq);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags ( 0/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //			pjmp2 = JMP8(0);
             armAsm->B(&pjmp2);
 //		x86SetJ8(pjmp1); //x/0 but not 0/0
         armBind(&pjmp1);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagD | FPUflagSD); // Set D and SD flags ( x/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagD | FPUflagSD);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagD | FPUflagSD);
 //		x86SetJ8(pjmp2);
         armBind(&pjmp2);
 
@@ -895,14 +892,14 @@ void recMaddsub(int info, int regd, int op, bool acc)
 
 
 //	xTEST(ptr32[&fpuRegs.fprc[31]], FPUflagO);
-    armAsm->Tst(armLoad(PTR_FPU(fprc[31])), FPUflagO);
+    armAsm->Tst(armLoad(PTR_CPU(fpuRegs.fprc[31])), FPUflagO);
 //	u8* mulovf = JNZ8(0);
     a64::Label mulovf;
     armAsm->B(&mulovf, a64::Condition::ne);
 	ToDouble(sreg); //else, convert
 
 //	xTEST(ptr32[&fpuRegs.ACCflag], 1);
-    armAsm->Tst(armLoad(PTR_FPU(ACCflag)), 1);
+    armAsm->Tst(armLoad(PTR_CPU(fpuRegs.ACCflag)), 1);
 //	u8* accovf = JNZ8(0);
     a64::Label accovf;
     armAsm->B(&accovf, a64::Condition::ne);
@@ -926,11 +923,11 @@ void recMaddsub(int info, int regd, int op, bool acc)
 	CLEAR_OU_FLAGS; //clear U flag
 	if (FPU_FLAGS_OVERFLOW) {
 //        xOR(ptr32[&fpuRegs.fprc[31]], FPUflagO | FPUflagSO);
-        armOrr(PTR_FPU(fprc[31]), FPUflagO | FPUflagSO);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagO | FPUflagSO);
     }
 	if (FPU_FLAGS_OVERFLOW && acc) {
 //        xOR(ptr32[&fpuRegs.ACCflag], 1);
-        armOrr(PTR_FPU(ACCflag), 1);
+        armOrr(PTR_CPU(fpuRegs.ACCflag), 1);
     }
 //	u32* skipall = JMP32(0);
     a64::Label skipall;
@@ -1174,7 +1171,7 @@ void recSQRT_S_xmm(int info)
 	if (FPU_FLAGS_ID)
 	{
 //		xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagI | FPUflagD)); // Clear I and D flags
-        armAnd(PTR_FPU(fprc[31]), ~(FPUflagI | FPUflagD));
+        armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagI | FPUflagD));
 
 		//--- Check for negative SQRT --- (sqrt(-0) = 0, unlike what the docs say)
 //		xMOVMSKPS(eax, xRegisterSSE(EEREC_D));
@@ -1185,7 +1182,7 @@ void recSQRT_S_xmm(int info)
         a64::Label pjmp;
         armAsm->B(&pjmp, a64::Condition::eq);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags
-            armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //			xAND.PS(xRegisterSSE(EEREC_D), ptr[&s_const.pos[0]]); // Make EEREC_D Positive
             armAsm->And(regED.V16B(), regED.V16B(), armLoadPtrV(&s_const.pos[0]).V16B());
 //		x86SetJ8(pjmp);
@@ -1236,7 +1233,7 @@ void recRSQRThelper1(int regd, int regt) // Preforms the RSQRT function when reg
     auto regT1 = a64::QRegister(t1reg);
 
 //	xAND(ptr32[&fpuRegs.fprc[31]], ~(FPUflagI | FPUflagD)); // Clear I and D flags
-    armAnd(PTR_FPU(fprc[31]), ~(FPUflagI | FPUflagD));
+    armAnd(PTR_CPU(fpuRegs.fprc[31]), ~(FPUflagI | FPUflagD));
 
 	//--- (first) Check for negative SQRT ---
 //	xMOVMSKPS(eax, xRegisterSSE(regt));
@@ -1246,7 +1243,7 @@ void recRSQRThelper1(int regd, int regt) // Preforms the RSQRT function when reg
 //	pjmp2 = JZ8(0); //Skip if not set
     armAsm->B(&pjmp2, a64::Condition::eq);
 //		xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags
-        armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+        armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //		xAND.PS(xRegisterSSE(regt), ptr[&s_const.pos[0]]); // Make regt Positive
         armAsm->And(regT.V16B(), regT.V16B(), armLoadPtrV(&s_const.pos[0]).V16B());
 //	x86SetJ8(pjmp2);
@@ -1276,13 +1273,13 @@ void recRSQRThelper1(int regd, int regt) // Preforms the RSQRT function when reg
 //		qjmp1 = JZ8(0); //Skip if not set
         armAsm->B(&qjmp1, a64::Condition::eq);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagI | FPUflagSI); // Set I and SI flags ( 0/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagI | FPUflagSI);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagI | FPUflagSI);
 //			qjmp2 = JMP8(0);
             armAsm->B(&qjmp2);
 //		x86SetJ8(qjmp1); //x/0 but not 0/0
         armBind(&qjmp1);
 //			xOR(ptr32[&fpuRegs.fprc[31]], FPUflagD | FPUflagSD); // Set D and SD flags ( x/0 )
-            armOrr(PTR_FPU(fprc[31]), FPUflagD | FPUflagSD);
+            armOrr(PTR_CPU(fpuRegs.fprc[31]), FPUflagD | FPUflagSD);
 //		x86SetJ8(qjmp2);
         armBind(&qjmp2);
 
