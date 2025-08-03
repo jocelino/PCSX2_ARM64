@@ -1972,7 +1972,8 @@ GSTextureCache::Source* GSTextureCache::LookupSource(const bool is_color, const 
 							{
 								if (src->m_texture && src->m_texture->GetType() == GSTexture::Type::DepthStencil)
 								{
-									src->m_valid_rgb = true;
+									//src->m_valid_rgb = true;
+                                    // Mark source as having complete layers for depth-to-color conversion
 									src->m_complete_layers = 0x1;
 								}
 
@@ -1997,11 +1998,11 @@ GSTextureCache::Source* GSTextureCache::LookupSource(const bool is_color, const 
 
 								if (src != nullptr)
 								{
-									if (src->m_texture && src->m_texture->GetType() == GSTexture::Type::DepthStencil)
-									{
-										src->m_valid_rgb = true;
-										src->m_complete_layers = 0x1;
-									}
+                                    if (src->m_texture && src->m_texture->GetType() == GSTexture::Type::DepthStencil)
+                                    {
+                                        // Mark source as having complete layers for depth-to-color conversion
+                                        src->m_complete_layers = 0x1;
+                                    }
 
 									if (TEX0.PSM == PSMT8H)
 									{
