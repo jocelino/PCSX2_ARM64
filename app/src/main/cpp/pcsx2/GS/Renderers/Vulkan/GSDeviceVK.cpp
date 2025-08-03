@@ -46,6 +46,22 @@ enum : u32
 	TEXTURE_BUFFER_SIZE = 64 * 1024 * 1024,
 };
 
+#ifdef _M_ARM64
+static void OptimizeTextureUploadARM64(void* dst, const void* src, u32 width, u32 height, u32 pitch)
+{
+	const u32 row_size = width * 4;
+	const u8* src_ptr = static_cast<const u8*>(src);
+	u8* dst_ptr = static_cast<u8*>(dst);
+	
+	for (u32 y = 0; y < height; y++)
+	{
+		std::memcpy(dst_ptr, src_ptr, row_size);
+		src_ptr += pitch;
+		dst_ptr += ((row_size + 63) & ~63);
+	}
+}
+#endif
+
 
 #ifdef ENABLE_OGL_DEBUG
 static u32 s_debug_scope_depth = 0;

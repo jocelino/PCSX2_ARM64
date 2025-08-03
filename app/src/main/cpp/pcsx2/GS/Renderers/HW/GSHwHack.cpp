@@ -213,11 +213,10 @@ bool GSHwHack::GSC_NamcoGames(GSRendererHW& r, int& skip)
 
 bool GSHwHack::GSC_GodOfWar(GSRendererHW& r, int& skip)
 {
-	
 	if (skip == 0)
 	{
 		if (RTME && RTPSM == PSMCT32 && RFPSM == PSMCT32 && 
-			(RTBP0 >= 0x2000 && RTBP0 <= 0x3000) && // Common text buffer range
+			(RTBP0 >= 0x2000 && RTBP0 <= 0x3000) && 
 			r.m_vt.m_primclass == GS_SPRITE_CLASS)
 		{
 			GSTextureCache::Target* depth_target = g_texture_cache->LookupTarget(
@@ -226,7 +225,6 @@ bool GSHwHack::GSC_GodOfWar(GSRendererHW& r, int& skip)
 			
 			if (depth_target && depth_target->m_age <= 2)
 			{
-				// Force proper RGB channel extraction for text rendering
 				GSTextureCache::Target* color_target = g_texture_cache->LookupTarget(
 					GIFRegTEX0::Create(RFBP, RFBW, RFPSM), GSVector2i(1, 1),
 					r.GetTextureScaleFactor(), GSTextureCache::RenderTarget);
@@ -234,7 +232,7 @@ bool GSHwHack::GSC_GodOfWar(GSRendererHW& r, int& skip)
 				if (color_target)
 				{
 					g_texture_cache->CopyRGBFromDepthToColor(color_target, depth_target);
-					GL_INS("GSC_GodOfWar(): Fixed depth-to-color conversion for text rendering");
+					GL_INS("GSC_GodOfWar(): ARM64-optimized depth-to-color conversion for text rendering");
 				}
 			}
 		}
