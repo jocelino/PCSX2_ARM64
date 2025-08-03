@@ -13,6 +13,11 @@
 class VKStreamBuffer
 {
 public:
+	enum : u32
+	{
+		NUM_SYNC_POINTS = 16
+	};
+
 	VKStreamBuffer();
 	VKStreamBuffer(VKStreamBuffer&& move);
 	VKStreamBuffer(const VKStreamBuffer&) = delete;
@@ -41,8 +46,12 @@ private:
 	void UpdateCurrentFencePosition();
 	void UpdateGPUPosition();
 
-	// Waits for as many fences as needed to allocate num_bytes bytes from the buffer.
 	bool WaitForClearSpace(u32 num_bytes);
+	bool WaitForClearSpaceOptimized(u32 num_bytes);
+
+	__fi u32 GetSyncIndexForOffset(u32 offset) { return offset / m_bytes_per_block; }
+	void AddSyncsForOffset(u32 offset);
+	void EnsureSyncsWaitedForOffset(u32 offset);
 
 	u32 m_size = 0;
 	u32 m_current_offset = 0;
@@ -53,6 +62,10 @@ private:
 	VkBuffer m_buffer = VK_NULL_HANDLE;
 	u8* m_host_pointer = nullptr;
 
-	// List of fences and the corresponding positions in the buffer
 	std::deque<std::pair<u64, u32>> m_tracked_fences;
+
+	u32 m_bytes_per_block = 0;
+	std::array<u64, NUM_SYNC_POINTS> m_sync_fence_counters{};
+	u32 m_available_block_index = NUM_SYNC_POINTS;
+	u32 m_used_block_index = 0;
 };
