@@ -14,6 +14,9 @@
 #include "common/StringUtil.h"
 #include "common/Timer.h"
 
+#include <thread>
+#include <chrono>
+
 namespace {
 #pragma pack(push, 1)
 struct CacheIndexEntry
@@ -367,8 +370,24 @@ std::optional<GLProgram> GLShaderCache::CompileProgram(const std::string_view ve
 	const std::string_view fragment_shader, const PreLinkCallback& callback, bool set_retrievable)
 {
 	GLProgram prog;
-	if (!prog.Compile(vertex_shader, fragment_shader))
-		return std::nullopt;
+	
+	int retry_count = 0;
+	const int max_retries = 2;
+	
+	while (retry_count <= max_retries)
+	{
+		if (prog.Compile(vertex_shader, fragment_shader))
+			break;
+			
+		retry_count++;
+		if (retry_count > max_retries)
+		{
+			Console.Error("GLShaderCache: Failed to compile shader after %d retries on ARM64", max_retries);
+			return std::nullopt;
+		}
+		
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 
 	if (callback)
 		callback(prog);

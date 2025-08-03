@@ -13,6 +13,7 @@ public:
 	static bool GSC_DTGames(GSRendererHW& r, int& skip);
 	static bool GSC_NamcoGames(GSRendererHW& r, int& skip);
 	static bool GSC_BurnoutGames(GSRendererHW& r, int& skip);
+	static bool GSC_GodOfWar(GSRendererHW& r, int& skip);
 	static bool GSC_BlackAndBurnoutSky(GSRendererHW& r, int& skip);
 	static bool GSC_MidnightClub3(GSRendererHW& r, int& skip);
 	static bool GSC_TalesOfLegendia(GSRendererHW& r, int& skip);

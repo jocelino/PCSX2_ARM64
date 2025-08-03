@@ -1970,6 +1970,11 @@ GSTextureCache::Source* GSTextureCache::LookupSource(const bool is_color, const 
 
 							if (src != nullptr)
 							{
+								if (src->m_texture && src->m_texture->GetType() == GSTexture::Type::DepthStencil)
+								{
+									src->m_valid_rgb = true;
+									src->m_complete_layers = 0x1;
+								}
 
 								if (TEX0.PSM == PSMT8H)
 								{
@@ -1992,6 +1997,12 @@ GSTextureCache::Source* GSTextureCache::LookupSource(const bool is_color, const 
 
 								if (src != nullptr)
 								{
+									if (src->m_texture && src->m_texture->GetType() == GSTexture::Type::DepthStencil)
+									{
+										src->m_valid_rgb = true;
+										src->m_complete_layers = 0x1;
+									}
+
 									if (TEX0.PSM == PSMT8H)
 									{
 										// Attach palette for GPU texture conversion
