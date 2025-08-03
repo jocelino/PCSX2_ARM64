@@ -631,7 +631,8 @@ static void recReserve()
 
 	pxAssertRel(!s_pInstCache, "InstCache not allocated");
 	s_nInstCacheSize = 128;
-	s_pInstCache = (EEINST*)malloc(sizeof(EEINST) * s_nInstCacheSize);
+	// ARM64 optimization: Use 64-byte aligned allocation for better cache performance
+	s_pInstCache = (EEINST*)_aligned_malloc(sizeof(EEINST) * s_nInstCacheSize, 64);
 	if (!s_pInstCache)
 		pxFailRel("Failed to allocate R5900 InstCache array");
 }
@@ -691,7 +692,8 @@ void recShutdown()
 
 	recRAM = recROM = recROM1 = recROM2 = nullptr;
 
-	safe_free(s_pInstCache);
+	_aligned_free(s_pInstCache);
+	s_pInstCache = nullptr;
 	s_nInstCacheSize = 0;
 
 	recPtr = nullptr;
@@ -2707,21 +2709,34 @@ StartRecomp:
 	// rec info //
 	bool has_cop2_instructions = false;
 	{
-		if (s_nInstCacheSize < (s_nEndBlock - startpc) / 4 + 1)
+		const u32 required_instructions = (s_nEndBlock - startpc) / 4 + 1;
+		if (s_nInstCacheSize < required_instructions)
 		{
-			const u32 required_size = (s_nEndBlock - startpc) / 4 + 10;
-			const u32 new_size = std::max(required_size, s_nInstCacheSize * 2);
+			// ARM64 optimization: Use exponential growth with minimum 32-byte alignment
+			// and add 25% padding to reduce future reallocations
+			const u32 min_growth = s_nInstCacheSize ? s_nInstCacheSize * 2 : 128;
+			const u32 required_with_padding = required_instructions + (required_instructions >> 2); // +25%
+			const u32 new_size = std::max(min_growth, required_with_padding);
 			
-			EEINST* new_cache = (EEINST*)malloc(sizeof(EEINST) * new_size);
+			// Use aligned allocation for better ARM64 cache performance (64-byte aligned)
+			EEINST* new_cache = (EEINST*)_aligned_malloc(sizeof(EEINST) * new_size, 64);
 			if (!new_cache)
 				pxFailRel("Failed to allocate R5900 InstCache array");
 			
+			// Preserve existing data during growth
 			if (s_pInstCache && s_nInstCacheSize > 0)
 			{
 				memcpy(new_cache, s_pInstCache, sizeof(EEINST) * s_nInstCacheSize);
+				// Zero-initialize new portion for consistent behavior
+				memset(new_cache + s_nInstCacheSize, 0, sizeof(EEINST) * (new_size - s_nInstCacheSize));
+			}
+			else
+			{
+				// Initialize entire cache if first allocation
+				memset(new_cache, 0, sizeof(EEINST) * new_size);
 			}
 			
-			free(s_pInstCache);
+			_aligned_free(s_pInstCache);
 			s_pInstCache = new_cache;
 			s_nInstCacheSize = new_size;
 		}

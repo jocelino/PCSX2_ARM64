@@ -129,9 +129,16 @@ __ri static u8 getBits64(u8 *address, bool advance)
 
 	if (uint shift = (g_BP.BP & 7))
 	{
+#ifdef __aarch64__
+		// ARM64 optimization: Use efficient mask generation with multiplication
+		// This replaces 7 shift+OR operations with a single multiplication
+		u64 base_mask = (0xff >> shift);
+		u64 mask = base_mask * 0x0101010101010101ULL;  // Broadcast to all 8 bytes simultaneously
+#else
+		// Original implementation for other platforms
 		u64 mask = (0xff >> shift);
 		mask = mask | (mask << 8) | (mask << 16) | (mask << 24) | (mask << 32) | (mask << 40) | (mask << 48) | (mask << 56);
-
+#endif
 		*(u64*)address = ((~mask & *(u64*)(readpos + 1)) >> (8 - shift)) | (((mask) & *(u64*)readpos) << shift);
 	}
 	else
@@ -154,8 +161,15 @@ __ri static u8 getBits32(u8 *address, bool advance)
 
 	if(uint shift = (g_BP.BP & 7))
 	{
+#ifdef __aarch64__
+		// ARM64 optimization: Use efficient 32-bit mask generation
+		u32 base_mask = (0xff >> shift);
+		u32 mask = base_mask * 0x01010101U;  // Broadcast to all 4 bytes simultaneously
+#else
+		// Original implementation for other platforms
 		u32 mask = (0xff >> shift);
 		mask = mask | (mask << 8) | (mask << 16) | (mask << 24);
+#endif
 
 		*(u32*)address = ((~mask & *(u32*)(readpos + 1)) >> (8 - shift)) | (((mask) & *(u32*)readpos) << shift);
 	}

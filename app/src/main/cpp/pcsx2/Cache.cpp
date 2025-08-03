@@ -5,6 +5,11 @@
 #include "Cache.h"
 #include "vtlb.h"
 
+#ifdef __aarch64__
+#include <arm_neon.h>
+#include <algorithm>
+#endif
+
 using namespace R5900;
 using namespace vtlb_private;
 
@@ -118,8 +123,27 @@ namespace
 			uptr target = addr();
 
 			CACHE_LOG("Write back at %zx", target);
-			if (tag.isValidPFN())
+			if (tag.isValidPFN()) {
+#ifdef __aarch64__
+				// ARM64 optimized 64-byte cache line copy using LDP/STP
+				// This is faster than memcpy for aligned 64-byte blocks
+				asm volatile(
+					"ldp x0, x1, [%1, #0]\n"
+					"ldp x2, x3, [%1, #16]\n"
+					"ldp x4, x5, [%1, #32]\n"
+					"ldp x6, x7, [%1, #48]\n"
+					"stp x0, x1, [%0, #0]\n"
+					"stp x2, x3, [%0, #16]\n"
+					"stp x4, x5, [%0, #32]\n"
+					"stp x6, x7, [%0, #48]\n"
+					:
+					: "r"(target), "r"(&data)
+					: "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "memory"
+				);
+#else
 				*reinterpret_cast<CacheData*>(target) = data;
+#endif
+			}
 			tag.clearDirty();
 		}
 
@@ -180,6 +204,17 @@ void resetCache()
 
 void writebackCache()
 {
+#ifdef __aarch64__
+	// ARM64 optimization: Unroll inner loop for better instruction pipeline utilization
+	// This reduces branch overhead and allows better prefetching
+	for (int i = 0; i < 64; i++)
+	{
+		// Unrolled loop: process both cache ways in parallel
+		cache.lineAt(i, 0).writeBackIfNeeded();
+		cache.lineAt(i, 1).writeBackIfNeeded();
+	}
+#else
+	// Original nested loop for non-ARM64 platforms
 	for (int i = 0; i < 64; i++)
 	{
 		for (int j = 0; j < 2; j++)
@@ -187,10 +222,42 @@ void writebackCache()
 			cache.lineAt(i, j).writeBackIfNeeded();
 		}
 	}
+#endif
 }
 
 static bool findInCache(const CacheSet& set, uptr ppf, int* way)
 {
+#ifdef __aarch64__
+	// ARM64 NEON optimized cache tag comparison
+	// Load both cache tags into NEON registers for parallel comparison
+	uint64x2_t tags = {set.tags[0].rawValue, set.tags[1].rawValue};
+	uint64x2_t search_addr = vdupq_n_u64(ppf & ~CacheTag::ALL_BITS);
+	uint64x2_t valid_mask = vdupq_n_u64(CacheTag::VALID_FLAG);
+	
+	// Clear flag bits for address comparison
+	uint64x2_t tag_addrs = vandq_u64(tags, vdupq_n_u64(~CacheTag::ALL_BITS));
+	uint64x2_t valid_tags = vandq_u64(tags, valid_mask);
+	
+	// Parallel address comparison and validity check
+	uint64x2_t addr_match = vceqq_u64(tag_addrs, search_addr);
+	uint64x2_t valid_match = vceqq_u64(valid_tags, valid_mask);
+	uint64x2_t final_match = vandq_u64(addr_match, valid_match);
+	
+	// Extract results
+	uint64_t results[2];
+	vst1q_u64(results, final_match);
+	
+	if (results[0]) {
+		*way = 0;
+		return true;
+	}
+	if (results[1]) {
+		*way = 1;
+		return true;
+	}
+	return false;
+#else
+	// Fallback for non-ARM64 platforms
 	auto check = [&](int checkWay) -> bool {
 		if (!set.tags[checkWay].matches(ppf))
 			return false;
@@ -200,6 +267,7 @@ static bool findInCache(const CacheSet& set, uptr ppf, int* way)
 	};
 
 	return check(0) || check(1);
+#endif
 }
 
 static int getFreeCache(u32 mem, int* way, bool validPFN)

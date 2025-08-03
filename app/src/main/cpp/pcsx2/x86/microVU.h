@@ -23,6 +23,11 @@
 #include "common/Perf.h"
 
 class microBlockManager;
+struct microBlockLink;  // Forward declaration
+
+// ARM64 Performance Optimization - Object Pool Functions (forward declarations)
+extern microBlockLink* mVUacquireBlockLink();
+extern void mVUreleaseBlockLink(microBlockLink* link);
 
 struct microBlockLink
 {
@@ -160,16 +165,16 @@ public:
 		for (microBlockLink* linkI = qBlockList; linkI != nullptr;)
 		{
 			microBlockLink* freeI = linkI;
-			safe_delete_array(linkI->block.jumpCache);
 			linkI = linkI->next;
-			_aligned_free(freeI);
+			// ARM64 optimization: Use object pool for microBlockLink deallocation
+			mVUreleaseBlockLink(freeI);
 		}
 		for (microBlockLink* linkI = fBlockList; linkI != nullptr;)
 		{
 			microBlockLink* freeI = linkI;
-			safe_delete_array(linkI->block.jumpCache);
 			linkI = linkI->next;
-			_aligned_free(freeI);
+			// ARM64 optimization: Use object pool for microBlockLink deallocation
+			mVUreleaseBlockLink(freeI);
 		}
 		qListI = fListI = 0;
 		qBlockEnd = qBlockList = nullptr;
@@ -189,7 +194,8 @@ public:
 
             microBlockLink*& blockList = fullCmp ? fBlockList : qBlockList;
             microBlockLink*& blockEnd  = fullCmp ? fBlockEnd  : qBlockEnd;
-            microBlockLink*  newBlock  = (microBlockLink*)_aligned_malloc(sizeof(microBlockLink), 32);
+            // ARM64 optimization: Use object pool for microBlockLink allocation
+            microBlockLink*  newBlock  = mVUacquireBlockLink();
 
 			newBlock->block.jumpCache  = nullptr;
 			newBlock->next             = nullptr;

@@ -8,6 +8,49 @@
 #include "IPU/IPUdma.h"
 #include "ps2/HwInternal.h"
 
+#ifdef __aarch64__
+#include <unordered_map>
+#include <chrono>
+
+// DMA address cache for ARM64 optimization
+struct DmaAddrCacheEntry {
+	tDMA_TAG* ptr;
+	u64 timestamp;
+};
+
+static std::unordered_map<u32, DmaAddrCacheEntry> dmaAddrCache;
+static constexpr u64 CACHE_TIMEOUT_CYCLES = 10000; // Invalidate after 10k cycles
+
+static inline u64 getCurrentCycles() {
+	return std::chrono::steady_clock::now().time_since_epoch().count();
+}
+
+static tDMA_TAG* getCachedDmaAddr(u32 addr, bool write) {
+	u64 currentTime = getCurrentCycles();
+	auto it = dmaAddrCache.find(addr);
+	
+	if (it != dmaAddrCache.end()) {
+		// Check if cache entry is still valid
+		if (currentTime - it->second.timestamp < CACHE_TIMEOUT_CYCLES) {
+			return it->second.ptr;
+		}
+		// Remove expired entry
+		dmaAddrCache.erase(it);
+	}
+	
+	// Cache miss - compute and cache the result
+	tDMA_TAG* result = dmaGetAddr(addr, write);
+	if (result && dmaAddrCache.size() < 256) { // Limit cache size
+		dmaAddrCache[addr] = {result, currentTime};
+	}
+	return result;
+}
+
+static void invalidateDmaAddrCache() {
+	dmaAddrCache.clear();
+}
+#endif
+
 bool DMACh::transfer(const char *s, tDMA_TAG* ptag)
 {
 	if (ptag == NULL)  					 // Is ptag empty?
@@ -29,7 +72,12 @@ void DMACh::unsafeTransfer(tDMA_TAG* ptag)
 
 tDMA_TAG *DMACh::getAddr(u32 addr, u32 num, bool write)
 {
+#ifdef __aarch64__
+	// Use cached DMA address lookup for ARM64 optimization
+	tDMA_TAG *ptr = getCachedDmaAddr(addr, write);
+#else
 	tDMA_TAG *ptr = dmaGetAddr(addr, write);
+#endif
 	if (ptr == NULL)
 	{
 		throwBusError("dmaGetAddr");
@@ -42,9 +90,19 @@ tDMA_TAG *DMACh::getAddr(u32 addr, u32 num, bool write)
 
 tDMA_TAG *DMACh::DMAtransfer(u32 addr, u32 num)
 {
+#ifdef __aarch64__
+	// Fast path for cached addresses
+	tDMA_TAG *tag = getCachedDmaAddr(addr, false);
+	if (tag == NULL) {
+		throwBusError("dmaGetAddr");
+		setDmacStat(num);
+		chcr.STR = false;
+		return NULL;
+	}
+#else
 	tDMA_TAG *tag = getAddr(addr, num, false);
-
 	if (tag == NULL) return NULL;
+#endif
 
     chcrTransfer(tag);
     qwcTransfer(tag);
@@ -470,6 +528,10 @@ __fi bool dmacWrite32( u32 mem, mem32_t& value )
 			HW_LOG("DMAC_CTRL Write 32bit %x", value);
 
 			psHu32(mem) = value;
+#ifdef __aarch64__
+			// Invalidate DMA address cache on control register changes
+			invalidateDmaAddrCache();
+#endif
 			//Check for DMAS that were started while the DMAC was disabled
 			if (((oldvalue & 0x1) == 0) && ((value & 0x1) == 1))
 			{

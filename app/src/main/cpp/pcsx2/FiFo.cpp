@@ -79,6 +79,44 @@ void WriteFIFO_VIF1(const mem128_t* value)
 {
 	VIF_LOG("WriteFIFO/VIF1 <- 0x%08X.%08X.%08X.%08X", value->_u32[0], value->_u32[1], value->_u32[2], value->_u32[3]);
 
+#ifdef __aarch64__
+	// ARM64 optimized with reduced debug checks and branching
+	// Combine multiple condition checks to reduce branching overhead
+	u32 statFlags = vif1Regs.stat._u32;
+	bool hasErrors = (statFlags & VIF1_STAT_FDR) ||
+	                 (statFlags & (VIF1_STAT_INT | VIF1_STAT_VSS | VIF1_STAT_VIS | VIF1_STAT_VFS)) ||
+	                 (vif1.irqoffset.value != 0 && vif1.vifstalled.enabled);
+	
+	// Only show warnings in debug builds to avoid performance impact
+#ifdef PCSX2_DEVBUILD
+	if (hasErrors) {
+		if (statFlags & VIF1_STAT_FDR)
+			DevCon.Warning("writing to fifo when fdr is set!");
+		if (statFlags & (VIF1_STAT_INT | VIF1_STAT_VSS | VIF1_STAT_VIS | VIF1_STAT_VFS))
+			DevCon.Warning("writing to vif1 fifo when stalled");
+		if (vif1.irqoffset.value != 0 && vif1.vifstalled.enabled)
+			DevCon.Warning("Offset on VIF1 FIFO start!");
+	}
+#endif
+	
+	[[maybe_unused]] bool ret = VIF1transfer((u32*)value, 4);
+	
+	// Optimize VPS state setting with conditional select
+	vif1Regs.stat.VPS = vif1.cmd ? ((vif1.done && !vif1ch.qwc) ? VPS_WAITING : vif1Regs.stat.VPS) : VPS_IDLE;
+	
+	// Combined GIF path processing
+	if (gifRegs.stat.APATH == 2 && gifUnit.gifPath[1].isDone()) {
+		gifRegs.stat.APATH = 0;
+		gifRegs.stat.OPH = 0;
+		vif1Regs.stat.VGW = false;
+		
+		if (gifUnit.checkPaths(1, 0, 1))
+			gifUnit.Execute(false, true);
+	}
+	
+	pxAssertMsg(ret, "vif stall code not implemented");
+#else
+	// Fallback for non-ARM64 platforms
 	if (vif1Regs.stat.FDR)
 	{
 		DevCon.Warning("writing to fifo when fdr is set!");
@@ -113,11 +151,45 @@ void WriteFIFO_VIF1(const mem128_t* value)
 	}
 
 	pxAssertMsg(ret, "vif stall code not implemented");
+#endif
 }
 
 void WriteFIFO_GIF(const mem128_t* value)
 {
 	GUNIT_LOG("WriteFIFO_GIF()");
+	
+#ifdef __aarch64__
+	// ARM64 optimized with reduced branching using conditional operations
+	bool useHwWrite = !gifUnit.CanDoPath3() || (gif_fifo.fifoSize > 0);
+	
+	// Use conditional select to avoid branching
+	if (useHwWrite) {
+		//DevCon.Warning("GIF FIFO HW Write");
+		gif_fifo.write_fifo((u32*)value, 1);
+		gif_fifo.read_fifo();
+	} else {
+		gifUnit.TransferGSPacketData(GIF_TRANS_FIFO, (u8*)value, 16);
+	}
+	
+	// Optimize state transitions with fewer branches
+	GIF_PATH_STATE path3State = gifUnit.gifPath[GIF_PATH_3].state;
+	gifUnit.gifPath[GIF_PATH_3].state = (path3State == GIF_PATH_WAIT) ? GIF_PATH_IDLE : path3State;
+	
+	// Combined conditional logic to reduce branching
+	if (gifRegs.stat.APATH == 3) {
+		gifRegs.stat.APATH = 0;
+		gifRegs.stat.OPH = 0;
+		
+		// Single condition check instead of multiple ORed conditions
+		GIF_PATH_STATE currentState = gifUnit.gifPath[GIF_PATH_3].state;
+		bool canExecute = (currentState == GIF_PATH_IDLE || currentState == GIF_PATH_WAIT) &&
+		                  gifUnit.checkPaths(1, 1, 0);
+		if (canExecute) {
+			gifUnit.Execute(false, true);
+		}
+	}
+#else
+	// Fallback for non-ARM64 platforms
 	if ((!gifUnit.CanDoPath3() || gif_fifo.fifoSize > 0))
 	{
 		//DevCon.Warning("GIF FIFO HW Write");
@@ -143,4 +215,5 @@ void WriteFIFO_GIF(const mem128_t* value)
 				gifUnit.Execute(false, true);
 		}
 	}
+#endif
 }

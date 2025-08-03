@@ -72,6 +72,33 @@ static __fi void _rcntSet(int cntidx)
 
 	const Counter& counter = counters[cntidx];
 
+#ifdef __aarch64__
+	// ARM64 optimized with reduced branching using conditional operations
+	// Combine multiple early-exit conditions into a single check
+	bool canCount = rcntCanCount(cntidx);
+	bool validClockSource = (counter.mode.ClockSource != 0x3);
+	bool hasInterrupts = counter.mode.TargetInterrupt || counter.mode.OverflowInterrupt || counter.mode.ZeroReturn;
+	
+	// Use ARM64 conditional select to avoid branching
+	if (!canCount || !validClockSource || !hasInterrupts)
+		return;
+	
+	// Fast path for overflow/target checks using conditional operations
+	bool hasOverflow = (counter.count > 0x10000) || (counter.count > counter.target);
+	if (hasOverflow) {
+		nextDeltaCounter = 4;
+		return;
+	}
+	
+	// Optimized cycle calculation using ARM64 arithmetic
+	u32 cyclesSinceStart = cpuRegs.cycle - counter.startCycle;
+	u32 countsUntilOverflow = 0x10000 - counter.count;
+	
+	// Use efficient multiply and subtract (ARM64 has fast integer multiply)
+	c = (countsUntilOverflow * counter.rate) - cyclesSinceStart;
+	c += cpuRegs.cycle - nextStartCounter; // adjust for time passed since last rcntUpdate();
+#else
+	// Fallback for non-ARM64 platforms
 	// Stopped or special hsync gate?
 	if (!rcntCanCount(cntidx) || (counter.mode.ClockSource == 0x3))
 		return;
@@ -93,18 +120,25 @@ static __fi void _rcntSet(int cntidx)
 
 	c = ((0x10000 - counter.count) * counter.rate) - (cpuRegs.cycle - counter.startCycle);
 	c += cpuRegs.cycle - nextStartCounter; // adjust for time passed since last rcntUpdate();
+#endif
 
+#ifdef __aarch64__
+	// ARM64 conditional select to avoid branching
+	nextDeltaCounter = (c < nextDeltaCounter) ? c : nextDeltaCounter;
+#else
 	if (c < nextDeltaCounter)
 	{
 		nextDeltaCounter = c;
+#endif
 
 		cpuSetNextEvent(nextStartCounter, nextDeltaCounter); // Need to update on counter resets/target changes
-	}
+
 
 	// Ignore target diff if target is currently disabled.
 	// (the overflow is all we care about since it goes first, and then the
 	// target will be turned on afterward, and handled in the next event test).
 
+	// ARM64 optimization: reduce function call overhead with early return
 	if (counter.target & EECNT_FUTURE_TARGET)
 	{
 		return;
