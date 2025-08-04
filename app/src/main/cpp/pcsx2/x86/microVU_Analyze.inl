@@ -12,7 +12,7 @@
 //------------------------------------------------------------------
 
 // Read a VF reg
-__ri void analyzeReg1(mV, int xReg, microVFreg& vfRead) {
+inline void analyzeReg1(mV, int xReg, microVFreg& vfRead) {
 	if (xReg) {
 		if (_X) { mVUstall = std::max(mVUstall, mVUregs.VF[xReg].x); vfRead.reg = xReg; vfRead.x = 1; }
 		if (_Y) { mVUstall = std::max(mVUstall, mVUregs.VF[xReg].y); vfRead.reg = xReg; vfRead.y = 1; }
@@ -22,7 +22,7 @@ __ri void analyzeReg1(mV, int xReg, microVFreg& vfRead) {
 }
 
 // Write to a VF reg
-__ri void analyzeReg2(mV, int xReg, microVFreg& vfWrite, bool isLowOp)
+inline void analyzeReg2(mV, int xReg, microVFreg& vfWrite, bool isLowOp)
 {
 	if (xReg)
 	{
@@ -35,7 +35,7 @@ __ri void analyzeReg2(mV, int xReg, microVFreg& vfWrite, bool isLowOp)
 }
 
 // Read a VF reg (BC opcodes)
-__ri void analyzeReg3(mV, int xReg, microVFreg& vfRead)
+inline void analyzeReg3(mV, int xReg, microVFreg& vfRead)
 {
 	if (xReg)
 	{
@@ -67,7 +67,7 @@ __ri void analyzeReg3(mV, int xReg, microVFreg& vfRead)
 }
 
 // For Clip Opcode
-__ri void analyzeReg4(mV, int xReg, microVFreg& vfRead)
+inline void analyzeReg4(mV, int xReg, microVFreg& vfRead)
 {
 	if (xReg)
 	{
@@ -78,7 +78,7 @@ __ri void analyzeReg4(mV, int xReg, microVFreg& vfRead)
 }
 
 // Read VF reg (FsF/FtF)
-__ri void analyzeReg5(mV, int xReg, int fxf, microVFreg& vfRead)
+inline void analyzeReg5(mV, int xReg, int fxf, microVFreg& vfRead)
 {
 	if (xReg)
 	{
@@ -93,7 +93,7 @@ __ri void analyzeReg5(mV, int xReg, int fxf, microVFreg& vfRead)
 }
 
 // Flips xyzw stalls to yzwx (MR32 Opcode)
-__ri void analyzeReg6(mV, int xReg, microVFreg& vfRead)
+inline void analyzeReg6(mV, int xReg, microVFreg& vfRead)
 {
 	if (xReg)
 	{
@@ -105,7 +105,7 @@ __ri void analyzeReg6(mV, int xReg, microVFreg& vfRead)
 }
 
 // Reading a VI reg
-__ri void analyzeVIreg1(mV, int xReg, microVIreg& viRead)
+inline void analyzeVIreg1(mV, int xReg, microVIreg& viRead)
 {
 	if (xReg)
 	{
@@ -116,7 +116,7 @@ __ri void analyzeVIreg1(mV, int xReg, microVIreg& viRead)
 }
 
 // Writing to a VI reg
-__ri void analyzeVIreg2(mV, int xReg, microVIreg& viWrite, int aCycles)
+inline void analyzeVIreg2(mV, int xReg, microVIreg& viWrite, int aCycles)
 {
 	if (xReg)
 	{
@@ -163,7 +163,7 @@ __ri void analyzeVIreg2(mV, int xReg, microVIreg& viWrite, int aCycles)
 // FMAC1 - Normal FMAC Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeFMAC1(mV, int Fd, int Fs, int Ft)
+inline void mVUanalyzeFMAC1(mV, int Fd, int Fs, int Ft)
 {
 	sFLAG.doFlag = 1;
 	analyzeReg1(mVU, Fs, mVUup.VF_read[0]);
@@ -175,7 +175,7 @@ __fi void mVUanalyzeFMAC1(mV, int Fd, int Fs, int Ft)
 // FMAC2 - ABS/FTOI/ITOF Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeFMAC2(mV, int Fs, int Ft)
+inline void mVUanalyzeFMAC2(mV, int Fs, int Ft)
 {
 	analyzeReg1(mVU, Fs, mVUup.VF_read[0]);
 	analyzeReg2(mVU, Ft, mVUup.VF_write, 0);
@@ -185,7 +185,7 @@ __fi void mVUanalyzeFMAC2(mV, int Fs, int Ft)
 // FMAC3 - BC(xyzw) FMAC Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeFMAC3(mV, int Fd, int Fs, int Ft)
+inline void mVUanalyzeFMAC3(mV, int Fd, int Fs, int Ft)
 {
 	sFLAG.doFlag = 1;
 	analyzeReg1(mVU, Fs, mVUup.VF_read[0]);
@@ -197,7 +197,7 @@ __fi void mVUanalyzeFMAC3(mV, int Fd, int Fs, int Ft)
 // FMAC4 - Clip FMAC Opcode
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeFMAC4(mV, int Fs, int Ft)
+inline void mVUanalyzeFMAC4(mV, int Fs, int Ft)
 {
 	cFLAG.doFlag = 1;
 	analyzeReg1(mVU, Fs, mVUup.VF_read[0]);
@@ -208,7 +208,7 @@ __fi void mVUanalyzeFMAC4(mV, int Fs, int Ft)
 // IALU - IALU Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeIALU1(mV, int Id, int Is, int It)
+inline void mVUanalyzeIALU1(mV, int Id, int Is, int It)
 {
 	if (!Id)
 		mVUlow.isNOP = 1;
@@ -217,7 +217,7 @@ __fi void mVUanalyzeIALU1(mV, int Id, int Is, int It)
 	analyzeVIreg2(mVU, Id, mVUlow.VI_write, 1);
 }
 
-__fi void mVUanalyzeIALU2(mV, int Is, int It)
+inline void mVUanalyzeIALU2(mV, int Is, int It)
 {
 	if (!It)
 		mVUlow.isNOP = 1;
@@ -225,7 +225,7 @@ __fi void mVUanalyzeIALU2(mV, int Is, int It)
 	analyzeVIreg2(mVU, It, mVUlow.VI_write, 1);
 }
 
-__fi void mVUanalyzeIADDI(mV, int Is, int It, s16 imm)
+inline void mVUanalyzeIADDI(mV, int Is, int It, s16 imm)
 {
 	mVUanalyzeIALU2(mVU, Is, It);
 	if (!Is && !EmuConfig.Gamefixes.IbitHack)
@@ -238,7 +238,7 @@ __fi void mVUanalyzeIADDI(mV, int Is, int It, s16 imm)
 // MR32 - MR32 Opcode
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeMR32(mV, int Fs, int Ft)
+inline void mVUanalyzeMR32(mV, int Fs, int Ft)
 {
 	if (!Ft)
 	{
@@ -252,7 +252,7 @@ __fi void mVUanalyzeMR32(mV, int Fs, int Ft)
 // FDIV - DIV/SQRT/RSQRT Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeFDIV(mV, int Fs, int Fsf, int Ft, int Ftf, u8 xCycles)
+inline void mVUanalyzeFDIV(mV, int Fs, int Fsf, int Ft, int Ftf, u8 xCycles)
 {
 	analyzeReg5(mVU, Fs, Fsf, mVUlow.VF_read[0]);
 	analyzeReg5(mVU, Ft, Ftf, mVUlow.VF_read[1]);
@@ -263,13 +263,13 @@ __fi void mVUanalyzeFDIV(mV, int Fs, int Fsf, int Ft, int Ftf, u8 xCycles)
 // EFU - EFU Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeEFU1(mV, int Fs, int Fsf, u8 xCycles)
+inline void mVUanalyzeEFU1(mV, int Fs, int Fsf, u8 xCycles)
 {
 	analyzeReg5(mVU, Fs, Fsf, mVUlow.VF_read[0]);
 	analyzePreg(xCycles);
 }
 
-__fi void mVUanalyzeEFU2(mV, int Fs, u8 xCycles)
+inline void mVUanalyzeEFU2(mV, int Fs, u8 xCycles)
 {
 	analyzeReg1(mVU, Fs, mVUlow.VF_read[0]);
 	analyzePreg(xCycles);
@@ -279,7 +279,7 @@ __fi void mVUanalyzeEFU2(mV, int Fs, u8 xCycles)
 // MFP - MFP Opcode
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeMFP(mV, int Ft)
+inline void mVUanalyzeMFP(mV, int Ft)
 {
 	if (!Ft)
 		mVUlow.isNOP = 1;
@@ -290,7 +290,7 @@ __fi void mVUanalyzeMFP(mV, int Ft)
 // MOVE - MOVE Opcode
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeMOVE(mV, int Fs, int Ft)
+inline void mVUanalyzeMOVE(mV, int Fs, int Ft)
 {
 	if (!Ft || (Ft == Fs))
 		mVUlow.isNOP = 1;
@@ -302,7 +302,7 @@ __fi void mVUanalyzeMOVE(mV, int Fs, int Ft)
 // LQx - LQ/LQD/LQI Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeLQ(mV, int Ft, int Is, bool writeIs)
+inline void mVUanalyzeLQ(mV, int Ft, int Is, bool writeIs)
 {
 	analyzeVIreg1(mVU, Is, mVUlow.VI_read[0]);
 	analyzeReg2(mVU, Ft, mVUlow.VF_write, 1);
@@ -327,7 +327,7 @@ __fi void mVUanalyzeLQ(mV, int Ft, int Is, bool writeIs)
 // SQx - SQ/SQD/SQI Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeSQ(mV, int Fs, int It, bool writeIt)
+inline void mVUanalyzeSQ(mV, int Fs, int It, bool writeIt)
 {
 	mVUlow.isMemWrite = true;
 	analyzeReg1(mVU, Fs, mVUlow.VF_read[0]);
@@ -342,13 +342,13 @@ __fi void mVUanalyzeSQ(mV, int Fs, int It, bool writeIt)
 // R*** - R Reg Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeR1(mV, int Fs, int Fsf)
+inline void mVUanalyzeR1(mV, int Fs, int Fsf)
 {
 	analyzeReg5(mVU, Fs, Fsf, mVUlow.VF_read[0]);
 	analyzeRreg();
 }
 
-__fi void mVUanalyzeR2(mV, int Ft, bool canBeNOP)
+inline void mVUanalyzeR2(mV, int Ft, bool canBeNOP)
 {
 	if (!Ft)
 	{
@@ -364,7 +364,7 @@ __fi void mVUanalyzeR2(mV, int Ft, bool canBeNOP)
 //------------------------------------------------------------------
 // Sflag - Status Flag Opcodes
 //------------------------------------------------------------------
-__ri void flagSet(mV, bool setMacFlag)
+inline void flagSet(mV, bool setMacFlag)
 {
 	int curPC = iPC;
 	int calcOPS = 0;
@@ -393,7 +393,7 @@ __ri void flagSet(mV, bool setMacFlag)
 	setCode();
 }
 
-__ri void mVUanalyzeSflag(mV, int It)
+inline void mVUanalyzeSflag(mV, int It)
 {
 	mVUlow.readFlags = true;
 	analyzeVIreg2(mVU, It, mVUlow.VI_write, 1);
@@ -414,7 +414,7 @@ __ri void mVUanalyzeSflag(mV, int It)
 	}
 }
 
-__ri void mVUanalyzeFSSET(mV)
+inline void mVUanalyzeFSSET(mV)
 {
 	mVUlow.isFSSET = 1;
 	mVUlow.readFlags = true;
@@ -424,7 +424,7 @@ __ri void mVUanalyzeFSSET(mV)
 // Mflag - Mac Flag Opcodes
 //------------------------------------------------------------------
 
-__ri void mVUanalyzeMflag(mV, int Is, int It)
+inline void mVUanalyzeMflag(mV, int Is, int It)
 {
 	mVUlow.readFlags = true;
 	analyzeVIreg1(mVU, Is, mVUlow.VI_read[0]);
@@ -449,7 +449,7 @@ __ri void mVUanalyzeMflag(mV, int Is, int It)
 // Cflag - Clip Flag Opcodes
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeCflag(mV, int It)
+inline void mVUanalyzeCflag(mV, int It)
 {
 	mVUinfo.swapOps = 1;
 	mVUlow.readFlags = true;
@@ -465,7 +465,7 @@ __fi void mVUanalyzeCflag(mV, int It)
 // XGkick
 //------------------------------------------------------------------
 
-__fi void mVUanalyzeXGkick(mV, int Fs, int xCycles)
+inline void mVUanalyzeXGkick(mV, int Fs, int xCycles)
 {
 	mVUlow.isKick = true;
 	mVUregs.xgkickcycles = 0;
@@ -571,7 +571,7 @@ static void analyzeBranchVI(mV, int xReg, bool& infoVar)
 }
 
 // Branch in Branch Delay-Slots
-__ri int mVUbranchCheck(mV)
+inline int mVUbranchCheck(mV)
 {
 	if (!mVUcount && !isEvilBlock)
 		return 0;
@@ -629,7 +629,7 @@ __ri int mVUbranchCheck(mV)
 	return 0;
 }
 
-__fi void mVUanalyzeCondBranch1(mV, int Is)
+inline void mVUanalyzeCondBranch1(mV, int Is)
 {
 	analyzeVIreg1(mVU, Is, mVUlow.VI_read[0]);
 	if (!mVUbranchCheck(mVU))
@@ -638,7 +638,7 @@ __fi void mVUanalyzeCondBranch1(mV, int Is)
 	}
 }
 
-__fi void mVUanalyzeCondBranch2(mV, int Is, int It)
+inline void mVUanalyzeCondBranch2(mV, int Is, int It)
 {
 	analyzeVIreg1(mVU, Is, mVUlow.VI_read[0]);
 	analyzeVIreg1(mVU, It, mVUlow.VI_read[1]);
@@ -649,7 +649,7 @@ __fi void mVUanalyzeCondBranch2(mV, int Is, int It)
 	}
 }
 
-__fi void mVUanalyzeNormBranch(mV, int It, bool isBAL)
+inline void mVUanalyzeNormBranch(mV, int It, bool isBAL)
 {
 	mVUbranchCheck(mVU);
 	if (isBAL)
@@ -660,7 +660,7 @@ __fi void mVUanalyzeNormBranch(mV, int It, bool isBAL)
 	}
 }
 
-__ri void mVUanalyzeJump(mV, int Is, int It, bool isJALR)
+inline void mVUanalyzeJump(mV, int Is, int It, bool isJALR)
 {
 	mVUlow.branch = (isJALR) ? 10 : 9;
 	mVUbranchCheck(mVU);

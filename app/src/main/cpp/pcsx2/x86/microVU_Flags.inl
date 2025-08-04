@@ -4,7 +4,7 @@
 #pragma once
 
 // Sets FDIV Flags at the proper time
-__fi void mVUdivSet(mV)
+inline void mVUdivSet(mV)
 {
 	if (mVUinfo.doDivFlag)
 	{
@@ -22,7 +22,7 @@ __fi void mVUdivSet(mV)
 
 // Optimizes out unneeded status flag updates
 // This can safely be done when there is an FSSET opcode
-__fi void mVUstatusFlagOp(mV)
+inline void mVUstatusFlagOp(mV)
 {
 	int curPC = iPC;
 	int i = mVUcount;
@@ -65,7 +65,7 @@ __fi void mVUstatusFlagOp(mV)
 	DevCon.WriteLn(Color_Green, "microVU%d: FSSET Optimization", getIndex);
 }
 
-int findFlagInst(int* fFlag, int cycles)
+inline int findFlagInst(int* fFlag, int cycles)
 {
 	int i, j = 0, jValue = -1;
 	for (i = 0; i < 4; ++i)
@@ -80,7 +80,7 @@ int findFlagInst(int* fFlag, int cycles)
 }
 
 // Setup Last 4 instances of Status/Mac/Clip flags (needed for accurate block linking)
-int sortFlag(int* fFlag, int* bFlag, int cycles)
+inline int sortFlag(int* fFlag, int* bFlag, int cycles)
 {
 	int lFlag = -5;
 	int i, x = 0;
@@ -95,7 +95,7 @@ int sortFlag(int* fFlag, int* bFlag, int cycles)
 	return x; // Returns the number of Valid Flag Instances
 }
 
-void sortFullFlag(int* fFlag, int* bFlag)
+inline void sortFullFlag(int* fFlag, int* bFlag)
 {
 	int m = std::max(std::max(fFlag[0], fFlag[1]), std::max(fFlag[2], fFlag[3]));
     int i, t;
@@ -110,7 +110,7 @@ void sortFullFlag(int* fFlag, int* bFlag)
 #define sHackCond (mVUsFlagHack && !sFLAG.doNonSticky)
 
 // Note: Flag handling is 'very' complex, it requires full knowledge of how microVU recs work, so don't touch!
-__fi void mVUsetFlags(mV, microFlagCycles& mFC)
+inline void mVUsetFlags(mV, microFlagCycles& mFC)
 {
 	int endPC = iPC;
 	u32 aCount = 0; // Amount of instructions needed to get valid mac flag instances for block linking
@@ -262,7 +262,7 @@ __fi void mVUsetFlags(mV, microFlagCycles& mFC)
 #define shuffleClip    ((bClip[3] << 6) | (bClip[2] << 4) | (bClip[1] << 2) | bClip[0])
 
 // Recompiles Code for Proper Flags on Block Linkings
-__fi void mVUsetupFlags(mV, microFlagCycles& mFC)
+inline void mVUsetupFlags(mV, microFlagCycles& mFC)
 {
 	if (mVUregs.flagInfo & 1)
 	{
@@ -394,7 +394,7 @@ __fi void mVUsetupFlags(mV, microFlagCycles& mFC)
 	}
 
 // Scan through instructions and check if flags are read (FSxxx, FMxxx, FCxxx opcodes)
-void _mVUflagPass(mV, u32 startPC, u32 sCount, u32 found, std::vector<u32>& v)
+inline void _mVUflagPass(mV, u32 startPC, u32 sCount, u32 found, std::vector<u32>& v)
 {
     u32 i, e = v.size();
 	for (i = 0; i < e; ++i)
@@ -462,14 +462,14 @@ void _mVUflagPass(mV, u32 startPC, u32 sCount, u32 found, std::vector<u32>& v)
 	setCode();
 }
 
-void mVUflagPass(mV, u32 startPC, u32 sCount = 0, u32 found = 0)
+inline void mVUflagPass(mV, u32 startPC, u32 sCount = 0, u32 found = 0)
 {
 	std::vector<u32> v;
 	_mVUflagPass(mVU, startPC, sCount, found, v);
 }
 
 // Checks if the first ~4 instructions of a block will read flags
-void mVUsetFlagInfo(mV)
+inline void mVUsetFlagInfo(mV)
 {
 	if (noFlagOpts)
 	{

@@ -7,11 +7,11 @@
 // Micro VU - Clamp Functions
 //------------------------------------------------------------------
 
-alignas(16) const u32 sse4_minvals[2][4] = {
+alignas(16) static const u32 sse4_minvals[2][4] = {
 	{0xff7fffff, 0xffffffff, 0xffffffff, 0xffffffff}, //1000
 	{0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff}, //1111
 };
-alignas(16) const u32 sse4_maxvals[2][4] = {
+alignas(16) static const u32 sse4_maxvals[2][4] = {
 	{0x7f7fffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1000
 	{0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
 };
@@ -22,7 +22,7 @@ alignas(16) const u32 sse4_maxvals[2][4] = {
 // gotten a NaN value, then something went wrong; and the NaN's sign
 // is not to be trusted. Games like positive values better usually,
 // and its faster... so just always make NaNs into positive infinity.
-void mVUclamp1(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw, bool bClampE = 0)
+inline void mVUclamp1(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw, bool bClampE = 0)
 {
 	if (((!clampE && CHECK_VU_OVERFLOW(mVU.index)) || (clampE && bClampE)) && mVU.regAlloc->checkVFClamp(reg.GetCode()))
 	{
@@ -49,7 +49,7 @@ void mVUclamp1(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw, bool bC
 // Note 2: Using regalloc here seems to contaminate some regs in certain games.
 // Must be some specific case I've overlooked (or I used regalloc improperly on an opcode)
 // so we just use a temporary mem location for our backup for now... (non-sse4 version only)
-void mVUclamp2(microVU& mVU, const xmm& reg, const xmm& regT1in, int xyzw, bool bClampE = 0)
+inline void mVUclamp2(microVU& mVU, const xmm& reg, const xmm& regT1in, int xyzw, bool bClampE = 0)
 {
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) && mVU.regAlloc->checkVFClamp(reg.GetCode()))
 	{
@@ -65,7 +65,7 @@ void mVUclamp2(microVU& mVU, const xmm& reg, const xmm& regT1in, int xyzw, bool 
 }
 
 // Used for operand clamping on every SSE instruction (add/sub/mul/div)
-void mVUclamp3(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw)
+inline void mVUclamp3(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw)
 {
 	if (clampE && mVU.regAlloc->checkVFClamp(reg.GetCode()))
 		mVUclamp2(mVU, reg, regT1, xyzw, 1);
@@ -77,7 +77,7 @@ void mVUclamp3(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw)
 // emulated opcodes (causing crashes). Since we're clamping the operands
 // with mVUclamp3, we should almost never be getting a NaN result,
 // but this clamp is just a precaution just-in-case.
-void mVUclamp4(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw)
+inline void mVUclamp4(microVU& mVU, const xmm& reg, const xmm& regT1, int xyzw)
 {
 	if (clampE && !CHECK_VU_SIGN_OVERFLOW(mVU.index) && mVU.regAlloc->checkVFClamp(reg.GetCode()))
 		mVUclamp1(mVU, reg, regT1, xyzw, 1);

@@ -288,7 +288,7 @@ static microVU& microVU0 = g_vuRegistersPack.microVU[0];
 static microVU& microVU1 = g_vuRegistersPack.microVU[1];
 
 // Debug Helper
-int mVUdebugNow = 0;
+inline int mVUdebugNow = 0;
 extern void DumpVUState(u32 n, u32 pc);
 
 // Main Functions

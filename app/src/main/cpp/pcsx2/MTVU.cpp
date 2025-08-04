@@ -151,6 +151,7 @@ void VU_Thread::ExecuteRingBuffer()
 						VU1.VI[REG_TPC].UL = addr & 0x7FF;
 					CpuVU1->SetStartPC(VU1.VI[REG_TPC].UL << 3);
 					CpuVU1->Execute(vu1RunCycles);
+					
 					gifUnit.gifPath[GIF_PATH_1].FinishGSPacketMTVU();
 					semaXGkick.Post(); // Tell MTGS a path1 packet is complete
 					vuCycles[vuCycleIdx].store(VU1.cycle, std::memory_order_release);

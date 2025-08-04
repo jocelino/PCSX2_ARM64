@@ -19,7 +19,7 @@ static inline void mVUprintPC2(u32 pc) { Console.WriteLn("Block End PC   = 0x%04
 //------------------------------------------------------------------
 
 // Used by mVUsetupRange
-__fi void mVUcheckIsSame(mV)
+inline void mVUcheckIsSame(mV)
 {
 	if (mVU.prog.isSame == -1)
 	{
@@ -33,7 +33,7 @@ __fi void mVUcheckIsSame(mV)
 }
 
 // Sets up microProgram PC ranges based on whats been recompiled
-void mVUsetupRange(microVU& mVU, s32 pc, bool isStartPC)
+inline void mVUsetupRange(microVU& mVU, s32 pc, bool isStartPC)
 {
 	std::deque<microRange>*& ranges = mVUcurProg.ranges;
 	if (pc > (s64)mVU.microMemSize)
@@ -111,24 +111,24 @@ void mVUsetupRange(microVU& mVU, s32 pc, bool isStartPC)
 // Execute VU Opcode/Instruction (Upper and Lower)
 //------------------------------------------------------------------
 
-__ri void doUpperOp(mV)
+inline void doUpperOp(mV)
 {
 	mVUopU(mVU, 1);
 	mVUdivSet(mVU);
 }
-__ri void doLowerOp(mV)
+inline void doLowerOp(mV)
 {
 	incPC(-1);
 	mVUopL(mVU, 1);
 	incPC(1);
 }
-__ri void flushRegs(mV)
+inline void flushRegs(mV)
 {
 	if (!doRegAlloc)
 		mVU.regAlloc->flushAll();
 }
 
-void doIbit(mV)
+inline void doIbit(mV)
 {
 	if (mVUup.iBit)
 	{
@@ -159,7 +159,7 @@ void doIbit(mV)
 	}
 }
 
-void doSwapOp(mV)
+inline void doSwapOp(mV)
 {
 	if (mVUinfo.backupVF && !mVUlow.noWriteVF)
 	{
@@ -201,7 +201,7 @@ void doSwapOp(mV)
 	}
 }
 
-void mVUexecuteInstruction(mV)
+inline void mVUexecuteInstruction(mV)
 {
 	if (mVUlow.isNOP)
 	{
@@ -230,7 +230,7 @@ void mVUexecuteInstruction(mV)
 //------------------------------------------------------------------
 
 // If 1st op in block is a bad opcode, then don't compile rest of block (Dawn of Mana Level 2)
-__fi void mVUcheckBadOp(mV)
+inline void mVUcheckBadOp(mV)
 {
 
 	// The BIOS writes upper and lower NOPs in reversed slots (bug)
@@ -246,7 +246,7 @@ __fi void mVUcheckBadOp(mV)
 
 // Prints msg when exiting block early if 1st op was a bad opcode (Dawn of Mana Level 2)
 // #ifdef PCSX2_DEVBUILD because starting with SVN R5586 we get log spam in releases (Shadow Hearts battles)
-__fi void handleBadOp(mV, int count)
+inline void handleBadOp(mV, int count)
 {
 #ifdef PCSX2_DEVBUILD
 	if (mVUinfo.isBadOp)
@@ -263,7 +263,7 @@ __fi void handleBadOp(mV, int count)
 #endif
 }
 
-__ri void branchWarning(mV)
+inline void branchWarning(mV)
 {
 	incPC(-2);
 	if (mVUup.eBit && mVUbranch)
@@ -285,7 +285,7 @@ __ri void branchWarning(mV)
 	}
 }
 
-__fi void eBitPass1(mV, int& branch)
+inline void eBitPass1(mV, int& branch)
 {
 	if (mVUregs.blockType != 1)
 	{
@@ -294,7 +294,7 @@ __fi void eBitPass1(mV, int& branch)
 	}
 }
 
-__ri void eBitWarning(mV)
+inline void eBitWarning(mV)
 {
 	if (mVUpBlock->pState.blockType == 1)
 		Console.Error("microVU%d Warning: Branch, E-bit, Branch! [%04x]",  mVU.index, xPC);
@@ -312,17 +312,17 @@ __ri void eBitWarning(mV)
 //------------------------------------------------------------------
 // Cycles / Pipeline State / Early Exit from Execution
 //------------------------------------------------------------------
-__fi u8 optimizeReg(u8 rState) { return (rState == 1) ? 0 : rState; }
-__fi u8 calcCycles(u8 reg, u8 x) { return ((reg > x) ? (reg - x) : 0); }
-__fi u8 tCycles(u8 dest, u8 src) { return std::max(dest, src); }
-__fi void incP(mV) { mVU.p ^= 1; }
-__fi void incQ(mV) { mVU.q ^= 1; }
+inline u8 optimizeReg(u8 rState) { return (rState == 1) ? 0 : rState; }
+inline u8 calcCycles(u8 reg, u8 x) { return ((reg > x) ? (reg - x) : 0); }
+inline u8 tCycles(u8 dest, u8 src) { return std::max(dest, src); }
+inline void incP(mV) { mVU.p ^= 1; }
+inline void incQ(mV) { mVU.q ^= 1; }
 
 // Optimizes the End Pipeline State Removing Unnecessary Info
 // If the cycles remaining is just '1', we don't have to transfer it to the next block
 // because mVU automatically decrements this number at the start of its loop,
 // so essentially '1' will be the same as '0'...
-void mVUoptimizePipeState(mV)
+inline void mVUoptimizePipeState(mV)
 {
     int i;
 	for (i = 0; i < 32; ++i)
@@ -341,7 +341,7 @@ void mVUoptimizePipeState(mV)
 	mVUregs.r = 0; // There are no stalls on the R-reg, so its Safe to discard info
 }
 
-void mVUincCycles(mV, int x)
+inline void mVUincCycles(mV, int x)
 {
 	mVUcycles += x;
 	// VF[0] is a constant value (0.0 0.0 0.0 1.0)
@@ -395,7 +395,7 @@ void mVUincCycles(mV, int x)
 }
 
 // Helps check if upper/lower ops read/write to same regs...
-void cmpVFregs(microVFreg& VFreg1, microVFreg& VFreg2, bool& xVar)
+inline void cmpVFregs(microVFreg& VFreg1, microVFreg& VFreg2, bool& xVar)
 {
 	if (VFreg1.reg == VFreg2.reg)
 	{
@@ -407,7 +407,7 @@ void cmpVFregs(microVFreg& VFreg1, microVFreg& VFreg2, bool& xVar)
 	}
 }
 
-void mVUsetCycles(mV)
+inline void mVUsetCycles(mV)
 {
 	mVUincCycles(mVU, mVUstall);
 	// If upper Op && lower Op write to same VF reg:
@@ -449,7 +449,7 @@ void mVUsetCycles(mV)
 }
 
 // Prints Start/End PC of blocks executed, for debugging...
-void mVUdebugPrintBlocks(microVU& mVU, bool isEndPC)
+inline void mVUdebugPrintBlocks(microVU& mVU, bool isEndPC)
 {
 	if (mVUdebugNow)
 	{
@@ -468,7 +468,7 @@ void mVUdebugPrintBlocks(microVU& mVU, bool isEndPC)
 }
 
 // Test cycles to see if we need to exit-early...
-void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
+inline void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 {
 	iPC = mVUstartPC;
 
@@ -537,7 +537,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 //------------------------------------------------------------------
 
 // This gets run at the start of every loop of mVU's first pass
-__fi void startLoop(mV)
+inline void startLoop(mV)
 {
 	if (curI & _Mbit_ && isVU0)
 		DevCon.WriteLn(Color_Green, "microVU%d: M-bit set! PC = %x", getIndex, xPC);
@@ -550,7 +550,7 @@ __fi void startLoop(mV)
 }
 
 // Initialize VI Constants (vi15 propagates through blocks)
-__fi void mVUinitConstValues(microVU& mVU)
+inline void mVUinitConstValues(microVU& mVU)
 {
     int i;
 	for (i = 0; i < 16; ++i)
@@ -563,7 +563,7 @@ __fi void mVUinitConstValues(microVU& mVU)
 }
 
 // Initialize Variables
-__fi void mVUinitFirstPass(microVU& mVU, uptr pState, u8* thisPtr)
+inline void mVUinitFirstPass(microVU& mVU, uptr pState, u8* thisPtr)
 {
 	mVUstartPC = iPC; // Block Start PC
 	mVUbranch  = 0;   // Branch Type
@@ -593,7 +593,7 @@ __fi void mVUinitFirstPass(microVU& mVU, uptr pState, u8* thisPtr)
 // Recompiler
 //------------------------------------------------------------------
 
-void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
+inline void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
 {
 	if (mVU.index && THREAD_VU1) {
 //        xTEST(ptr32[&vu1Thread.vuFBRST], (isVU1 ? 0x400 : 0x4));
@@ -620,7 +620,7 @@ void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
     armBind(&eJMP);
 }
 
-void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
+inline void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
 {
 	if (mVU.index && THREAD_VU1) {
 //        xTEST(ptr32[&vu1Thread.vuFBRST], (isVU1 ? 0x800 : 0x8));
@@ -648,7 +648,7 @@ void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
     armBind(&eJMP);
 }
 
-void mVUSaveFlags(microVU& mVU, microFlagCycles& mFC, microFlagCycles& mFCBackup)
+inline void mVUSaveFlags(microVU& mVU, microFlagCycles& mFC, microFlagCycles& mFCBackup)
 {
 	memcpy(&mFCBackup, &mFC, sizeof(microFlagCycles));
 	mVUsetFlags(mVU, mFCBackup); // Sets Up Flag instances
@@ -745,7 +745,7 @@ static void mvuPreloadRegisters(microVU& mVU, u32 endCount)
 	mVU.code = orig_code;
 }
 
-void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
+inline void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 {
 	microFlagCycles mFC{};
 	u8* thisPtr = armGetCurrentCodePointer();
@@ -1082,7 +1082,7 @@ perf_and_return:
 }
 
 // Returns the entry point of the block (compiles it if not found)
-__fi void* mVUentryGet(microVU& mVU, microBlockManager* block, u32 startPC, uptr pState)
+inline void* mVUentryGet(microVU& mVU, microBlockManager* block, u32 startPC, uptr pState)
 {
 	microBlock* pBlock = block->search(mVU, (microRegInfo*)pState);
 	if (pBlock)
@@ -1092,7 +1092,7 @@ __fi void* mVUentryGet(microVU& mVU, microBlockManager* block, u32 startPC, uptr
 }
 
 // Search for Existing Compiled Block (if found, return x86ptr; else, compile and return x86ptr)
-__fi void* mVUblockFetch(microVU& mVU, u32 startPC, uptr pState)
+inline void* mVUblockFetch(microVU& mVU, u32 startPC, uptr pState)
 {
 	pxAssert((startPC & 7) == 0);
 	pxAssert(startPC <= mVU.microMemSize - 8);

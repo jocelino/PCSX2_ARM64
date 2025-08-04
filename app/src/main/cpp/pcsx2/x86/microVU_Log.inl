@@ -11,7 +11,7 @@
 #include "fmt/format.h"
 
 // writes text directly to mVU.logFile, no newlines appended.
-_mVUt void __mVULog(const char* fmt, ...)
+_mVUt inline void __mVULog(const char* fmt, ...)
 {
 
 	microVU& mVU = mVUx;
@@ -34,7 +34,7 @@ _mVUt void __mVULog(const char* fmt, ...)
 		} \
 	}
 
-void __mVUdumpProgram(microVU& mVU, microProgram& prog)
+inline void __mVUdumpProgram(microVU& mVU, microProgram& prog)
 {
 	bool bitX[7];
 	int delay = 0;

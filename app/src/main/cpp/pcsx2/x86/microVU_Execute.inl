@@ -20,7 +20,7 @@ static bool mvuNeedsFPCRUpdate(mV)
 }
 
 // Generates the code for entering/exit recompiled blocks
-void mVUdispatcherAB(mV)
+inline void mVUdispatcherAB(mV)
 {
     mVU.startFunct = armStartBlock();
 
@@ -135,7 +135,7 @@ void mVUdispatcherAB(mV)
 }
 
 // Generates the code for resuming/exit xgkick
-void mVUdispatcherCD(mV)
+inline void mVUdispatcherCD(mV)
 {
     mVU.startFunctXG = armStartBlock();
 
@@ -441,7 +441,7 @@ _mVUt void mVUcleanUp()
 // Caller Functions
 //------------------------------------------------------------------
 
-void* mVUexecuteVU0(u32 startPC, u32 cycles) { return mVUexecute<0>(startPC, cycles); }
-void* mVUexecuteVU1(u32 startPC, u32 cycles) { return mVUexecute<1>(startPC, cycles); }
-void mVUcleanUpVU0() { mVUcleanUp<0>(); }
-void mVUcleanUpVU1() { mVUcleanUp<1>(); }
+inline void* mVUexecuteVU0(u32 startPC, u32 cycles) { return mVUexecute<0>(startPC, cycles); }
+inline void* mVUexecuteVU1(u32 startPC, u32 cycles) { return mVUexecute<1>(startPC, cycles); }
+inline void mVUcleanUpVU0() { mVUcleanUp<0>(); }
+inline void mVUcleanUpVU1() { mVUcleanUp<1>(); }

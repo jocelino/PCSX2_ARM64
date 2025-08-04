@@ -28,15 +28,7 @@ void VifUnpackNEON_Base::xMovDest() const
 	if (!IsWriteProtectedOp())
 	{
 		if (IsUnmaskedOp()) {
-#ifdef __aarch64__
-			// ARM64 optimized store with write-combining hint
-			// Use non-temporal store hint for better cache behavior
 			armAsm->Str(destReg, dstIndirect);
-			// Prefetch next destination for potential future writes
-			armAsm->Prfm(a64::PSTL1KEEP, a64::MemOperand(dstIndirect.GetBaseRegister(), dstIndirect.GetOffset() + 16));
-#else
-			armAsm->Str(destReg, dstIndirect);
-#endif
 		} else {
 			doMaskWrite(destReg);
 		}

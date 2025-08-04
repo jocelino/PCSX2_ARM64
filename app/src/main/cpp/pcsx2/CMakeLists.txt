@@ -1007,6 +1007,8 @@ set(pcsx2x86Sources
 	x86/ix86-32/iR5900Shift.cpp
 	x86/ix86-32/iR5900Templates.cpp
 	x86/ix86-32/recVTLB.cpp
+	x86/microVU_AsyncCompiler.cpp
+	x86/microVU_AsyncCompiler.h
 #	x86/Vif_Dynarec.cpp
 #	x86/Vif_UnpackSSE.cpp
 	)
@@ -1048,6 +1050,8 @@ set(pcsx2x86Headers
 	x86/microVU_Tables.inl
 	x86/microVU_Upper.inl
 	x86/R5900_Profiler.h
+	x86/microVU_AsyncCompiler.h
+	x86/microVU_PrewarmSystem.h
 #	x86/newVif.h
 #	x86/Vif_UnpackSSE.h
 	)

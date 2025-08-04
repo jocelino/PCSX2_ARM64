@@ -2095,7 +2095,7 @@ mVUop(mVU_XITOP)
 // XGkick
 //------------------------------------------------------------------
 
-void mVU_XGKICK_(u32 addr)
+inline void mVU_XGKICK_(u32 addr)
 {
 	addr = (addr & 0x3ff) * 16;
 	u32 diff = 0x4000 - addr;
@@ -2113,7 +2113,7 @@ void mVU_XGKICK_(u32 addr)
 	}
 }
 
-void _vuXGKICKTransfermVU(bool flush)
+inline void _vuXGKICKTransfermVU(bool flush)
 {
 	while (VU1.xgkickenable && (flush || VU1.xgkickcyclecount >= 2))
 	{
@@ -2301,7 +2301,7 @@ mVUop(mVU_XGKICK)
 // Branches/Jumps
 //------------------------------------------------------------------
 
-void setBranchA(mP, int x, int _x_)
+inline void setBranchA(mP, int x, int _x_)
 {
 	bool isBranchDelaySlot = false;
 
@@ -2326,7 +2326,7 @@ void setBranchA(mP, int x, int _x_)
 	pass4 { if (_Imm11_ == 1 && !_x_ && !isBranchDelaySlot) { return; } mVUbranch = x; }
 }
 
-void condEvilBranch(mV, a64::Condition JMPcc)
+inline void condEvilBranch(mV, a64::Condition JMPcc)
 {
 	if (mVUlow.badBranch)
 	{
@@ -2652,7 +2652,7 @@ mVUop(mVU_IBNE)
 	pass3 { mVUlog("IBNE vi%02d, vi%02d [<a href=\"#addr%04x\">%04x</a>]", _Ft_, _Fs_, branchAddr(mVU), branchAddr(mVU)); }
 }
 
-void normJumpPass2(mV)
+inline void normJumpPass2(mV)
 {
 	if (!mVUlow.constJump.isValid || mVUlow.evilBranch)
 	{

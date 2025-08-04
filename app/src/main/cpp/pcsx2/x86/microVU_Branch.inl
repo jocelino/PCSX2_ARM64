@@ -5,7 +5,7 @@
 
 extern void mVUincCycles(microVU& mVU, int x);
 extern void* mVUcompile(microVU& mVU, u32 startPC, uptr pState);
-__fi int getLastFlagInst(microRegInfo& pState, int* xFlag, int flagType, int isEbit)
+inline int getLastFlagInst(microRegInfo& pState, int* xFlag, int flagType, int isEbit)
 {
 	if (isEbit)
 		return findFlagInst(xFlag, 0x7fffffff);
@@ -14,10 +14,10 @@ __fi int getLastFlagInst(microRegInfo& pState, int* xFlag, int flagType, int isE
 	return (((pState.flagInfo >> (2 * flagType + 2)) & 3) - 1) & 3;
 }
 
-void mVU0clearlpStateJIT() { if (!microVU0.prog.cleared) std::memset(&microVU0.prog.lpState, 0, sizeof(microVU1.prog.lpState)); }
-void mVU1clearlpStateJIT() { if (!microVU1.prog.cleared) std::memset(&microVU1.prog.lpState, 0, sizeof(microVU1.prog.lpState)); }
+inline void mVU0clearlpStateJIT() { if (!microVU0.prog.cleared) std::memset(&microVU0.prog.lpState, 0, sizeof(microVU1.prog.lpState)); }
+inline void mVU1clearlpStateJIT() { if (!microVU1.prog.cleared) std::memset(&microVU1.prog.lpState, 0, sizeof(microVU1.prog.lpState)); }
 
-void mVUDTendProgram(mV, microFlagCycles* mFC, int isEbit)
+inline void mVUDTendProgram(mV, microFlagCycles* mFC, int isEbit)
 {
 
 	int fStatus = getLastFlagInst(mVUpBlock->pState, mFC->xStatus, 0, isEbit);
@@ -180,7 +180,7 @@ void mVUDTendProgram(mV, microFlagCycles* mFC, int isEbit)
 	memcpy(&mVUregs, &stateBackup, sizeof(mVUregs)); //Restore the state for the rest of the recompile
 }
 
-void mVUendProgram(mV, microFlagCycles* mFC, int isEbit)
+inline void mVUendProgram(mV, microFlagCycles* mFC, int isEbit)
 {
 
 	int fStatus = getLastFlagInst(mVUpBlock->pState, mFC->xStatus, 0, isEbit && isEbit != 3);
@@ -352,7 +352,7 @@ void mVUendProgram(mV, microFlagCycles* mFC, int isEbit)
 }
 
 // Recompiles Code for Proper Flags and Q/P regs on Block Linkings
-void mVUsetupBranch(mV, microFlagCycles& mFC)
+inline void mVUsetupBranch(mV, microFlagCycles& mFC)
 {
 	mVU.regAlloc->flushAll(); // Flush Allocated Regs
 	mVUsetupFlags(mVU, mFC);  // Shuffle Flag Instances
@@ -365,7 +365,7 @@ void mVUsetupBranch(mV, microFlagCycles& mFC)
 	mVU.p = 0, mVU.q = 0;
 }
 
-void normBranchCompile(microVU& mVU, u32 branchPC)
+inline void normBranchCompile(microVU& mVU, u32 branchPC)
 {
 	microBlock* pBlock;
 
@@ -381,7 +381,7 @@ void normBranchCompile(microVU& mVU, u32 branchPC)
     }
 }
 
-void normJumpCompile(mV, microFlagCycles& mFC, bool isEvilJump)
+inline void normJumpCompile(mV, microFlagCycles& mFC, bool isEvilJump)
 {
 	memcpy(&mVUpBlock->pStateEnd, &mVUregs, sizeof(microRegInfo));
 	mVUsetupBranch(mVU, mFC);
@@ -445,7 +445,7 @@ void normJumpCompile(mV, microFlagCycles& mFC, bool isEvilJump)
     armAsm->Br(RAX);
 }
 
-void normBranch(mV, microFlagCycles& mFC)
+inline void normBranch(mV, microFlagCycles& mFC)
 {
 	// E-bit or T-Bit or D-Bit Branch
 	if (mVUup.dBit && doDBitHandling)
@@ -547,7 +547,7 @@ void normBranch(mV, microFlagCycles& mFC)
 	normBranchCompile(mVU, branchAddr(mVU));
 }
 
-void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
+inline void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 {
 	mVUsetupBranch(mVU, mFC);
 
@@ -776,7 +776,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 	}
 }
 
-void normJump(mV, microFlagCycles& mFC)
+inline void normJump(mV, microFlagCycles& mFC)
 {
 	if (mVUup.mBit)
 	{

@@ -9,7 +9,7 @@
 // Micro VU - Reg Loading/Saving/Shuffling/Unpacking/Merging...
 //------------------------------------------------------------------
 
-void mVUunpack_xyzw(const xmm& dstreg, const xmm& srcreg, int xyzw)
+inline void mVUunpack_xyzw(const xmm& dstreg, const xmm& srcreg, int xyzw)
 {
     switch (xyzw)
     {
@@ -24,7 +24,7 @@ void mVUunpack_xyzw(const xmm& dstreg, const xmm& srcreg, int xyzw)
     }
 }
 
-void mVUloadReg(const xmm& reg, const a64::MemOperand& ptr, int xyzw)
+inline void mVUloadReg(const xmm& reg, const a64::MemOperand& ptr, int xyzw)
 {
     switch (xyzw)
     {
@@ -59,7 +59,7 @@ void mVUloadReg(const xmm& reg, const a64::MemOperand& ptr, int xyzw)
     }
 }
 
-void mVUloadIreg(const xmm& reg, int xyzw, VURegs* vuRegs)
+inline void mVUloadIreg(const xmm& reg, int xyzw, VURegs* vuRegs)
 {
 //	xMOVSSZX(reg, ptr32[&vuRegs->VI[REG_I].UL]);
     armAsm->Ldr(reg, armMemOperandPtr(&vuRegs->VI[REG_I].UL));
@@ -70,7 +70,7 @@ void mVUloadIreg(const xmm& reg, int xyzw, VURegs* vuRegs)
 }
 
 // Modifies the Source Reg!
-void mVUsaveReg(const xmm& reg, const a64::MemOperand& ptr, int xyzw, bool modXYZW)
+inline void mVUsaveReg(const xmm& reg, const a64::MemOperand& ptr, int xyzw, bool modXYZW)
 {
     switch (xyzw)
     {
@@ -173,7 +173,7 @@ void mVUsaveReg(const xmm& reg, const a64::MemOperand& ptr, int xyzw, bool modXY
 }
 
 // Modifies the Source Reg! (ToDo: Optimize modXYZW = 1 cases)
-void mVUmergeRegs(const xmm& dest, const xmm& src, int xyzw, bool modXYZW)
+inline void mVUmergeRegs(const xmm& dest, const xmm& src, int xyzw, bool modXYZW)
 {
     xyzw &= 0xf;
     if (!dest.Is(src) && (xyzw != 0))
@@ -252,7 +252,7 @@ void mVUmergeRegs(const xmm& dest, const xmm& src, int xyzw, bool modXYZW)
 //------------------------------------------------------------------
 
 // Backup Volatile Regs (EAX, ECX, EDX, MM0~7, XMM0~7, are all volatile according to 32bit Win/Linux ABI)
-__fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = false)
+inline void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = false)
 {
     if (toMemory)
     {
@@ -290,7 +290,7 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
 }
 
 // Restore Volatile Regs
-__fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded = false)
+inline void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded = false)
 {
     if (fromMemory)
     {
@@ -360,7 +360,7 @@ static void mVUwaitMTVU()
 }
 
 // Transforms the Address in gprReg to valid VU0/VU1 Address
-__fi void mVUaddrFix(mV, const a64::Register& gprReg)
+inline void mVUaddrFix(mV, const a64::Register& gprReg)
 {
     auto reg32 = a64::WRegister(gprReg);
 	if (isVU1)
@@ -410,7 +410,7 @@ __fi void mVUaddrFix(mV, const a64::Register& gprReg)
 	}
 }
 
-__fi std::optional<a64::MemOperand> mVUoptimizeConstantAddr(mV, u32 srcreg, s32 offset, s32 offsetSS_)
+inline std::optional<a64::MemOperand> mVUoptimizeConstantAddr(mV, u32 srcreg, s32 offset, s32 offsetSS_)
 {
 	// if we had const prop for VIs, we could do that here..
 	if (srcreg != 0)
@@ -454,7 +454,7 @@ alignas(16) static const SSEMasks sseMasks =
 
 
 // Warning: Modifies t1 and t2
-void MIN_MAX_PS(microVU& mVU, const xmm& to, const xmm& from, const xmm& t1in, const xmm& t2in, bool min)
+inline void MIN_MAX_PS(microVU& mVU, const xmm& to, const xmm& from, const xmm& t1in, const xmm& t2in, bool min)
 {
 	const xmm& t1 = t1in.IsNone() ? mVU.regAlloc->allocReg() : t1in;
 	const xmm& t2 = t2in.IsNone() ? mVU.regAlloc->allocReg() : t2in;
@@ -540,7 +540,7 @@ void MIN_MAX_PS(microVU& mVU, const xmm& to, const xmm& from, const xmm& t1in, c
 }
 
 // Warning: Modifies to's upper 3 vectors, and t1
-void MIN_MAX_SS(mV, const xmm& to, const xmm& from, const xmm& t1in, bool min)
+inline void MIN_MAX_SS(mV, const xmm& to, const xmm& from, const xmm& t1in, bool min)
 {
 	const xmm& t1 = t1in.IsNone() ? mVU.regAlloc->allocReg() : t1in;
 //	xSHUF.PS(to, from, 0);
@@ -563,7 +563,7 @@ void MIN_MAX_SS(mV, const xmm& to, const xmm& from, const xmm& t1in, bool min)
 // What this code attempts to do is do a floating point ADD with only 1 guard bit,
 // whereas FPU calculations that follow the IEEE standard have 3 guard bits (guard|round|sticky)
 // Warning: Modifies all vectors in 'to' and 'from', and Modifies t1in
-void ADD_SS_Single_Guard_Bit(microVU& mVU, const xmm& to, const xmm& from, const xmm& t1in)
+inline void ADD_SS_Single_Guard_Bit(microVU& mVU, const xmm& to, const xmm& from, const xmm& t1in)
 {
 	const xmm& t1 = t1in.IsNone() ? mVU.regAlloc->allocReg() : t1in;
 
@@ -663,7 +663,7 @@ void ADD_SS_Single_Guard_Bit(microVU& mVU, const xmm& to, const xmm& from, const
 
 // Turns out only this is needed to get TriAce games booting with mVU
 // Modifies from's lower vector
-void ADD_SS_TriAceHack(microVU& mVU, const xmm& to, const xmm& from)
+inline void ADD_SS_TriAceHack(microVU& mVU, const xmm& to, const xmm& from)
 {
 //	xMOVD(eax, to);
     armAsm->Fmov(EAX, to.S());
@@ -720,23 +720,23 @@ void ADD_SS_TriAceHack(microVU& mVU, const xmm& to, const xmm& from)
 		mVUclamp4(mVU, to, t1, (isPS) ? 0xf : 0x8); \
 	} while (0)
 
-void SSE_MAXPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_MAXPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 	MIN_MAX_PS(mVU, to, from, t1, t2, false);
 }
-void SSE_MINPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_MINPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 	MIN_MAX_PS(mVU, to, from, t1, t2, true);
 }
-void SSE_MAXSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_MAXSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 	MIN_MAX_SS(mVU, to, from, t1, false);
 }
-void SSE_MINSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_MINSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 	MIN_MAX_SS(mVU, to, from, t1, true);
 }
-void SSE_ADD2SS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_ADD2SS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 	if (!CHECK_VUADDSUBHACK) {
 //        clampOp(xADD.SS, false);
@@ -748,47 +748,47 @@ void SSE_ADD2SS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg,
 }
 
 // Does same as SSE_ADDPS since tri-ace games only need SS implementation of VUADDSUBHACK...
-void SSE_ADD2PS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_ADD2PS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xADD.PS, true);
     clampOp(armAsm->Fadd, true);
 }
-void SSE_ADDPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_ADDPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xADD.PS, true);
     clampOp(armAsm->Fadd, true);
 }
-void SSE_ADDSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_ADDSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xADD.SS, false);
     clampOp(armAsm->Fadd, false);
 }
-void SSE_SUBPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_SUBPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xSUB.PS, true);
     clampOp(armAsm->Fsub, true);
 }
-void SSE_SUBSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_SUBSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xSUB.SS, false);
     clampOp(armAsm->Fsub, false);
 }
-void SSE_MULPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_MULPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xMUL.PS, true);
     clampOp(armAsm->Fmul, true);
 }
-void SSE_MULSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_MULSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xMUL.SS, false);
     clampOp(armAsm->Fmul, false);
 }
-void SSE_DIVPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_DIVPS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xDIV.PS, true);
     clampOp(armAsm->Fdiv, true);
 }
-void SSE_DIVSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
+inline void SSE_DIVSS(mV, const xmm& to, const xmm& from, const xmm& t1 = a64::NoVReg, const xmm& t2 = a64::NoVReg)
 {
 //	clampOp(xDIV.SS, false);
     clampOp(armAsm->Fdiv, false);

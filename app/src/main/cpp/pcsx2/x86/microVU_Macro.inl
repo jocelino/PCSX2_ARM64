@@ -20,7 +20,7 @@ using namespace R5900::Dynarec;
 // we enter micro mode, they will get overriden otherwise...
 #define FLUSH_FOR_POSSIBLE_MICRO_EXEC (FLUSH_FREE_XMM | FLUSH_FREE_VU0)
 
-void setupMacroOp(int mode, const char* opName)
+inline void setupMacroOp(int mode, const char* opName)
 {
 	// Set up reg allocation
 	microVU0.regAlloc->reset(true);
@@ -77,7 +77,7 @@ void setupMacroOp(int mode, const char* opName)
 	}
 }
 
-void endMacroOp(int mode)
+inline void endMacroOp(int mode)
 {
 	if (mode & 0x02) // Q-Reg was Written To
 	{
@@ -109,24 +109,10 @@ void endMacroOp(int mode)
 	microVU0.regAlloc->reset(false);
 }
 
-void mVUFreeCOP2XMMreg(int hostreg)
-{
-	microVU0.regAlloc->clearRegCOP2(hostreg);
-}
-
-void mVUFreeCOP2GPR(int hostreg)
-{
-	microVU0.regAlloc->clearGPRCOP2(hostreg);
-}
-
-bool mVUIsReservedCOP2(int hostreg)
-{
-	// gprF1 through 3 is not correctly used in COP2 mode.
-	return (hostreg == gprT1.GetCode() || hostreg == gprT2.GetCode() || hostreg == gprF0.GetCode());
-}
+// COP2 interface functions moved to microVU.cpp to avoid duplicate symbols
 
 #define REC_COP2_mVU0(f, opName, mode) \
-	void recV##f() \
+	inline void recV##f() \
 	{ \
 		int _mode = (mode); \
 		setupMacroOp(_mode, opName); \
@@ -146,7 +132,7 @@ bool mVUIsReservedCOP2(int hostreg)
 	}
 
 #define INTERPRETATE_COP2_FUNC(f) \
-	void recV##f() \
+	inline void recV##f() \
 	{ \
 		iFlushCall(FLUSH_FOR_POSSIBLE_MICRO_EXEC); \
 		armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear()); \
@@ -296,8 +282,8 @@ REC_COP2_mVU0(RXOR,  "RXOR",  0x100);
 // Macro VU - Misc...
 //------------------------------------------------------------------
 
-void recVNOP() {}
-void recVWAITQ() {}
+inline void recVNOP() {}
+inline void recVWAITQ() {}
 INTERPRETATE_COP2_FUNC(CALLMS);
 INTERPRETATE_COP2_FUNC(CALLMSR);
 
@@ -321,22 +307,22 @@ static void _setupBranchTest(a64::Condition p_cond, bool isLikely)
     recDoBranchImm(branchTo, &jmpType, isLikely, swap);
 }
 
-void recBC2F()
+inline void recBC2F()
 {
 //    _setupBranchTest(JNZ32, false);
     _setupBranchTest(a64::ne, false);
 }
-void recBC2T()
+inline void recBC2T()
 {
 //    _setupBranchTest(JZ32,  false);
     _setupBranchTest(a64::eq,  false);
 }
-void recBC2FL()
+inline void recBC2FL()
 {
 //    _setupBranchTest(JNZ32, true);
     _setupBranchTest(a64::ne, true);
 }
-void recBC2TL()
+inline void recBC2TL()
 {
 //    _setupBranchTest(JZ32,  true);
     _setupBranchTest(a64::eq,  true);
@@ -875,170 +861,17 @@ void recCOP2();
 void recCOP2_BC2();
 void recCOP2_SPEC1();
 void recCOP2_SPEC2();
-void rec_C2UNK()
+inline void rec_C2UNK()
 {
 	Console.Error("Cop2 bad opcode: %x", cpuRegs.code);
 }
 
-// Recompilation
-void (*recCOP2t[32])() = {
-	rec_C2UNK,     recQMFC2,      recCFC2,       rec_C2UNK,     rec_C2UNK,     recQMTC2,      recCTC2,       rec_C2UNK,
-	recCOP2_BC2,   rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,
-	recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1,
-	recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1,
-};
+// COP2 dispatch tables moved to microVU.cpp to avoid duplicate symbols
+extern void (*recCOP2t[32])();
+extern void (*recCOP2_BC2t[32])();  
+extern void (*recCOP2SPECIAL1t[64])();
+extern void (*recCOP2SPECIAL2t[128])();
 
-void (*recCOP2_BC2t[32])() = {
-	recBC2F,   recBC2T,   recBC2FL,  recBC2TL,  rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
-	rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
-	rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
-	rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
-};
+// R5900::Dynarec::OpcodeImpl namespace functions moved to microVU.cpp to avoid duplicate symbols
 
-void (*recCOP2SPECIAL1t[64])() = {
-	recVADDx,   recVADDy,   recVADDz,  recVADDw,  recVSUBx,      recVSUBy,      recVSUBz,      recVSUBw,
-	recVMADDx,  recVMADDy,  recVMADDz, recVMADDw, recVMSUBx,     recVMSUBy,     recVMSUBz,     recVMSUBw,
-	recVMAXx,   recVMAXy,   recVMAXz,  recVMAXw,  recVMINIx,     recVMINIy,     recVMINIz,     recVMINIw,
-	recVMULx,   recVMULy,   recVMULz,  recVMULw,  recVMULq,      recVMAXi,      recVMULi,      recVMINIi,
-	recVADDq,   recVMADDq,  recVADDi,  recVMADDi, recVSUBq,      recVMSUBq,     recVSUBi,      recVMSUBi,
-	recVADD,    recVMADD,   recVMUL,   recVMAX,   recVSUB,       recVMSUB,      recVOPMSUB,    recVMINI,
-	recVIADD,   recVISUB,   recVIADDI, rec_C2UNK, recVIAND,      recVIOR,       rec_C2UNK,     rec_C2UNK,
-	recVCALLMS, recVCALLMSR,rec_C2UNK, rec_C2UNK, recCOP2_SPEC2, recCOP2_SPEC2, recCOP2_SPEC2, recCOP2_SPEC2,
-};
-
-void (*recCOP2SPECIAL2t[128])() = {
-	recVADDAx,  recVADDAy, recVADDAz,  recVADDAw,  recVSUBAx,  recVSUBAy,  recVSUBAz,  recVSUBAw,
-	recVMADDAx,recVMADDAy, recVMADDAz, recVMADDAw, recVMSUBAx, recVMSUBAy, recVMSUBAz, recVMSUBAw,
-	recVITOF0,  recVITOF4, recVITOF12, recVITOF15, recVFTOI0,  recVFTOI4,  recVFTOI12, recVFTOI15,
-	recVMULAx,  recVMULAy, recVMULAz,  recVMULAw,  recVMULAq,  recVABS,    recVMULAi,  recVCLIP,
-	recVADDAq,  recVMADDAq,recVADDAi,  recVMADDAi, recVSUBAq,  recVMSUBAq, recVSUBAi,  recVMSUBAi,
-	recVADDA,   recVMADDA, recVMULA,   rec_C2UNK,  recVSUBA,   recVMSUBA,  recVOPMULA, recVNOP,
-	recVMOVE,   recVMR32,  rec_C2UNK,  rec_C2UNK,  recVLQI,    recVSQI,    recVLQD,    recVSQD,
-	recVDIV,    recVSQRT,  recVRSQRT,  recVWAITQ,  recVMTIR,   recVMFIR,   recVILWR,   recVISWR,
-	recVRNEXT,  recVRGET,  recVRINIT,  recVRXOR,   rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
-};
-
-namespace R5900 {
-namespace Dynarec {
-namespace OpcodeImpl {
-void recCOP2() { recCOP2t[_Rs_](); }
-
-#if defined(LOADSTORE_RECOMPILE) && defined(CP2_RECOMPILE)
-
-/*********************************************************
-* Load and store for COP2 (VU0 unit)                     *
-* Format:  OP rt, offset(base)                           *
-*********************************************************/
-
-void recLQC2()
-{
-	if (g_pCurInstInfo->info & EEINST_COP2_SYNC_VU0)
-		mVUSyncVU0();
-	else if (g_pCurInstInfo->info & EEINST_COP2_FINISH_VU0)
-		mVUFinishVU0();
-
-	vtlb_ReadRegAllocCallback alloc_cb = nullptr;
-	if (_Rt_)
-	{
-		// init regalloc after flush
-		alloc_cb = []() { return _allocVFtoXMMreg(_Rt_, MODE_WRITE); };
-	}
-
-	int xmmreg;
-	if (GPR_IS_CONST1(_Rs_))
-	{
-		const u32 addr = (g_cpuConstRegs[_Rs_].UL[0] + _Imm_) & ~0xFu;
-		xmmreg = vtlb_DynGenReadQuad_Const(128, addr, alloc_cb);
-	}
-	else
-	{
-//		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
-		if (_Imm_ != 0) {
-//            xADD(arg1regd, _Imm_);
-            armAsm->Add(ECX, ECX, _Imm_);
-        }
-//		xAND(arg1regd, ~0xF);
-        armAsm->And(ECX, ECX, ~0xF);
-
-//		xmmreg = vtlb_DynGenReadQuad(128, arg1regd.GetId(), alloc_cb);
-        xmmreg = vtlb_DynGenReadQuad(128, ECX.GetCode(), alloc_cb);
-	}
-
-	// toss away if loading to vf00
-	if (!_Rt_)
-		_freeXMMreg(xmmreg);
-
-	EE::Profiler.EmitOp(eeOpcode::LQC2);
-}
-
-////////////////////////////////////////////////////
-
-void recSQC2()
-{
-	if (g_pCurInstInfo->info & EEINST_COP2_SYNC_VU0)
-		mVUSyncVU0();
-	else if (g_pCurInstInfo->info & EEINST_COP2_FINISH_VU0)
-		mVUFinishVU0();
-
-	// vf00 has to be special cased here, because of the microvu temps...
-	const int ftreg = _Rt_ ? _allocVFtoXMMreg(_Rt_, MODE_READ) : _allocTempXMMreg(XMMT_FPS);
-	if (!_Rt_) {
-//        xMOVAPS(xRegisterSSE(ftreg), ptr128[&vu0Regs.VF[0].F]);
-        armAsm->Ldr(a64::QRegister(ftreg).Q(), PTR_CPU(vuRegs[0].VF[0].F));
-    }
-
-	if (GPR_IS_CONST1(_Rs_))
-	{
-		const u32 addr = (g_cpuConstRegs[_Rs_].UL[0] + _Imm_) & ~0xFu;
-		vtlb_DynGenWrite_Const(128, true, addr, ftreg);
-	}
-	else
-	{
-//		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
-		if (_Imm_ != 0) {
-//            xADD(arg1regd, _Imm_);
-            armAsm->Add(ECX, ECX, _Imm_);
-        }
-//		xAND(arg1regd, ~0xF);
-        armAsm->And(ECX, ECX, ~0xF);
-
-//		vtlb_DynGenWrite(128, true, arg1regd.GetId(), ftreg);
-        vtlb_DynGenWrite(128, true, ECX.GetCode(), ftreg);
-	}
-
-	if (!_Rt_)
-		_freeXMMreg(ftreg);
-
-	EE::Profiler.EmitOp(eeOpcode::SQC2);
-}
-
-#else
-//namespace Interp = R5900::Interpreter::OpcodeImpl;
-
-//REC_FUNC(LQC2);
-//REC_FUNC(SQC2);
-
-#endif
-
-} // namespace OpcodeImpl
-} // namespace Dynarec
-} // namespace R5900
-void recCOP2_BC2() { recCOP2_BC2t[_Rt_](); }
-void recCOP2_SPEC1()
-{
-	if (g_pCurInstInfo->info & (EEINST_COP2_SYNC_VU0 | EEINST_COP2_FINISH_VU0))
-		mVUFinishVU0();
-
-	recCOP2SPECIAL1t[_Funct_]();
-
-}
-void recCOP2_SPEC2() { recCOP2SPECIAL2t[(cpuRegs.code & 3) | ((cpuRegs.code >> 4) & 0x7c)](); }
+// COP2 dispatch functions moved to microVU.cpp to avoid duplicate symbols

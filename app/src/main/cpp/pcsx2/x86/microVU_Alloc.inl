@@ -11,14 +11,14 @@
 // Flag Allocators
 //------------------------------------------------------------------
 
-__fi static const x32& getFlagReg(uint fInst)
+inline static const x32& getFlagReg(uint fInst)
 {
 	static const x32* const gprFlags[4] = {&gprF0, &gprF1, &gprF2, &gprF3};
 	pxAssert(fInst < 4);
 	return *gprFlags[fInst];
 }
 
-__fi void setBitSFLAG(const x32& reg, const x32& regT, int bitTest, int bitSet)
+inline void setBitSFLAG(const x32& reg, const x32& regT, int bitTest, int bitSet)
 {
 //	xTEST(regT, bitTest);
     armAsm->Tst(regT, bitTest);
@@ -31,7 +31,7 @@ __fi void setBitSFLAG(const x32& reg, const x32& regT, int bitTest, int bitSet)
     armBind(&skip);
 }
 
-__fi void setBitFSEQ(const x32& reg, int bitX)
+inline void setBitFSEQ(const x32& reg, int bitX)
 {
 //	xTEST(reg, bitX);
     armAsm->Tst(reg, bitX);
@@ -44,20 +44,20 @@ __fi void setBitFSEQ(const x32& reg, int bitX)
     armBind(&skip);
 }
 
-__fi void mVUallocSFLAGa(const x32& reg, int fInstance)
+inline void mVUallocSFLAGa(const x32& reg, int fInstance)
 {
 //	xMOV(reg, getFlagReg(fInstance));
     armAsm->Mov(reg, getFlagReg(fInstance));
 }
 
-__fi void mVUallocSFLAGb(const x32& reg, int fInstance)
+inline void mVUallocSFLAGb(const x32& reg, int fInstance)
 {
 //	xMOV(getFlagReg(fInstance), reg);
     armAsm->Mov(getFlagReg(fInstance), reg);
 }
 
 // Normalize Status Flag
-__ri void mVUallocSFLAGc(const x32& reg, const x32& regT, int fInstance)
+inline void mVUallocSFLAGc(const x32& reg, const x32& regT, int fInstance)
 {
 //	xXOR(reg, reg);
     armAsm->Eor(reg, reg, reg);
@@ -75,7 +75,7 @@ __ri void mVUallocSFLAGc(const x32& reg, const x32& regT, int fInstance)
 }
 
 // Denormalizes Status Flag; destroys tmp1/tmp2
-__ri void mVUallocSFLAGd(const a64::MemOperand memAddr, const x32& reg = EAX, const x32& tmp1 = ECX, const x32& tmp2 = EDX)
+inline void mVUallocSFLAGd(const a64::MemOperand memAddr, const x32& reg = EAX, const x32& tmp1 = ECX, const x32& tmp2 = EDX)
 {
 //	xMOV(tmp2, ptr32[memAddr]);
     armAsm->Ldr(tmp2, memAddr);
@@ -103,13 +103,13 @@ __ri void mVUallocSFLAGd(const a64::MemOperand memAddr, const x32& reg = EAX, co
     armAsm->Orr(reg, reg, tmp2);
 }
 
-__fi void mVUallocMFLAGa(mV, const x32& reg, int fInstance)
+inline void mVUallocMFLAGa(mV, const x32& reg, int fInstance)
 {
 //	xMOVZX(reg, ptr16[&mVU.macFlag[fInstance]]);
     armAsm->Ldrh(reg, PTR_MVU(microVU[mVU.index].macFlag[fInstance]));
 }
 
-__fi void mVUallocMFLAGb(mV, const x32& reg, int fInstance)
+inline void mVUallocMFLAGb(mV, const x32& reg, int fInstance)
 {
 	//xAND(reg, 0xffff);
     if (fInstance < 4) {
@@ -122,7 +122,7 @@ __fi void mVUallocMFLAGb(mV, const x32& reg, int fInstance)
     }
 }
 
-__fi void mVUallocCFLAGa(mV, const x32& reg, int fInstance)
+inline void mVUallocCFLAGa(mV, const x32& reg, int fInstance)
 {
     if (fInstance < 4) {
 //        xMOV(reg, ptr32[&mVU.clipFlag[fInstance]]);         // microVU
@@ -134,7 +134,7 @@ __fi void mVUallocCFLAGa(mV, const x32& reg, int fInstance)
     }
 }
 
-__fi void mVUallocCFLAGb(mV, const x32& reg, int fInstance)
+inline void mVUallocCFLAGb(mV, const x32& reg, int fInstance)
 {
     if (fInstance < 4) {
 //        xMOV(ptr32[&mVU.clipFlag[fInstance]], reg);         // microVU
@@ -150,7 +150,7 @@ __fi void mVUallocCFLAGb(mV, const x32& reg, int fInstance)
 // VI Reg Allocators
 //------------------------------------------------------------------
 
-void microRegAlloc::writeVIBackup(const a64::Register& reg)
+inline void microRegAlloc::writeVIBackup(const a64::Register& reg)
 {
 	microVU& mVU = index ? microVU1 : microVU0;
 //	xMOV(ptr32[&mVU.VIbackup], xRegister32(reg));
@@ -161,17 +161,17 @@ void microRegAlloc::writeVIBackup(const a64::Register& reg)
 // P/Q Reg Allocators
 //------------------------------------------------------------------
 
-__fi void getPreg(mV, const xmm& reg)
+inline void getPreg(mV, const xmm& reg)
 {
 	mVUunpack_xyzw(reg, xmmPQ, (2 + mVUinfo.readP));
 }
 
-__fi void getQreg(const xmm& reg, int qInstance)
+inline void getQreg(const xmm& reg, int qInstance)
 {
 	mVUunpack_xyzw(reg, xmmPQ, qInstance);
 }
 
-__ri void writeQreg(const xmm& reg, int qInstance)
+inline void writeQreg(const xmm& reg, int qInstance)
 {
     if (qInstance) {
 //        xINSERTPS(xmmPQ, reg, _MM_MK_INSERTPS_NDX(0, 1, 0));

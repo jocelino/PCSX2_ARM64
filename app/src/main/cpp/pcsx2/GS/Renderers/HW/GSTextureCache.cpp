@@ -4249,17 +4249,29 @@ void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& r
 	if (!target)
 	{
 		const int pages = (end_bp + ((1<<5)-1) - start_bp) >> 5;
+		// ARM64 optimization: Early exit if no pages to process (reduces cutscene stutters)
+		if (pages <= 0)
+			return;
+		
 		// Remove Source that have same BP as the render target (color&dss)
 		/// rendering will dirty the copy
 		for (int pgs = 0; pgs < pages; pgs++)
 		{
 			auto& list = m_src.m_map[((bp >> 5) + pgs) & 0x1ff];
+			// ARM64 optimization: Skip empty lists to reduce iteration overhead
+			if (list.empty())
+				continue;
+				
 			for (auto i = list.begin(); i != list.end();)
 			{
 				Source* s = *i;
 				++i;
 
-				if ((GSUtil::HasSharedBits(psm, s->m_TEX0.PSM) && (end_bp > s->m_TEX0.TBP0 && start_bp < s->UnwrappedEndBlock()) && !s->m_target) ||
+				// ARM64 optimization: Cache shared bits results to avoid redundant calculations
+				const bool has_shared_bits_psm = GSUtil::HasSharedBits(psm, s->m_TEX0.PSM);
+				const bool overlaps = (end_bp > s->m_TEX0.TBP0 && start_bp < s->UnwrappedEndBlock());
+				
+				if ((has_shared_bits_psm && overlaps && !s->m_target) ||
 					(GSUtil::HasSharedBits(bp, psm, s->m_from_target_TEX0.TBP0, s->m_TEX0.PSM) && s->m_target))
 				{
 					m_src.RemoveAt(s);
@@ -4294,12 +4306,18 @@ void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& r
 
 	off.loopPages(rect, [this, &rect, bp, bw, psm, &found](u32 page) {
 		auto& list = m_src.m_map[page];
+		// ARM64 optimization: Skip empty lists early
+		if (list.empty())
+			return;
+			
 		for (auto i = list.begin(); i != list.end();)
 		{
 			Source* s = *i;
 			++i;
 
-			if (GSUtil::HasSharedBits(psm, s->m_TEX0.PSM))
+			// ARM64 optimization: Cache shared bits check to avoid redundant calls
+			const bool has_shared_bits = GSUtil::HasSharedBits(psm, s->m_TEX0.PSM);
+			if (has_shared_bits)
 			{
 				bool b = bp == s->m_TEX0.TBP0;
 

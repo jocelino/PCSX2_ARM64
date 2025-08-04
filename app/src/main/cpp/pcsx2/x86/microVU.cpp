@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #include "microVU.h"
+#include "microVU_AsyncCompiler.h"
 
 #include "common/AlignedMalloc.h"
 #include "common/Perf.h"
@@ -243,12 +244,18 @@ __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 	prog->startPC = startPC;
 	if(doWholeProgCompare)
 		mVUcacheProg(mVU, *prog); // Cache Micro Program
-	double cacheSize = (double)((uptr)mVU.prog.x86end - (uptr)mVU.prog.x86start);
-	double cacheUsed = ((double)((uptr)mVU.prog.x86ptr - (uptr)mVU.prog.x86start)) / (double)_1mb;
-	double cachePerc = ((double)((uptr)mVU.prog.x86ptr - (uptr)mVU.prog.x86start)) / cacheSize * 100;
-	ConsoleColors c = mVU.index ? Color_Orange : Color_Magenta;
-	DevCon.WriteLn(c, "microVU%d: Cached Prog = [%03d] [PC=%04x] [List=%02d] (Cache=%3.3f%%) [%3.1fmb]",
-		mVU.index, prog->idx, startPC * 8, mVU.prog.prog[startPC]->size() + 1, cachePerc, cacheUsed);
+	
+	// ARM64 Performance: Reduce logging overhead during compilation bursts
+	// Only log every 10th program during heavy compilation to reduce stutter
+	static u32 logCounter = 0;
+	if (mVU.index == 1 && (++logCounter % 10 == 0)) // VU1 only, every 10th
+	{
+		double cacheSize = (double)((uptr)mVU.prog.x86end - (uptr)mVU.prog.x86start);
+		double cacheUsed = ((double)((uptr)mVU.prog.x86ptr - (uptr)mVU.prog.x86start)) / (double)_1mb;
+		double cachePerc = ((double)((uptr)mVU.prog.x86ptr - (uptr)mVU.prog.x86start)) / cacheSize * 100;
+		DevCon.WriteLn(Color_Orange, "microVU1: Compiled %d programs, Cache=%3.3f%% [%3.1fmb]",
+			logCounter, cachePerc, cacheUsed);
+	}
 	return prog;
 }
 
@@ -388,11 +395,15 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 		// If cleared and program not found, make a new program instance
 		mVU.prog.cleared = 0;
 		mVU.prog.isSame  = 1;
-		mVU.prog.cur     = mVUcreateProg(mVU, regs_start_pc_8);
+		
+		// ARM64 optimization: Use optimized synchronous compilation
+		// Async compilation caused SIGILL due to MTVU thread conflicts
+		mVU.prog.cur = mVUcreateProg(mVU, regs_start_pc_8);
+		list->push_front(mVU.prog.cur);
+		
 		void* entryPoint = mVUblockFetch(mVU,  startPC, pState);
 		quick.block      = mVU.prog.cur->block[start_pc_8];
 		quick.prog       = mVU.prog.cur;
-		list->push_front(mVU.prog.cur);
 		//mVUprintUniqueRatio(mVU);
 		return entryPoint;
 	}
@@ -431,6 +442,9 @@ void recMicroVU1::Reserve()
 {
 	mVUinit(microVU1, 1);
 	vu1Thread.Open();
+	
+	// DISABLED: Initialize asynchronous compilation system for VU1 to prevent stutters
+	// g_microVU_AsyncCompiler.Initialize(); // Causing SIGILL in MTVU thread
 }
 
 void recMicroVU0::Shutdown()
@@ -439,6 +453,9 @@ void recMicroVU0::Shutdown()
 }
 void recMicroVU1::Shutdown()
 {
+	// DISABLED: Shutdown asynchronous compilation system first
+	// g_microVU_AsyncCompiler.Shutdown(); // System is disabled
+	
 	if (vu1Thread.IsOpen())
 		vu1Thread.WaitVU();
 	mVUclose(microVU1);
@@ -598,3 +615,217 @@ void DumpVUState(u32 n, u32 pc)
 }
 
 #endif
+
+//------------------------------------------------------------------
+// COP2 Interface Functions
+//------------------------------------------------------------------
+
+void mVUFreeCOP2XMMreg(int hostreg)
+{
+	microVU0.regAlloc->clearRegCOP2(hostreg);
+}
+
+void mVUFreeCOP2GPR(int hostreg)
+{
+	microVU0.regAlloc->clearGPRCOP2(hostreg);
+}
+
+bool mVUIsReservedCOP2(int hostreg)
+{
+	// gprF1 through 3 is not correctly used in COP2 mode.
+	return (hostreg == gprT1.GetCode() || hostreg == gprT2.GetCode() || hostreg == gprF0.GetCode());
+}
+
+//------------------------------------------------------------------
+// COP2 Dispatch Tables (moved from microVU_Macro.inl to avoid duplicate symbols)
+//------------------------------------------------------------------
+
+// Forward declarations for functions defined in microVU_Macro.inl
+void rec_C2UNK();
+void recQMFC2();
+void recCFC2();
+void recQMTC2();
+void recCTC2();
+void recCOP2_BC2();
+void recCOP2_SPEC1();
+void recBC2F();
+void recBC2T();
+void recBC2FL();
+void recBC2TL();
+
+// Recompilation tables
+void (*recCOP2t[32])() = {
+	rec_C2UNK,     recQMFC2,      recCFC2,       rec_C2UNK,     rec_C2UNK,     recQMTC2,      recCTC2,       rec_C2UNK,
+	recCOP2_BC2,   rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,     rec_C2UNK,
+	recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1,
+	recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1, recCOP2_SPEC1,
+};
+
+void (*recCOP2_BC2t[32])() = {
+	recBC2F,   recBC2T,   recBC2FL,  recBC2TL,  rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
+	rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
+	rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
+	rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK, rec_C2UNK,
+};
+
+// Forward declarations for VU instruction recompiler functions
+void recVADDx(); void recVADDy(); void recVADDz(); void recVADDw(); void recVSUBx(); void recVSUBy(); void recVSUBz(); void recVSUBw();
+void recVMADDx(); void recVMADDy(); void recVMADDz(); void recVMADDw(); void recVMSUBx(); void recVMSUBy(); void recVMSUBz(); void recVMSUBw();
+void recVMAXx(); void recVMAXy(); void recVMAXz(); void recVMAXw(); void recVMINIx(); void recVMINIy(); void recVMINIz(); void recVMINIw();
+void recVMULx(); void recVMULy(); void recVMULz(); void recVMULw(); void recVMULq(); void recVMAXi(); void recVMULi(); void recVMINIi();
+void recVADDq(); void recVMADDq(); void recVADDi(); void recVMADDi(); void recVSUBq(); void recVMSUBq(); void recVSUBi(); void recVMSUBi();
+void recVADD(); void recVMADD(); void recVMUL(); void recVMAX(); void recVSUB(); void recVMSUB(); void recVOPMSUB(); void recVMINI();
+void recVIADD(); void recVISUB(); void recVIADDI(); void recVIAND(); void recVIOR();
+void recVCALLMS(); void recVCALLMSR(); void recCOP2_SPEC2();
+
+void (*recCOP2SPECIAL1t[64])() = {
+	recVADDx,   recVADDy,   recVADDz,  recVADDw,  recVSUBx,      recVSUBy,      recVSUBz,      recVSUBw,
+	recVMADDx,  recVMADDy,  recVMADDz, recVMADDw, recVMSUBx,     recVMSUBy,     recVMSUBz,     recVMSUBw,
+	recVMAXx,   recVMAXy,   recVMAXz,  recVMAXw,  recVMINIx,     recVMINIy,     recVMINIz,     recVMINIw,
+	recVMULx,   recVMULy,   recVMULz,  recVMULw,  recVMULq,      recVMAXi,      recVMULi,      recVMINIi,
+	recVADDq,   recVMADDq,  recVADDi,  recVMADDi, recVSUBq,      recVMSUBq,     recVSUBi,      recVMSUBi,
+	recVADD,    recVMADD,   recVMUL,   recVMAX,   recVSUB,       recVMSUB,      recVOPMSUB,    recVMINI,
+	recVIADD,   recVISUB,   recVIADDI, rec_C2UNK, recVIAND,      recVIOR,       rec_C2UNK,     rec_C2UNK,
+	recVCALLMS, recVCALLMSR,rec_C2UNK, rec_C2UNK, recCOP2_SPEC2, recCOP2_SPEC2, recCOP2_SPEC2, recCOP2_SPEC2,
+};
+
+// Forward declarations for VU SPECIAL2 instruction recompiler functions  
+void recVADDAx(); void recVADDAy(); void recVADDAz(); void recVADDAw(); void recVSUBAx(); void recVSUBAy(); void recVSUBAz(); void recVSUBAw();
+void recVMADDAx(); void recVMADDAy(); void recVMADDAz(); void recVMADDAw(); void recVMSUBAx(); void recVMSUBAy(); void recVMSUBAz(); void recVMSUBAw();
+void recVITOF0(); void recVITOF4(); void recVITOF12(); void recVITOF15(); void recVFTOI0(); void recVFTOI4(); void recVFTOI12(); void recVFTOI15();
+void recVMULAx(); void recVMULAy(); void recVMULAz(); void recVMULAw(); void recVMULAq(); void recVABS(); void recVMULAi(); void recVCLIP();
+void recVADDAq(); void recVMADDAq(); void recVADDAi(); void recVMADDAi(); void recVSUBAq(); void recVMSUBAq(); void recVSUBAi(); void recVMSUBAi();
+void recVADDA(); void recVMADDA(); void recVMULA(); void recVSUBA(); void recVMSUBA(); void recVOPMULA(); void recVNOP();
+void recVMOVE(); void recVMR32(); void recVLQI(); void recVSQI(); void recVLQD(); void recVSQD();
+void recVDIV(); void recVSQRT(); void recVRSQRT(); void recVWAITQ(); void recVMTIR(); void recVMFIR(); void recVILWR(); void recVISWR();
+void recVRNEXT(); void recVRGET(); void recVRINIT(); void recVRXOR();
+
+void (*recCOP2SPECIAL2t[128])() = {
+	recVADDAx,  recVADDAy, recVADDAz,  recVADDAw,  recVSUBAx,  recVSUBAy,  recVSUBAz,  recVSUBAw,
+	recVMADDAx,recVMADDAy, recVMADDAz, recVMADDAw, recVMSUBAx, recVMSUBAy, recVMSUBAz, recVMSUBAw,
+	recVITOF0,  recVITOF4, recVITOF12, recVITOF15, recVFTOI0,  recVFTOI4,  recVFTOI12, recVFTOI15,
+	recVMULAx,  recVMULAy, recVMULAz,  recVMULAw,  recVMULAq,  recVABS,    recVMULAi,  recVCLIP,
+	recVADDAq,  recVMADDAq,recVADDAi,  recVMADDAi, recVSUBAq,  recVMSUBAq, recVSUBAi,  recVMSUBAi,
+	recVADDA,   recVMADDA, recVMULA,   rec_C2UNK,  recVSUBA,   recVMSUBA,  recVOPMULA, recVNOP,
+	recVMOVE,   recVMR32,  rec_C2UNK,  rec_C2UNK,  recVLQI,    recVSQI,    recVLQD,    recVSQD,
+	recVDIV,    recVSQRT,  recVRSQRT,  recVWAITQ,  recVMTIR,   recVMFIR,   recVILWR,   recVISWR,
+	recVRNEXT,  recVRGET,  recVRINIT,  recVRXOR,   rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+	rec_C2UNK,  rec_C2UNK, rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,  rec_C2UNK,
+};
+
+//------------------------------------------------------------------
+// COP2 Dispatch Functions
+//------------------------------------------------------------------
+
+void recCOP2_BC2() { recCOP2_BC2t[_Rt_](); }
+
+void recCOP2_SPEC1()
+{
+	if (g_pCurInstInfo->info & (EEINST_COP2_SYNC_VU0 | EEINST_COP2_FINISH_VU0))
+		mVUFinishVU0();
+
+	recCOP2SPECIAL1t[_Funct_]();
+}
+
+void recCOP2_SPEC2() { recCOP2SPECIAL2t[(cpuRegs.code & 3) | ((cpuRegs.code >> 4) & 0x7c)](); }
+
+//------------------------------------------------------------------
+// R5900::Dynarec::OpcodeImpl Namespace Functions
+//------------------------------------------------------------------
+
+// Forward declarations for functions defined in microVU_Macro.inl
+void mVUSyncVU0();
+void mVUFinishVU0();
+
+namespace R5900 {
+namespace Dynarec {
+namespace OpcodeImpl {
+
+void recCOP2() { recCOP2t[_Rs_](); }
+
+#if defined(LOADSTORE_RECOMPILE) && defined(CP2_RECOMPILE)
+
+void recLQC2()
+{
+	if (g_pCurInstInfo->info & EEINST_COP2_SYNC_VU0)
+		mVUSyncVU0();
+	else if (g_pCurInstInfo->info & EEINST_COP2_FINISH_VU0)
+		mVUFinishVU0();
+
+	vtlb_ReadRegAllocCallback alloc_cb = nullptr;
+	if (_Rt_)
+	{
+		// init regalloc after flush
+		alloc_cb = []() { return _allocVFtoXMMreg(_Rt_, MODE_WRITE); };
+	}
+
+	int xmmreg;
+	if (GPR_IS_CONST1(_Rs_))
+	{
+		const u32 addr = (g_cpuConstRegs[_Rs_].UL[0] + _Imm_) & ~0xFu;
+		xmmreg = vtlb_DynGenReadQuad_Const(128, addr, alloc_cb);
+	}
+	else
+	{
+		_eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+			armAsm->Add(ECX, ECX, _Imm_);
+		}
+		armAsm->And(ECX, ECX, ~0xF);
+
+		xmmreg = vtlb_DynGenReadQuad(128, ECX.GetCode(), alloc_cb);
+	}
+
+	// toss away if loading to vf00
+	if (!_Rt_)
+		_freeXMMreg(xmmreg);
+
+	EE::Profiler.EmitOp(eeOpcode::LQC2);
+}
+
+void recSQC2()
+{
+	if (g_pCurInstInfo->info & EEINST_COP2_SYNC_VU0)
+		mVUSyncVU0();
+	else if (g_pCurInstInfo->info & EEINST_COP2_FINISH_VU0)
+		mVUFinishVU0();
+
+	// vf00 has to be special cased here, because of the microvu temps...
+	const int ftreg = _Rt_ ? _allocVFtoXMMreg(_Rt_, MODE_READ) : _allocTempXMMreg(XMMT_FPS);
+	if (!_Rt_) {
+		armAsm->Ldr(a64::QRegister(ftreg).Q(), PTR_CPU(vuRegs[0].VF[0].F));
+	}
+
+	if (GPR_IS_CONST1(_Rs_))
+	{
+		const u32 addr = (g_cpuConstRegs[_Rs_].UL[0] + _Imm_) & ~0xFu;
+		vtlb_DynGenWrite_Const(128, true, addr, ftreg);
+	}
+	else
+	{
+		_eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+		if (_Imm_ != 0) {
+			armAsm->Add(ECX, ECX, _Imm_);
+		}
+		armAsm->And(ECX, ECX, ~0xF);
+
+		vtlb_DynGenWrite(128, true, ECX.GetCode(), ftreg);
+	}
+
+	if (!_Rt_)
+		_freeXMMreg(ftreg);
+
+	EE::Profiler.EmitOp(eeOpcode::SQC2);
+}
+
+#endif
+
+} // namespace OpcodeImpl
+} // namespace Dynarec
+} // namespace R5900
