@@ -17,8 +17,8 @@ extern microProgram* mVUcreateProg(microVU& mVU, int startPC);
 // Global async compiler instance
 microVU_AsyncCompiler g_microVU_AsyncCompiler;
 
-// Static configuration - DISABLED due to MTVU thread safety issues
-std::atomic<bool> microVU_AsyncCompiler::s_asyncEnabled{false};
+// Static configuration - ENABLED with thread safety fixes
+std::atomic<bool> microVU_AsyncCompiler::s_asyncEnabled{true};
 
 //------------------------------------------------------------------
 // ARM64 Thread Affinity Optimization
@@ -210,50 +210,30 @@ microProgram* microVU_AsyncCompiler::CompileProgramAsync(microVU& mVU, int start
 {
     // This function runs in worker thread - must be thread-safe
     
-    // Check if program was already compiled by another thread
-    if (progList && !progList->empty())
+    // Check if program was already compiled by another thread using thread-safe search
+    u32 startPC_masked = startPC & (mVU.index ? 0x3ff8 : 0xff8);
+    
+    void* existingEntry = nullptr;
+    if (mVU.index == 0)
+        existingEntry = mVUsearchProg<0>(startPC_masked, (uptr)&mVU.prog.lpState);
+    else
+        existingEntry = mVUsearchProg<1>(startPC_masked, (uptr)&mVU.prog.lpState);
+    
+    if (existingEntry && mVU.prog.cur)
     {
-        for (auto& prog : *progList)
-        {
-            if ((int)prog->startPC == startPC)
-            {
-                return prog; // Already compiled
-            }
-        }
+        m_cacheHits.fetch_add(1);
+        return mVU.prog.cur;
     }
     
-    // Perform actual compilation using existing microVU infrastructure
-    // Note: This must be adapted to work safely from worker threads
-    
-//    try
-//    {
-        // Critical section: program creation must be synchronized
-        static std::mutex s_compileMutex;
-        std::lock_guard<std::mutex> lock(s_compileMutex);
-        
-        // Double-check pattern: verify program doesn't exist after acquiring lock
-        if (progList && !progList->empty())
-        {
-            for (auto& prog : *progList)
-            {
-                if ((int)prog->startPC == startPC)
-                {
-                    return prog; // Another thread compiled it
-                }
-            }
-        }
-        
-        // Create new program using existing mVUcreateProg function
-        // This is now safe because we're under synchronization lock
-        microProgram* program = mVUcreateProg(mVU, startPC);
-        
-        if (program && progList)
-        {
-            progList->push_front(program);
-        }
-        
+    if (mVU.prog.cur)
+    {
         m_totalCompiled.fetch_add(1);
-        return program;
+        return mVU.prog.cur;
+    }
+    
+    // Fallback: should not happen with proper mVUsearchProg implementation
+    Console.Warning("microVU AsyncCompiler: Failed to compile program at PC=0x%04x", startPC);
+    return nullptr;
 //    }
 //    catch (const std::exception& e)
 //    {

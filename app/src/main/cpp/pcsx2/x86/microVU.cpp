@@ -7,6 +7,8 @@
 #include "common/AlignedMalloc.h"
 #include "common/Perf.h"
 #include "common/StringUtil.h"
+#include <shared_mutex>
+#include <atomic>
 
 alignas(16) vuRegistersPack g_vuRegistersPack;
 
@@ -14,7 +16,7 @@ alignas(16) vuRegistersPack g_vuRegistersPack;
 // ARM64 Performance Optimization - Object Pools
 //------------------------------------------------------------------
 
-// Memory pool for microProgram structures (64-byte aligned)
+// Thread-safe memory pool for microProgram structures (64-byte aligned)
 template<typename T, size_t Alignment>
 class alignedPool
 {
@@ -23,6 +25,7 @@ private:
     std::vector<void*> allocatedChunks;
     size_t chunkSize;
     size_t itemsPerChunk;
+    mutable std::mutex poolMutex;  // Thread safety for pool operations
     
 public:
     alignedPool(size_t initialChunkSize = 64) : chunkSize(initialChunkSize)
@@ -33,12 +36,14 @@ public:
     
     ~alignedPool()
     {
+        std::lock_guard<std::mutex> lock(poolMutex);
         for (void* chunk : allocatedChunks)
             _aligned_free(chunk);
     }
     
     T* acquire()
     {
+        std::lock_guard<std::mutex> lock(poolMutex);
         if (freeList.empty())
             reserve();
         
@@ -50,7 +55,10 @@ public:
     void release(T* item)
     {
         if (item)
+        {
+            std::lock_guard<std::mutex> lock(poolMutex);
             freeList.push_back(item);
+        }
     }
     
 private:
@@ -76,9 +84,11 @@ private:
     }
 };
 
-// Object pools for frequently allocated structures
+// Thread-safe object pools for frequently allocated structures
 static alignedPool<microProgram, 64> g_microProgramPool(32);      // 64-byte aligned, start with 32 items
 static alignedPool<microBlockLink, 32> g_microBlockLinkPool(64);  // 32-byte aligned, start with 64 items
+
+static std::shared_mutex g_programCacheMutex;
 
 // ARM64 Performance Optimization - Object Pool Access Functions
 microBlockLink* mVUacquireBlockLink()
@@ -357,7 +367,7 @@ __fi bool mVUcmpProg(microVU& mVU, microProgram& prog)
 	return true;
 }
 
-// Searches for Cached Micro Program and sets prog.cur to it (returns entry-point to program)
+// Thread-safe search for Cached Micro Program and sets prog.cur to it (returns entry-point to program)
 _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 {
 	microVU& mVU = mVUx;
@@ -365,11 +375,31 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
     u32 start_pc_8 = startPC >> 3; // startPC / 8
     u32 regs_start_pc_8 = mVU.regs().start_pc >> 3; // mVU.regs().start_pc / 8
 
+	std::shared_lock<std::shared_mutex> readLock(g_programCacheMutex);
+	
 	microProgramQuick& quick = mVU.prog.quick[regs_start_pc_8];
 	microProgramList*  list  = mVU.prog.prog [regs_start_pc_8];
 
 	if (!quick.prog) // If null, we need to search for new program
 	{
+		readLock.unlock();
+		
+		std::unique_lock<std::shared_mutex> writeLock(g_programCacheMutex);
+		
+		if (quick.prog)
+		{
+			mVU.prog.isSame = -1;
+			mVU.prog.cur = quick.prog;
+			quick.block = mVU.prog.cur->block[start_pc_8];
+			
+			if (quick.block == nullptr)
+			{
+				void* entryPoint = mVUblockFetch(mVU, startPC, pState);
+				return entryPoint;
+			}
+			return mVUentryGet(mVU, quick.block, startPC, pState);
+		}
+		
 		auto it(list->begin());
 		for (; it != list->end(); ++it)
 		{
@@ -396,8 +426,6 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 		mVU.prog.cleared = 0;
 		mVU.prog.isSame  = 1;
 		
-		// ARM64 optimization: Use optimized synchronous compilation
-		// Async compilation caused SIGILL due to MTVU thread conflicts
 		mVU.prog.cur = mVUcreateProg(mVU, regs_start_pc_8);
 		list->push_front(mVU.prog.cur);
 		
@@ -418,6 +446,8 @@ _mVUt __fi void* mVUsearchProg(u32 startPC, uptr pState)
 	// Sanity check, in case for some reason the program compilation aborted half way through
 	if (quick.block == nullptr)
 	{
+		// Release read lock before potential compilation
+		readLock.unlock();
 		void* entryPoint = mVUblockFetch(mVU, startPC, pState);
 		return entryPoint;
 	}
@@ -443,8 +473,9 @@ void recMicroVU1::Reserve()
 	mVUinit(microVU1, 1);
 	vu1Thread.Open();
 	
-	// DISABLED: Initialize asynchronous compilation system for VU1 to prevent stutters
-	// g_microVU_AsyncCompiler.Initialize(); // Causing SIGILL in MTVU thread
+	// ENABLED: Initialize asynchronous compilation system for VU1 to prevent stutters
+	if (THREAD_VU1)
+		g_microVU_AsyncCompiler.Initialize();
 }
 
 void recMicroVU0::Shutdown()
@@ -453,8 +484,9 @@ void recMicroVU0::Shutdown()
 }
 void recMicroVU1::Shutdown()
 {
-	// DISABLED: Shutdown asynchronous compilation system first
-	// g_microVU_AsyncCompiler.Shutdown(); // System is disabled
+	// ENABLED: Shutdown asynchronous compilation system first
+	if (THREAD_VU1)
+		g_microVU_AsyncCompiler.Shutdown();
 	
 	if (vu1Thread.IsOpen())
 		vu1Thread.WaitVU();

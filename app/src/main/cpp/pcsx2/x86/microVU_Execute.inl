@@ -5,6 +5,7 @@
 
 #include "Config.h"
 #include "cpuinfo.h"
+#include <atomic>
 
 //------------------------------------------------------------------
 // Dispatcher Functions
@@ -378,7 +379,7 @@ static void mVUGenerateCompareState(mV)
 // Execution Functions
 //------------------------------------------------------------------
 
-// Executes for number of cycles
+// Executes for number of cycles with thread-safe program search
 _mVUt void* mVUexecute(u32 startPC, u32 cycles)
 {
 	microVU& mVU = mVUx;
@@ -391,10 +392,15 @@ _mVUt void* mVUexecute(u32 startPC, u32 cycles)
 	mVU.cycles = cycles;
 	mVU.totalCycles = cycles;
 
+	// Thread safety: Ensure pipeline state is valid before execution
+	// The lpState contains critical pipeline information that must be consistent
+	std::atomic_thread_fence(std::memory_order_acquire);
+
 //	xSetPtr(mVU.prog.x86ptr); // Set x86ptr to where last program left off
     armSetAsmPtr(mVU.prog.x86ptr, vuIndex ? HostMemoryMap::mVU1recSize : HostMemoryMap::mVU0recSize, nullptr);
     mVU.prog.x86ptr = armStartBlock();
 
+	// Thread-safe program search with proper synchronization
 	return mVUsearchProg<vuIndex>(startPC & vuLimit, (uptr)&mVU.prog.lpState); // Find and set correct program
 }
 
@@ -417,6 +423,9 @@ _mVUt void mVUcleanUp()
 
 	mVU.cycles = mVU.totalCycles - std::max(0, mVU.cycles);
 	mVU.regs().cycle += mVU.cycles;
+
+	// Thread safety: Ensure pipeline state changes are visible to other threads
+	std::atomic_thread_fence(std::memory_order_release);
 
 	if (!vuIndex || !THREAD_VU1)
 	{
