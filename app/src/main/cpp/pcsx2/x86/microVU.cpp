@@ -861,3 +861,6 @@ void recSQC2()
 } // namespace OpcodeImpl
 } // namespace Dynarec
 } // namespace R5900
+
+template void* mVUsearchProg<0>(u32 startPC, uptr pState);
+template void* mVUsearchProg<1>(u32 startPC, uptr pState);
