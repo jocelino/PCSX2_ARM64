@@ -8,6 +8,35 @@ if(ANDROID)
 		"PCSX2_CORE=1"
 		"DISABLE_RECORDING"
 	)
+
+	target_compile_definitions(PCSX2_FLAGS INTERFACE
+			 		ARM64_RECOMPILER_ENABLED=0
+			 	)
+	
+	# ARM64 Recompiler Library Integration - TEMPORARILY DISABLED FOR DEBUGGING
+	# if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+	# 	# Import the ARM64 recompiler static library
+	# 	add_library(ARM64Recompiler STATIC IMPORTED)
+	# 	set_target_properties(ARM64Recompiler PROPERTIES
+	# 		IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libs/lib/libRecompiler.a
+	# 	)
+	# 	
+	# 	# Add include directory for ARM64 recompiler
+	# 	target_include_directories(PCSX2_FLAGS INTERFACE
+	# 		${CMAKE_SOURCE_DIR}/recompiler
+	# 	)
+	# 	
+	# 	# Link ARM64 recompiler to PCSX2
+	# 	target_link_libraries(PCSX2 PRIVATE ARM64Recompiler)
+	# 	
+	# 	# Add ARM64 optimization flags
+	# 	target_compile_definitions(PCSX2_FLAGS INTERFACE
+	# 		ARM64_RECOMPILER_ENABLED=1
+	# 		USE_ARM64_OPTIMIZATIONS=1
+	# 	)
+	# 	
+	# 	message(STATUS "ARM64 Recompiler: Integrated libRecompiler.a")
+	# endif()
 else()
 	if(DISABLE_ADVANCE_SIMD OR LTO_PCSX2_CORE)
 		# Fixes issues with some compiler + linker combinations
@@ -63,6 +92,7 @@ endif(WIN32)
 # Main pcsx2 source
 set(pcsx2Sources
 	Achievements.cpp
+	ARM64RecompilerTest.cpp
 	BuildVersion.cpp
 	Cache.cpp
 	COP0.cpp

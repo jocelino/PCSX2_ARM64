@@ -1,0 +1,146 @@
+# ARM64 Static Recompiler Library - PCSX2 Optimized
+cmake_minimum_required(VERSION 3.18)
+
+project(libRecompiler VERSION 1.0 LANGUAGES CXX C ASM)
+
+# Target ARM64 architecture exclusively
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+set(ARM64_ONLY ON)
+
+# Compiler settings for maximum performance
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ARM64-specific compiler flags for NEON optimization
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+simd+crypto+crc")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funsafe-math-optimizations")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftree-vectorize")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=thin")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a+simd+crypto+crc")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -funsafe-math-optimizations")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftree-vectorize")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=thin")
+
+# Include directories
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/arm64
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common
+    ${CMAKE_CURRENT_SOURCE_DIR}/../pcsx2
+    ${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/vixl/src
+)
+
+# Core recompiler sources with ARM64 optimizations
+set(RECOMPILER_CORE_SOURCES
+    # Memory management and instruction cache
+    core/MemoryPool.cpp
+    core/InstructionCache.cpp
+    core/BlockManager.cpp
+    core/JitAllocator.cpp
+    
+    # VU recompiler with NEON optimizations
+    core/MicroVU_ARM64.cpp
+    core/VU_Compiler.cpp
+    core/VU_MemoryOps.cpp
+    
+    # R5900 CPU recompiler
+    core/R5900_Recompiler.cpp
+    core/R5900_Analysis.cpp
+    core/R5900_BlockCache.cpp
+    
+    # VIF data unpacking with NEON
+    core/VIF_UnpackNEON.cpp
+    core/VIF_Compiler.cpp
+    
+    # GS optimizations
+    core/GS_TextureCache.cpp
+    core/GS_MemoryOps.cpp
+)
+
+# ARM64-specific assembly and optimized implementations
+set(RECOMPILER_ARM64_SOURCES
+    arm64/ARM64_Emitter.cpp
+    arm64/ARM64_CodeGen.cpp
+    arm64/ARM64_VectorOps.cpp
+    arm64/ARM64_MemoryHelpers.cpp
+    arm64/NEON_Intrinsics.cpp
+    arm64/NEON_VectorMath.cpp
+    arm64/NEON_TextureOps.cpp
+    arm64/ARM64_JitHelpers.s
+)
+
+# Performance monitoring and profiling
+set(RECOMPILER_PERF_SOURCES
+    perf/ProfilerARM64.cpp
+    perf/CacheAnalyzer.cpp
+    perf/HotspotDetector.cpp
+    perf/OptimizationTracker.cpp
+)
+
+# Combine all sources
+set(RECOMPILER_ALL_SOURCES
+    ${RECOMPILER_CORE_SOURCES}
+    ${RECOMPILER_ARM64_SOURCES}
+    ${RECOMPILER_PERF_SOURCES}
+)
+
+# Create static library
+add_library(Recompiler STATIC ${RECOMPILER_ALL_SOURCES})
+
+# Set output name
+set_target_properties(Recompiler PROPERTIES OUTPUT_NAME "Recompiler")
+
+# Link time optimization for better performance
+set_target_properties(Recompiler PROPERTIES
+    INTERPROCEDURAL_OPTIMIZATION TRUE
+    POSITION_INDEPENDENT_CODE FALSE
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+)
+
+# Precompiled headers for faster compilation
+target_precompile_headers(Recompiler PRIVATE
+    <arm_neon.h>
+    <memory>
+    <vector>
+    <unordered_map>
+    <atomic>
+    <mutex>
+    <thread>
+)
+
+# ARM64 feature detection and capabilities
+target_compile_definitions(Recompiler PRIVATE
+    ARM64_NEON_ENABLED=1
+    ARM64_CRYPTO_ENABLED=1
+    ARM64_CRC_ENABLED=1
+    PCSX2_RECOMPILER_OPTIMIZED=1
+    VU_NEON_OPTIMIZATIONS=1
+    R5900_ARM64_RECOMPILER=1
+    GS_ARM64_OPTIMIZATIONS=1
+)
+
+# Export for other CMake projects
+set(RECOMPILER_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/arm64
+    CACHE INTERNAL "libRecompiler include directories"
+)
+
+# Install library
+install(TARGETS Recompiler
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+)
+
+# Install headers
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+    DESTINATION include/recompiler
+    FILES_MATCHING PATTERN "*.h"
+)

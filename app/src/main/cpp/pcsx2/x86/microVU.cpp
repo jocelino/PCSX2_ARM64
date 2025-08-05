@@ -10,6 +10,11 @@
 #include <shared_mutex>
 #include <atomic>
 
+// ARM64 Recompiler Integration
+#ifdef ARM64_RECOMPILER_ENABLED
+#include "recompiler/ARM64Recompiler.h"
+#endif
+
 alignas(16) vuRegistersPack g_vuRegistersPack;
 
 //------------------------------------------------------------------
@@ -37,8 +42,14 @@ public:
     ~alignedPool()
     {
         std::lock_guard<std::mutex> lock(poolMutex);
-        for (void* chunk : allocatedChunks)
+        for (void* chunk : allocatedChunks) {
+#ifdef ARM64_RECOMPILER_ENABLED
+            // Use ARM64 optimized deallocation
+            releaseMicroProgram(chunk);
+#else
             _aligned_free(chunk);
+#endif
+        }
     }
     
     T* acquire()
@@ -65,7 +76,17 @@ private:
     void reserve()
     {
         // Allocate chunk with ARM64-optimized alignment
-        void* chunk = _aligned_malloc(sizeof(T) * itemsPerChunk, Alignment);
+        void* chunk;
+#ifdef ARM64_RECOMPILER_ENABLED
+        // Use ARM64 optimized allocation for microprograms
+        if constexpr (sizeof(T) <= 1024) {
+            chunk = allocateMicroProgram();
+        } else {
+            chunk = allocateCodeBlock();
+        }
+#else
+        chunk = _aligned_malloc(sizeof(T) * itemsPerChunk, Alignment);
+#endif
         if (!chunk)
             pxFailRel("Failed to allocate memory pool chunk");
         
@@ -235,20 +256,17 @@ __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 		safe_delete(prog->block[i]);
 	}
 	safe_delete(prog->ranges);
-	// ARM64 optimization: Return to object pool instead of aligned_free
-	g_microProgramPool.release(prog);
+	// Temporarily disable ARM64 pool for debugging
+	delete prog;
 	prog = nullptr;
 }
 
 // Creates a new Micro Program
 __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 {
-	// ARM64 optimization: Use object pool for microProgram allocation
-	auto* prog = g_microProgramPool.acquire();
-	// ARM64 optimization: Zero only the block array and data, avoid redundant clearing
-	memset(prog->data, 0, sizeof(prog->data));
-	memset(prog->block, 0, sizeof(prog->block));
-	// Set fields directly without additional clearing
+	// Temporarily disable ARM64 optimizations for debugging
+	microProgram* prog = new microProgram();
+	memset(prog, 0, sizeof(microProgram));
 	prog->idx = mVU.prog.total++;
 	prog->ranges = new std::deque<microRange>();
 	prog->startPC = startPC;
@@ -861,3 +879,6 @@ void recSQC2()
 } // namespace OpcodeImpl
 } // namespace Dynarec
 } // namespace R5900
+
+template void* mVUsearchProg<0>(u32 startPC, uptr pState);
+template void* mVUsearchProg<1>(u32 startPC, uptr pState);

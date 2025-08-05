@@ -9,6 +9,11 @@
 #include "common/Perf.h"
 #include "common/StringUtil.h"
 
+// ARM64 Recompiler Integration
+#ifdef ARM64_RECOMPILER_ENABLED
+#include "recompiler/ARM64Recompiler.h"
+#endif
+
 namespace a64 = vixl::aarch64;
 
 static void mVUmergeRegs(const vixl::aarch64::VRegister& dest, const vixl::aarch64::VRegister& src, int xyzw, bool modXYZW = false, bool canModifySrc = false)
