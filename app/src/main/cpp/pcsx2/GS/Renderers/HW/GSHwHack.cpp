@@ -211,36 +211,6 @@ bool GSHwHack::GSC_NamcoGames(GSRendererHW& r, int& skip)
 	return true;
 }
 
-bool GSHwHack::GSC_GodOfWar(GSRendererHW& r, int& skip)
-{
-	if (skip == 0)
-	{
-		if (RTME && RTPSM == PSMCT32 && RFPSM == PSMCT32 && 
-			(RTBP0 >= 0x2000 && RTBP0 <= 0x3000) && 
-			r.m_vt.m_primclass == GS_SPRITE_CLASS)
-		{
-			GSTextureCache::Target* depth_target = g_texture_cache->LookupTarget(
-				GIFRegTEX0::Create(RTBP0, RTBW, PSMZ32), GSVector2i(1, 1), 
-				r.GetTextureScaleFactor(), GSTextureCache::DepthStencil);
-			
-			if (depth_target && depth_target->m_age <= 2)
-			{
-				GSTextureCache::Target* color_target = g_texture_cache->LookupTarget(
-					GIFRegTEX0::Create(RFBP, RFBW, RFPSM), GSVector2i(1, 1),
-					r.GetTextureScaleFactor(), GSTextureCache::RenderTarget);
-				
-				if (color_target)
-				{
-					g_texture_cache->CopyRGBFromDepthToColor(color_target, depth_target);
-					GL_INS("GSC_GodOfWar(): ARM64-optimized depth-to-color conversion for text rendering");
-				}
-			}
-		}
-	}
-	
-	return true;
-}
-
 bool GSHwHack::GSC_BurnoutGames(GSRendererHW& r, int& skip)
 {
 	// Burnout has a... creative way of achieving its bloom effect, to avoid horizontal page breaks.
@@ -1367,7 +1337,6 @@ const GSHwHack::Entry<GSRendererHW::GSC_Ptr> GSHwHack::s_get_skip_count_function
 
 	// Depth Issue
 	CRC_F(GSC_BurnoutGames),
-	CRC_F(GSC_GodOfWar),
 
 	// Upscaling hacks
 	CRC_F(GSC_UltramanFightingEvolution),

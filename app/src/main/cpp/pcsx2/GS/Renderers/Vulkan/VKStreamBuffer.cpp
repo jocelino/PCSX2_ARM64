@@ -76,6 +76,7 @@ bool VKStreamBuffer::Create(VkBufferUsageFlags usage, u32 size)
 	if (IsValid())
 		Destroy(true);
 
+	// Replace with the new buffer
 	m_size = size;
 	m_current_offset = 0;
 	m_current_gpu_position = 0;
@@ -83,12 +84,6 @@ bool VKStreamBuffer::Create(VkBufferUsageFlags usage, u32 size)
 	m_allocation = new_allocation;
 	m_buffer = new_buffer;
 	m_host_pointer = static_cast<u8*>(ai.pMappedData);
-
-	m_bytes_per_block = (size + (NUM_SYNC_POINTS - 1)) / NUM_SYNC_POINTS;
-	m_sync_fence_counters.fill(0);
-	m_available_block_index = NUM_SYNC_POINTS;
-	m_used_block_index = 0;
-
 	return true;
 }
 
@@ -165,14 +160,7 @@ bool VKStreamBuffer::ReserveMemory(u32 num_bytes, u32 alignment)
 		}
 	}
 
-	if (WaitForClearSpaceOptimized(required_bytes))
-	{
-		const u32 align_diff = Common::AlignUp(m_current_offset, alignment) - m_current_offset;
-		m_current_offset += align_diff;
-		m_current_space -= align_diff;
-		return true;
-	}
-
+	// Can we find a fence to wait on that will give us enough memory?
 	if (WaitForClearSpace(required_bytes))
 	{
 		const u32 align_diff = Common::AlignUp(m_current_offset, alignment) - m_current_offset;
@@ -181,52 +169,10 @@ bool VKStreamBuffer::ReserveMemory(u32 num_bytes, u32 alignment)
 		return true;
 	}
 
+	// We tried everything we could, and still couldn't get anything. This means that too much space
+	// in the buffer is being used by the command buffer currently being recorded. Therefore, the
+	// only option is to execute it, and wait until it's done.
 	return false;
-}
-
-bool VKStreamBuffer::WaitForClearSpaceOptimized(u32 num_bytes)
-{
-	const u32 required_blocks = (num_bytes + m_bytes_per_block - 1) / m_bytes_per_block;
-	
-	if (m_available_block_index + required_blocks <= NUM_SYNC_POINTS)
-	{
-		return true;
-	}
-	
-	const u32 blocks_to_wait = (m_available_block_index + required_blocks) - NUM_SYNC_POINTS;
-	for (u32 i = 0; i < blocks_to_wait && i < m_sync_fence_counters.size(); i++)
-	{
-		if (m_sync_fence_counters[i] != 0)
-		{
-			GSDeviceVK::GetInstance()->WaitForFenceCounter(m_sync_fence_counters[i]);
-			m_sync_fence_counters[i] = 0;
-			m_available_block_index++;
-		}
-	}
-	
-	return true;
-}
-
-void VKStreamBuffer::AddSyncsForOffset(u32 offset)
-{
-	const u32 end = GetSyncIndexForOffset(offset);
-	for (; m_used_block_index < end && m_used_block_index < NUM_SYNC_POINTS; m_used_block_index++)
-	{
-		m_sync_fence_counters[m_used_block_index] = GSDeviceVK::GetInstance()->GetCurrentFenceCounter();
-	}
-}
-
-void VKStreamBuffer::EnsureSyncsWaitedForOffset(u32 offset)
-{
-	const u32 end = std::min<u32>(GetSyncIndexForOffset(offset) + 1, NUM_SYNC_POINTS);
-	for (; m_available_block_index < end; m_available_block_index++)
-	{
-		if (m_sync_fence_counters[m_available_block_index] != 0)
-		{
-			GSDeviceVK::GetInstance()->WaitForFenceCounter(m_sync_fence_counters[m_available_block_index]);
-			m_sync_fence_counters[m_available_block_index] = 0;
-		}
-	}
 }
 
 void VKStreamBuffer::CommitMemory(u32 final_num_bytes)
@@ -234,9 +180,8 @@ void VKStreamBuffer::CommitMemory(u32 final_num_bytes)
 	pxAssert((m_current_offset + final_num_bytes) <= m_size);
 	pxAssert(final_num_bytes <= m_current_space);
 
+	// For non-coherent mappings, flush the memory range
 	vmaFlushAllocation(GSDeviceVK::GetInstance()->GetAllocator(), m_allocation, m_current_offset, final_num_bytes);
-
-	AddSyncsForOffset(m_current_offset + final_num_bytes);
 
 	m_current_offset += final_num_bytes;
 	m_current_space -= final_num_bytes;

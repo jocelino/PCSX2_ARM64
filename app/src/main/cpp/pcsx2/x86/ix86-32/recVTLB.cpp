@@ -259,7 +259,8 @@ namespace vtlb_private
 	}
 } // namespace vtlb_private
 
-static constexpr u32 INDIRECT_DISPATCHER_SIZE = 96;
+static bool hasBeenCalled = false;
+static constexpr u32 INDIRECT_DISPATCHER_SIZE = 64;
 static constexpr u32 INDIRECT_DISPATCHERS_SIZE = 2 * 5 * 2 * INDIRECT_DISPATCHER_SIZE;
 alignas(__pagesize) static u8 m_IndirectDispatchers[__pagesize];
 
@@ -304,8 +305,7 @@ static void DynGen_HandlerTest(const GenDirectFn& gen_direct, int mode, int bits
     armBind(&to_handler);
 
 //	xFastCall(GetIndirectDispatcherPtr(mode, szidx, sign));
-    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<uintptr_t>(GetIndirectDispatcherPtr(mode, szidx, sign)));
-    armAsm->Blr(RXVIXLSCRATCH);
+    armEmitCall(GetIndirectDispatcherPtr(mode, szidx, sign));
 
 //	done.SetTarget();
     armBind(&done);
@@ -395,35 +395,38 @@ static void DynGen_IndirectTlbDispatcher(int mode, int bits, bool sign)
 
 void vtlb_DynGenDispatchers()
 {
-    static bool hasBeenCalled = false;
-    if (hasBeenCalled)
-        return;
-    hasBeenCalled = true;
-
-    HostSys::MemProtect(m_IndirectDispatchers, __pagesize, PageAccess_ReadWrite());
-
-    // clear the buffer to 0xcc (easier debugging).
-    std::memset(m_IndirectDispatchers, 0xcc, __pagesize);
-
-    int mode, bits, sign;
-    for (mode = 0; mode < 2; ++mode)
+    u8* code_start = armEndBlock();
+    ////
+    if (!hasBeenCalled)
     {
-        for (bits = 0; bits < 5; ++bits)
-        {
-            for (sign = 0; sign < (!mode && bits < 3 ? 2 : 1); ++sign)
-            {
-                armSetAsmPtr(GetIndirectDispatcherPtr(mode, bits, !!sign), INDIRECT_DISPATCHERS_SIZE, nullptr);
-                armStartBlock();
-                ////
-                DynGen_IndirectTlbDispatcher(mode, bits, !!sign);
-                ////
-                armEndBlock();
+        hasBeenCalled = true;
+        HostSys::MemProtect(m_IndirectDispatchers, __pagesize, PageAccess_ReadWrite());
+
+        // clear the buffer to 0xcc (easier debugging).
+        std::memset(m_IndirectDispatchers, 0xcc, __pagesize);
+
+        int mode, bits, sign;
+        for (mode = 0; mode < 2; ++mode) {
+            for (bits = 0; bits < 5; ++bits) {
+                for (sign = 0; sign < (!mode && bits < 3 ? 2 : 1); ++sign) {
+                    armSetAsmPtr(GetIndirectDispatcherPtr(mode, bits, !!sign), INDIRECT_DISPATCHERS_SIZE, nullptr);
+                    armStartBlock();
+                    ////
+                    DynGen_IndirectTlbDispatcher(mode, bits, !!sign);
+                    ////
+                    armEndBlock();
+                }
             }
         }
+        HostSys::MemProtect(m_IndirectDispatchers, __pagesize, PageAccess_ExecOnly());
     }
 
-    HostSys::MemProtect(m_IndirectDispatchers, __pagesize, PageAccess_ExecOnly());
     Perf::any.Register(m_IndirectDispatchers, __pagesize, "TLB Dispatcher");
+    //// copy code
+    memcpy(code_start, m_IndirectDispatchers, INDIRECT_DISPATCHERS_SIZE);
+    ////
+    armSetAsmPtr(code_start, INDIRECT_DISPATCHERS_SIZE, nullptr);
+    armStartBlock();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -799,7 +802,7 @@ void vtlb_DynGenWrite(u32 sz, bool xmm, int addr_reg, int value_reg)
 	const u8* codeStart = armGetCurrentCodePointer();
 
 //	const xAddressReg vaddr_reg(addr_reg);
-    a64::MemOperand mop = a64::MemOperand(RFASTMEMBASE, a64::XRegister(addr_reg));
+    const a64::MemOperand mop = a64::MemOperand(RFASTMEMBASE, a64::XRegister(addr_reg));
 
     if (!xmm)
     {
@@ -916,7 +919,7 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 	if (!vmv.isHandler(addr_const))
 	{
 		auto ppf = vmv.assumePtr(addr_const);
-        a64::MemOperand mop = armMemOperandPtr((void*)ppf);
+        const a64::MemOperand mop = armMemOperandPtr((void*)ppf);
 		if (!xmm)
 		{
 			switch (bits)

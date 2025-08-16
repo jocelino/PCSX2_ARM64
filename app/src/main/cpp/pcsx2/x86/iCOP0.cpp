@@ -337,7 +337,7 @@ void recMTC0()
 		switch (_Rd_)
 		{
 			case 12:
-				_eeMoveGPRtoR(a64::XRegister(RAX), _Rt_);
+				_eeMoveGPRtoR(RAX, _Rt_);
 				iFlushCall(FLUSH_INTERPRETER);
 //				xMOV(eax, ptr32[&cpuRegs.cycle]);
 //				xADD(eax, scaleblockcycles_clear());
@@ -348,7 +348,7 @@ void recMTC0()
 				break;
 
 			case 16:
-				_eeMoveGPRtoR(a64::XRegister(RAX), _Rt_);
+				_eeMoveGPRtoR(RAX, _Rt_);
 				iFlushCall(FLUSH_INTERPRETER);
 //				xFastCall((void*)WriteCP0Config);
                 armEmitCall(reinterpret_cast<const void*>(WriteCP0Config));

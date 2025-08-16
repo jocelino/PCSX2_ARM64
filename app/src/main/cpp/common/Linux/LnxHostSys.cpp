@@ -286,7 +286,9 @@ namespace PageFaultHandler
 
 void HostSys::FlushInstructionCache(void* address, u32 size)
 {
-	__builtin___clear_cache(reinterpret_cast<char*>(address), reinterpret_cast<char*>(address) + size);
+    char* start = static_cast<char*>(address);
+    char* end = start + size;
+    __builtin___clear_cache(start, end);
 }
 
 [[maybe_unused]] static bool IsStoreInstruction(const void* ptr)

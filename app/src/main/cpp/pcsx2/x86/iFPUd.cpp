@@ -7,6 +7,12 @@
 #include "iR5900.h"
 #include "iFPU.h"
 
+#ifdef _M_ARM64
+// Include Snapdragon 778G optimizations for enhanced FPU performance
+#include "arm64/ARM64_Snapdragon_Optimizations.h"
+using namespace ARM64_Snapdragon_Optimizations;
+#endif
+
 /* This is a version of the FPU that emulates an exponent of 0xff and overflow/underflow flags */
 
 /* Can be made faster by not converting stuff back and forth between instructions. */
@@ -128,6 +134,12 @@ alignas(32) static const FPUd_Globals s_const =
 
 void ToDouble(int reg)
 {
+#ifdef _M_ARM64
+    // Use Snapdragon 778G fast conversion path when available
+    ARM_FastFPU_ToDouble_778G(reg);
+    return;
+#endif
+    
     auto regQ = a64::QRegister(reg);
 
 //	xUCOMI.SS(xRegisterSSE(reg), ptr[s_const.pos_inf]); // Sets ZF if reg is equal or incomparable to pos_inf
@@ -589,14 +601,24 @@ void FPU_MUL(int info, int regd, int sreg, int treg, bool acc)
 //------------------------------------------------------------------
 void ARM_ADDSD_XMM_to_XMM(int to, int from)
 {
+#ifdef _M_ARM64
+    // Use Snapdragon 778G optimized version for enhanced performance
+    ARM_ADDSD_XMM_to_XMM_778G(to, from);
+#else
     auto regTo = a64::QRegister(to);
     armAsm->Fadd(regTo.V1D(), regTo.V1D(), a64::QRegister(from).V1D());
+#endif
 }
 
 void ARM_SUBSD_XMM_to_XMM(int to, int from)
 {
+#ifdef _M_ARM64
+    // Use Snapdragon 778G optimized version for enhanced performance
+    ARM_SUBSD_XMM_to_XMM_778G(to, from);
+#else
     auto regTo = a64::QRegister(to);
     armAsm->Fsub(regTo.V1D(), regTo.V1D(), a64::QRegister(from).V1D());
+#endif
 }
 static void (*recFPUOpXMM_to_XMM[])(int, int) = {
     ARM_ADDSD_XMM_to_XMM, ARM_SUBSD_XMM_to_XMM};

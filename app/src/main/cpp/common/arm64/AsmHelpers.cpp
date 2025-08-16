@@ -501,27 +501,16 @@ void armBind(a64::Label* p_label)
     }
 }
 
-u32 armEmitJmpPtr(void* code, const void* dst, bool flush_icache)
+void armEmitJmpPtr(void* code, const void* dst, bool flush_icache)
 {
     const s64 displacement = GetPCDisplacement(code, dst);
-    bool use_blr = !vixl::IsInt26(displacement);
 
-    if (use_blr)
-    {
-        armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<uintptr_t>(dst));
-        armAsm->Br(RXVIXLSCRATCH);
-    }
-    else
-    {
-        u32 new_code = a64::B | a64::Assembler::ImmUncondBranch(displacement);
-        std::memcpy(code, &new_code, sizeof(new_code));
-    }
+    u32 new_code = a64::B | a64::Assembler::ImmUncondBranch(displacement);
+    std::memcpy(code, &new_code, sizeof(new_code));
 
     if (flush_icache) {
         HostSys::FlushInstructionCache(code, a64::kInstructionSize);
     }
-
-    return a64::kInstructionSize;
 }
 
 a64::Register armLoadPtr(const void* addr)
@@ -545,6 +534,12 @@ a64::Register armLdrh(const void* addr)
 a64::Register armLdrsh(const void* addr)
 {
     armAsm->Ldrsh(EEX, armMemOperandPtr(addr));
+    return EEX;
+}
+
+a64::Register armLdrsh(const a64::MemOperand offset)
+{
+    armAsm->Ldrsh(EEX, offset);
     return EEX;
 }
 
@@ -662,6 +657,12 @@ void armLoadsh(const a64::Register& regRt, a64::MemOperand offset)
 void armLoadsw(const a64::Register& regRt, a64::MemOperand offset)
 {
     armAsm->Ldrsw(regRt,  offset);
+}
+
+a64::Register armLoadsw(a64::MemOperand offset)
+{
+    armAsm->Ldrsw(EEX,  offset);
+    return EEX;
 }
 
 void armLoad(const a64::VRegister& regRt, a64::MemOperand offset)
@@ -782,6 +783,17 @@ void armAddsh(const a64::Register& p_reg, const void* p_mop, a64::Operand p_valu
         armAsm->Add(p_reg, p_reg, p_value);
     }
     armAsm->Strh(p_reg, memop);
+}
+
+void armSub(a64::MemOperand p_mop, const a64::Register& p_value, bool p_flagUpdate)
+{
+    armLoadsw(EEX, p_mop);
+    if(p_flagUpdate) {
+        armAsm->Subs(EEX, EEX, p_value);
+    } else {
+        armAsm->Sub(EEX, EEX, p_value);
+    }
+    armStore(p_mop, EEX);
 }
 
 void armSub(a64::MemOperand p_mop, a64::Operand p_value, bool p_flagUpdate)
@@ -1046,4 +1058,14 @@ void armShuffle(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int 
     int shuffle_3 = (pIndex >> 6) & 0x3;
     ////
     armShuffleTblx(dstreg, srcreg, shuffle_0, shuffle_1, shuffle_2, shuffle_3, p_is_tbx);
+}
+
+int find_bit_pos(uint32_t p_hex_value)
+{
+    for (int i = 0; i < 32; ++i) {
+        if ((p_hex_value >> i) & 1) {
+            return i;
+        }
+    }
+    return 0;
 }

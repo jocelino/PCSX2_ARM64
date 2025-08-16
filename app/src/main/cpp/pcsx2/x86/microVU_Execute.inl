@@ -6,6 +6,10 @@
 #include "Config.h"
 #include "cpuinfo.h"
 
+#ifdef _M_ARM64
+#include "arm64/ARM64_Snapdragon_Optimizations.h"
+#endif
+
 //------------------------------------------------------------------
 // Dispatcher Functions
 //------------------------------------------------------------------
@@ -25,6 +29,18 @@ void mVUdispatcherAB(mV)
     mVU.startFunct = armStartBlock();
 
 	{
+#ifdef _M_ARM64
+        // ARM64: Enhanced VU parallel execution with better cache management
+        ARM64_Snapdragon_Optimizations::ARM_VU_ParallelExecution_778G(mVU.index, 1);
+        
+        // Pre-warm NEON units for heavy vector workload
+        if (mVU.index == 1) { // VU1 is typically the bottleneck
+            __builtin_prefetch(&mVU.regs().VF[0], 0, 3);
+            __builtin_prefetch(&mVU.regs().VI[0], 0, 3);
+            __builtin_prefetch(&mVU.regs().ACC, 0, 3);
+        }
+#endif
+
 //		xScopedStackFrame frame(false, true);
         armBeginStackFrame();
 
@@ -50,13 +66,19 @@ void mVUdispatcherAB(mV)
                                    : armLoadPtr64(&EmuConfig.Cpu.VU1FPCR.bitmask));
         }
 
-        // Load Regs
+        // Load Regs with ARM64 optimizations
+#ifdef _M_ARM64
+        // Use LDP (Load Pair) for better throughput on ARM64
+        armAsm->Ldp(xmmT1, xmmPQ, PTR_CPU(vuRegs[mVU.index].VI[REG_P].UL));
+        armAsm->Ldr(xmmT2, PTR_CPU(vuRegs[mVU.index].pending_q));
+#else
 //		xMOVAPS (xmmT1, ptr128[&mVU.regs().VI[REG_P].UL]);
         armAsm->Ldr(xmmT1, PTR_CPU(vuRegs[mVU.index].VI[REG_P].UL));
 //		xMOVAPS (xmmPQ, ptr128[&mVU.regs().VI[REG_Q].UL]);
         armAsm->Ldr(xmmPQ, PTR_CPU(vuRegs[mVU.index].VI[REG_Q].UL));
 //		xMOVDZX (xmmT2, ptr32[&mVU.regs().pending_q]);
         armAsm->Ldr(xmmT2, PTR_CPU(vuRegs[mVU.index].pending_q));
+#endif
 //		xSHUF.PS(xmmPQ, xmmT1, 0); // wzyx = PPQQ
         armSHUFPS(xmmPQ, xmmT1, 0);
         //Load in other Q instance
@@ -387,6 +409,12 @@ _mVUt void* mVUexecute(u32 startPC, u32 cycles)
 	{
 		DevCon.Warning("microVU%x Warning: startPC = 0x%x, cycles = 0x%x", vuIndex, startPC, cycles);
 	}
+
+#ifdef _M_ARM64
+	// Snapdragon 778G: Critical optimization for 98% VU bottleneck
+	// Pre-fetch VU microcode to reduce memory stalls during execution
+	ARM64_Snapdragon_Optimizations::ARM_VU_FastPath_Bottleneck_Fix(mVU.regs().Micro + startPC, cycles);
+#endif
 
 	mVU.cycles = cycles;
 	mVU.totalCycles = cycles;

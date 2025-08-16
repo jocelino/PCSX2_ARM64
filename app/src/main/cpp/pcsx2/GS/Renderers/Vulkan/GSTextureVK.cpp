@@ -14,25 +14,6 @@
 static constexpr const VkComponentMapping s_identity_swizzle{VK_COMPONENT_SWIZZLE_IDENTITY,
 	VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY};
 
-static constexpr u32 TEXTURE_UPLOAD_ALIGNMENT_ARM64 = 64;
-static constexpr u32 TEXTURE_UPLOAD_PITCH_ALIGNMENT_ARM64 = 64;
-
-#ifdef _M_ARM64
-static void OptimizeTextureUploadARM64(void* dst, const void* src, u32 width, u32 height, u32 pitch)
-{
-	const u32 row_size = width * 4;
-	const u8* src_ptr = static_cast<const u8*>(src);
-	u8* dst_ptr = static_cast<u8*>(dst);
-	
-	for (u32 y = 0; y < height; y++)
-	{
-		std::memcpy(dst_ptr, src_ptr, row_size);
-		src_ptr += pitch;
-		dst_ptr += ((row_size + TEXTURE_UPLOAD_PITCH_ALIGNMENT_ARM64 - 1) & ~(TEXTURE_UPLOAD_PITCH_ALIGNMENT_ARM64 - 1));
-	}
-}
-#endif
-
 static VkImageLayout GetVkImageLayout(GSTextureVK::Layout layout)
 {
 	static constexpr std::array<VkImageLayout, static_cast<u32>(GSTextureVK::Layout::Count)> s_vk_layout_mapping = {{
@@ -367,11 +348,11 @@ bool GSTextureVK::Update(const GSVector4i& r, const void* data, int pitch, int l
 	else
 	{
 		VKStreamBuffer& sbuffer = GSDeviceVK::GetInstance()->GetTextureUploadBuffer();
-		if (!sbuffer.ReserveMemory(required_size, TEXTURE_UPLOAD_ALIGNMENT_ARM64))
+		if (!sbuffer.ReserveMemory(required_size, GSDeviceVK::GetInstance()->GetBufferCopyOffsetAlignment()))
 		{
 			GSDeviceVK::GetInstance()->ExecuteCommandBuffer(
 				false, "While waiting for %u bytes in texture upload buffer", required_size);
-			if (!sbuffer.ReserveMemory(required_size, TEXTURE_UPLOAD_ALIGNMENT_ARM64))
+			if (!sbuffer.ReserveMemory(required_size, GSDeviceVK::GetInstance()->GetBufferCopyOffsetAlignment()))
 			{
 				Console.Error("Failed to reserve texture upload memory (%u bytes).", required_size);
 				return false;
@@ -428,11 +409,11 @@ bool GSTextureVK::Map(GSMap& m, const GSVector4i* r, int layer)
 	if (required_size >= (buffer.GetCurrentSize() / 2))
 		return false;
 
-	if (!buffer.ReserveMemory(required_size, TEXTURE_UPLOAD_ALIGNMENT_ARM64))
+	if (!buffer.ReserveMemory(required_size, GSDeviceVK::GetInstance()->GetBufferCopyOffsetAlignment()))
 	{
 		GSDeviceVK::GetInstance()->ExecuteCommandBuffer(
 			false, "While waiting for %u bytes in texture upload buffer", required_size);
-		if (!buffer.ReserveMemory(required_size, TEXTURE_UPLOAD_ALIGNMENT_ARM64))
+		if (!buffer.ReserveMemory(required_size, GSDeviceVK::GetInstance()->GetBufferCopyOffsetAlignment()))
 			pxFailRel("Failed to reserve texture upload memory");
 	}
 

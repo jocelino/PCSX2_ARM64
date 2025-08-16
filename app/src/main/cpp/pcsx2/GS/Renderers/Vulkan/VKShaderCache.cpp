@@ -246,35 +246,18 @@ std::optional<VKShaderCache::SPIRVCodeVector> VKShaderCache::CompileShaderToSPV(
         shaderc_compile_options_set_generate_debug_info(options);
 #endif
     shaderc_compile_options_set_optimization_level(
-            options, debug ? shaderc_optimization_level_zero : shaderc_optimization_level_size);
+            options, debug ? shaderc_optimization_level_zero : shaderc_optimization_level_performance);
 
-    int retry_count = 0;
-    const int max_retries = 2;
-    shaderc_compilation_result_t result = nullptr;
+    const shaderc_compilation_result_t result = shaderc_compile_into_spv(
+            s_compiler, source.data(), source.length(), static_cast<shaderc_shader_kind>(stage), "source",
+            "main", options);
+
     shaderc_compilation_status status = shaderc_compilation_status_null_result_object;
-    
-    while (retry_count <= max_retries)
-    {
-        result = shaderc_compile_into_spv(
-                s_compiler, source.data(), source.length(), static_cast<shaderc_shader_kind>(stage), "source",
-                "main", options);
-
-        if (result && (status = shaderc_result_get_compilation_status(result)) == shaderc_compilation_status_success)
-            break;
-            
-        if (result)
-            shaderc_result_release(result);
-            
-        retry_count++;
-        if (retry_count > max_retries)
-            break;
-    }
-
-    if (!result || status != shaderc_compilation_status_success)
+    if (!result || (status = shaderc_result_get_compilation_status(result)) != shaderc_compilation_status_success)
     {
         const std::string_view errors(result ? shaderc_result_get_error_message(result)
                                              : "null result object");
-        ERROR_LOG("Failed to compile shader to SPIR-V after {} retries: {}\n{}", max_retries, compilation_status_to_string(status), errors);
+        ERROR_LOG("Failed to compile shader to SPIR-V: {}\n{}", compilation_status_to_string(status), errors);
         DumpBadShader(source, errors);
     }
     else
@@ -290,8 +273,7 @@ std::optional<VKShaderCache::SPIRVCodeVector> VKShaderCache::CompileShaderToSPV(
                                              reinterpret_cast<const u32*>(bytes + spirv_size));
     }
 
-    if (result)
-        shaderc_result_release(result);
+    shaderc_result_release(result);
     shaderc_compiler_release(s_compiler);
     shaderc_compile_options_release(options);
 #else

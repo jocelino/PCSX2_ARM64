@@ -98,6 +98,40 @@ public class MainActivity extends AppCompatActivity {
                 NativeApp.resume();
             });
         }
+        
+        // Snapdragon Optimizations Toggle with Emergency Mode
+        MaterialButton btn_active = findViewById(R.id.btn_active);
+        if(btn_active != null) {
+            // Initialize optimizations on first run
+            NativeApp.initializeOptimizations();
+            
+            // Update button text based on current state
+            updateOptimizationButtonText(btn_active);
+            
+            btn_active.setOnClickListener(v -> {
+                // Toggle optimization state
+                boolean currentState = NativeApp.isOptimizationsEnabled();
+                NativeApp.setOptimizationsEnabled(!currentState);
+                
+                // Update button text
+                updateOptimizationButtonText(btn_active);
+                
+                // Show detected processor
+                String processor = NativeApp.getDetectedProcessor();
+                btn_active.setTooltipText("CPU: " + processor);
+            });
+            
+            // Long click to force Emergency Mode for testing
+            btn_active.setOnLongClickListener(v -> {
+                // Force emergency mode with all aggressive speedhacks
+                NativeApp.forceEmergencyMode(true);
+                NativeApp.forceGodOfWarMode(true);
+                NativeApp.dumpCurrentSettings();
+                btn_active.setText("EMERGENCY MODE ON");
+                btn_active.setBackgroundColor(0xFFFF4444); // Red color
+                return true;
+            });
+        }
 
         //////
         // RENDERER
@@ -361,6 +395,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void updateOptimizationButtonText(MaterialButton button) {
+        boolean isEnabled = NativeApp.isOptimizationsEnabled();
+        button.setText(isEnabled ? "Optimizations: ON" : "Optimizations: OFF");
+        // Optional: Change button color based on state
+        if(isEnabled) {
+            button.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark, null));
+        } else {
+            button.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark, null));
+        }
+    }
+    
     @Override
     protected void onDestroy() {
         NativeApp.shutdown();

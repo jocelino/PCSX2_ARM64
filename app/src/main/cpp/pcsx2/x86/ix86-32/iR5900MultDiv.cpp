@@ -430,7 +430,7 @@ static void recDIVsuper(int info, bool sign, bool upper, int process)
         armAsm->Mov(EAX, g_cpuConstRegs[_Rs_].UL[0]);
     }
 	else {
-        _eeMoveGPRtoR(a64::XRegister(RAX), _Rs_);
+        _eeMoveGPRtoR(RAX, _Rs_);
     }
 
 //	u8* end1;

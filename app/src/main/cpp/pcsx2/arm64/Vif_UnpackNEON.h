@@ -6,7 +6,7 @@
 #include "Common.h"
 #include "Vif_Dma.h"
 #include "Vif_Dynarec.h"
-#include "arm64/AsmHelpers.h"
+#include "common/arm64/AsmHelpers.h"
 
 #define xmmCol0 vixl::aarch64::q2
 #define xmmCol1 vixl::aarch64::q3

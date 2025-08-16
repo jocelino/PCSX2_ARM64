@@ -58,6 +58,8 @@ namespace a64 = vixl::aarch64;
 // fastmem
 #define RFASTMEMBASE a64::x25
 
+#define RSTATE_x26 a64::x26
+
 // CPU(iR5900), PSX(iR3000A), FPU(iFPU, iFPUd)
 #define RSTATE_CPU a64::x27
 #define RSTATE_PSX a64::x28
@@ -67,6 +69,8 @@ namespace a64 = vixl::aarch64;
 #define RSTATE_MVU a64::x28
 #define PTR_MVU(field) a64::MemOperand(RSTATE_MVU, offsetof(vuRegistersPack, field))
 
+// iopMem->Main
+#define RSTATE_x29 a64::x29
 
 static inline s64 GetPCDisplacement(const void* current, const void* target)
 {
@@ -173,12 +177,13 @@ private:
 //////////////////////////////////////////////////////////////////////////
 
 void armBind(a64::Label* p_label);
-u32 armEmitJmpPtr(void* code, const void* dst, bool flush_icache=true);
+void armEmitJmpPtr(void* code, const void* dst, bool flush_icache=true);
 
 a64::Register armLoadPtr(const void* addr);
 a64::Register armLoadPtr64(const void* addr);
 a64::Register armLdrh(const void* addr);
 a64::Register armLdrsh(const void* addr);
+a64::Register armLdrsh(const a64::MemOperand offset);
 a64::Register armLoadPtr(const a64::MemOperand offset);
 void armLoadPtr(const a64::CPURegister& reg, const void* addr, int64_t offset);
 a64::Register armLoadPtr(a64::Register regRs, int64_t offset);
@@ -198,6 +203,7 @@ void armLoad(const a64::Register& regRt, a64::MemOperand offset);
 void armLoadh(const a64::Register& regRt, a64::MemOperand offset);
 void armLoadsh(const a64::Register& regRt, a64::MemOperand offset);
 void armLoadsw(const a64::Register& regRt, a64::MemOperand offset);
+a64::Register armLoadsw(a64::MemOperand offset);
 void armLoad(const a64::VRegister& regRt, a64::MemOperand offset);
 a64::Register armLoad(a64::MemOperand offset);
 a64::Register armLoad64(a64::MemOperand offset);
@@ -216,6 +222,7 @@ void armAdd(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value)
 void armAddh(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value, bool p_flagUpdate=false);
 void armAddsh(const a64::Register& p_reg, const void* p_mop, a64::Operand p_value, bool p_flagUpdate=false);
 
+void armSub(a64::MemOperand p_mop, const a64::Register& p_value, bool p_flagUpdate=false);
 void armSub(a64::MemOperand p_mop, a64::Operand p_value, bool p_flagUpdate=false);
 void armSub(const a64::Register& p_reg, a64::MemOperand p_mop, a64::Operand p_value, bool p_flagUpdate=false);
 void armSub(const void* p_mop, a64::Operand p_value);
@@ -247,3 +254,5 @@ void armSHUFPS(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int p
 void armPSHUFD(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex);
 void armShuffleTblx(const a64::VRegister& p_dst, const a64::VRegister& p_src, int p_a, int p_b, int p_c, int p_d, bool p_is_tbx);
 void armShuffle(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex, bool p_is_tbx);
+
+int find_bit_pos(uint32_t p_hex_value);

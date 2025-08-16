@@ -54,6 +54,10 @@
 
 #include <fstream>
 
+#ifdef _M_ARM64
+#include "arm64/ARM64_Snapdragon_Optimizations.h"
+#endif
+
 Pcsx2Config::GSOptions GSConfig;
 
 static GSRendererType GSCurrentRenderer;
@@ -415,6 +419,11 @@ void GSReadLocalMemoryUnsync(u8* mem, u32 qwc, u64 BITBLITBUF, u64 TRXPOS, u64 T
 
 void GSgifTransfer(const u8* mem, u32 size)
 {
+#ifdef _M_ARM64
+	// Snapdragon: Optimize GS data transfers to reduce 80% GS usage
+	ARM64_Snapdragon_Optimizations::ARM_GS_ParallelPipeline_778G(mem, size);
+#endif
+	
 	g_gs_renderer->Transfer<3>(mem, size);
 }
 

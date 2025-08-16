@@ -83,11 +83,25 @@ static BASEBLOCK* recROM = nullptr; // and here
 static BASEBLOCK* recROM1 = nullptr; // also here
 static BASEBLOCK* recROM2 = nullptr; // also here
 
+#ifdef _M_ARM64
+// ARM64: Memory pool for instruction cache to reduce malloc/free overhead
+static struct {
+    EEINST pool[8192];
+    u32 allocated;
+    u32 max_size;
+} s_InstCachePool = {.allocated = 0, .max_size = 8192};
+#endif
+
 static BaseBlocks recBlocks;
 static u8* recPtr = nullptr;
 static u8* recPtrEnd = nullptr;
 EEINST* s_pInstCache = nullptr;
 static u32 s_nInstCacheSize = 0;
+
+#ifdef _M_ARM64
+// ARM64: Cache line alignment for better performance
+aligned_storage_t<64, 64> s_cacheLineBuffer;
+#endif
 
 static BASEBLOCK* s_pCurBlock = nullptr;
 static BASEBLOCKEX* s_pCurBlockEx = nullptr;
@@ -234,54 +248,26 @@ void _eeFlushAllDirty()
 	_flushConstRegs(false);
 }
 
-void _eeMoveGPRtoR(const a64::WRegister& to, int fromgpr, bool allow_preload)
+void _eeMoveGPRtoR(const a64::Register& to, int fromgpr, bool allow_preload)
 {
 	if (fromgpr == 0) {
-//        xXOR(to, to);
-        armAsm->Eor(to, to, to);
+        if(to.IsW()) {
+//            xXOR(to, to);
+            armAsm->Eor(to, to, to);
+        } else {
+//            xXOR(xRegister32(to), xRegister32(to));
+            auto reg32 = a64::WRegister(to);
+            armAsm->Eor(reg32, reg32, reg32);
+        }
     }
 	else if (GPR_IS_CONST1(fromgpr)) {
+        if(to.IsW()) {
 //        xMOV(to, g_cpuConstRegs[fromgpr].UL[0]);
-        armAsm->Mov(to, g_cpuConstRegs[fromgpr].UL[0]);
-    }
-	else
-	{
-		int x86reg = _checkX86reg(X86TYPE_GPR, fromgpr, MODE_READ);
-		int xmmreg = _checkXMMreg(XMMTYPE_GPRREG, fromgpr, MODE_READ);
-
-		if (allow_preload && x86reg < 0 && xmmreg < 0)
-		{
-			if (EEINST_XMMUSEDTEST(fromgpr))
-				xmmreg = _allocGPRtoXMMreg(fromgpr, MODE_READ);
-			else if (EEINST_USEDTEST(fromgpr))
-				x86reg = _allocX86reg(X86TYPE_GPR, fromgpr, MODE_READ);
-		}
-
-		if (x86reg >= 0) {
-//            xMOV(to, xRegister32(x86reg));
-            armAsm->Mov(to, a64::WRegister(x86reg));
-        }
-		else if (xmmreg >= 0) {
-//            xMOVD(to, xRegisterSSE(xmmreg));
-            armAsm->Fmov(to, a64::QRegister(xmmreg).S());
-        }
-		else {
-//            xMOV(to, ptr[&cpuRegs.GPR.r[fromgpr].UL[0]]);
-            armLoad(to, PTR_CPU(cpuRegs.GPR.r[fromgpr].UL[0]));
-        }
-	}
-}
-
-void _eeMoveGPRtoR(const a64::XRegister& to, int fromgpr, bool allow_preload)
-{
-	if (fromgpr == 0) {
-//        xXOR(xRegister32(to), xRegister32(to));
-        auto reg32 = a64::WRegister(to);
-        armAsm->Eor(reg32, reg32, reg32);
-    }
-	else if (GPR_IS_CONST1(fromgpr)) {
+            armAsm->Mov(to, g_cpuConstRegs[fromgpr].UL[0]);
+        } else {
 //        xMOV64(to, g_cpuConstRegs[fromgpr].UD[0]);
-        armAsm->Mov(to, g_cpuConstRegs[fromgpr].UD[0]);
+            armAsm->Mov(to, g_cpuConstRegs[fromgpr].UD[0]);
+        }
     }
 	else
 	{
@@ -297,16 +283,31 @@ void _eeMoveGPRtoR(const a64::XRegister& to, int fromgpr, bool allow_preload)
 		}
 
 		if (x86reg >= 0) {
+            if(to.IsW()) {
+//            xMOV(to, xRegister32(x86reg));
+                armAsm->Mov(to, a64::WRegister(x86reg));
+            } else {
 //            xMOV(to, xRegister64(x86reg));
-            armAsm->Mov(to, a64::XRegister(x86reg));
+                armAsm->Mov(to, a64::XRegister(x86reg));
+            }
         }
 		else if (xmmreg >= 0) {
+            if(to.IsW()) {
 //            xMOVD(to, xRegisterSSE(xmmreg));
-            armAsm->Fmov(to, a64::QRegister(xmmreg).V1D());
+                armAsm->Fmov(to, a64::QRegister(xmmreg).S());
+            } else {
+//            xMOVD(to, xRegisterSSE(xmmreg));
+                armAsm->Fmov(to, a64::QRegister(xmmreg).D());
+            }
         }
 		else {
+            if(to.IsW()) {
+//            xMOV(to, ptr[&cpuRegs.GPR.r[fromgpr].UL[0]]);
+                armLoad(to, PTR_CPU(cpuRegs.GPR.r[fromgpr].UL[0]));
+            } else {
 //            xMOV(to, ptr32[&cpuRegs.GPR.r[fromgpr].UD[0]]);
-            armLoad(to, PTR_CPU(cpuRegs.GPR.r[fromgpr].UD[0]));
+                armLoad(to, PTR_CPU(cpuRegs.GPR.r[fromgpr].UD[0]));
+            }
         }
 	}
 }
@@ -490,13 +491,13 @@ static const void* _DynGen_EnterRecompiledCode()
 	static constexpr u32 stack_size = 32 + 8;
 #else
 	// Stack still needs to be aligned
-//	static constexpr u32 stack_size = 16;
+	static constexpr u32 stack_size = 16;
 #endif
 
 	// We never return through this function, instead we fastjmp() out.
 	// So we don't need to worry about preserving callee-saved registers, but we do need to align the stack.
 //	xSUB(rsp, stack_size);
-//    armAsm->Sub(a64::sp, a64::sp, stack_size);
+    armAsm->Sub(a64::sp, a64::sp, stack_size);
 #endif
 
     // From memory to registry
@@ -631,8 +632,7 @@ static void recReserve()
 
 	pxAssertRel(!s_pInstCache, "InstCache not allocated");
 	s_nInstCacheSize = 128;
-	// ARM64 optimization: Use 64-byte aligned allocation for better cache performance
-	s_pInstCache = (EEINST*)_aligned_malloc(sizeof(EEINST) * s_nInstCacheSize, 64);
+	s_pInstCache = (EEINST*)malloc(sizeof(EEINST) * s_nInstCacheSize);
 	if (!s_pInstCache)
 		pxFailRel("Failed to allocate R5900 InstCache array");
 }
@@ -653,14 +653,14 @@ static void recResetRaw()
 
 	EE::Profiler.Reset();
 
-    // recVTLB => iR5900LoadStore
-    vtlb_DynGenDispatchers();
-
 //	xSetPtr(SysMemory::GetEERec());
     armSetAsmPtr(recPtr, recPtrEnd - recPtr, nullptr);
     armStartBlock();
 
 	_DynGen_Dispatchers();
+
+    // recVTLB => iR5900LoadStore
+    vtlb_DynGenDispatchers();
 
 //	recPtr = xGetPtr();
     recPtr = armEndBlock();
@@ -692,8 +692,7 @@ void recShutdown()
 
 	recRAM = recROM = recROM1 = recROM2 = nullptr;
 
-	_aligned_free(s_pInstCache);
-	s_pInstCache = nullptr;
+	safe_free(s_pInstCache);
 	s_nInstCacheSize = 0;
 
 	recPtr = nullptr;
@@ -1462,7 +1461,7 @@ static void iBranchTest(u32 newpc)
 //		xADD(ptr32[&cpuRegs.cycle], scaleblockcycles());
         armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles());
 //		xCMP(eax, ptr32[&cpuRegs.cycle]);
-        armLoad(EEX, PTR_CPU(cpuRegs.cycle));
+        armLoadsw(EEX, PTR_CPU(cpuRegs.cycle));
         armAsm->Cmp(EAX, EEX);
 //		xCMOVS(eax, ptr32[&cpuRegs.cycle]);
         armAsm->Csel(EAX, EEX, EAX, a64::Condition::mi);
@@ -1479,7 +1478,7 @@ static void iBranchTest(u32 newpc)
 //		xMOV(ptr[&cpuRegs.cycle], eax); // update cycles
         armAdd(EAX, PTR_CPU(cpuRegs.cycle), scaleblockcycles());
 //		xSUB(eax, ptr[&cpuRegs.nextEventCycle]);
-        armAsm->Subs(EAX, EAX, armLoad(PTR_CPU(cpuRegs.nextEventCycle)));
+        armAsm->Subs(EAX, EAX, armLoadsw(PTR_CPU(cpuRegs.nextEventCycle)));
 
         a64::Label labelSigned;
         armAsm->B(&labelSigned, a64::Condition::pl);
@@ -1677,7 +1676,7 @@ void recMemcheck(u32 op, u32 bits, bool store)
 	iFlushCall(FLUSH_EVERYTHING | FLUSH_PC);
 
 	// compute accessed address
-	_eeMoveGPRtoR(a64::WRegister(EAX), (op >> 21) & 0x1F);
+	_eeMoveGPRtoR(EAX, (op >> 21) & 0x1F);
 	if (static_cast<s16>(op) != 0) {
 //        xADD(ecx, static_cast<s16>(op));
         armAsm->Add(EAX, EAX, static_cast<s16>(op));
@@ -2709,34 +2708,21 @@ StartRecomp:
 	// rec info //
 	bool has_cop2_instructions = false;
 	{
-		const u32 required_instructions = (s_nEndBlock - startpc) / 4 + 1;
-		if (s_nInstCacheSize < required_instructions)
+		if (s_nInstCacheSize < (s_nEndBlock - startpc) / 4 + 1)
 		{
-			// ARM64 optimization: Use exponential growth with minimum 32-byte alignment
-			// and add 25% padding to reduce future reallocations
-			const u32 min_growth = s_nInstCacheSize ? s_nInstCacheSize * 2 : 128;
-			const u32 required_with_padding = required_instructions + (required_instructions >> 2); // +25%
-			const u32 new_size = std::max(min_growth, required_with_padding);
+			const u32 required_size = (s_nEndBlock - startpc) / 4 + 10;
+			const u32 new_size = std::max(required_size, s_nInstCacheSize * 2);
 			
-			// Use aligned allocation for better ARM64 cache performance (64-byte aligned)
-			EEINST* new_cache = (EEINST*)_aligned_malloc(sizeof(EEINST) * new_size, 64);
+			EEINST* new_cache = (EEINST*)malloc(sizeof(EEINST) * new_size);
 			if (!new_cache)
 				pxFailRel("Failed to allocate R5900 InstCache array");
 			
-			// Preserve existing data during growth
 			if (s_pInstCache && s_nInstCacheSize > 0)
 			{
 				memcpy(new_cache, s_pInstCache, sizeof(EEINST) * s_nInstCacheSize);
-				// Zero-initialize new portion for consistent behavior
-				memset(new_cache + s_nInstCacheSize, 0, sizeof(EEINST) * (new_size - s_nInstCacheSize));
-			}
-			else
-			{
-				// Initialize entire cache if first allocation
-				memset(new_cache, 0, sizeof(EEINST) * new_size);
 			}
 			
-			_aligned_free(s_pInstCache);
+			free(s_pInstCache);
 			s_pInstCache = new_cache;
 			s_nInstCacheSize = new_size;
 		}
@@ -2892,7 +2878,7 @@ StartRecomp:
 			// case can result in very short blocks which should not issue branch tests for
 			// performance reasons.
 
-			const int numinsts = (pc - startpc) / 4;
+			const int numinsts = (pc - startpc) >> 2; // (pc - startpc) / 4
 			if (numinsts > 6)
 				SetBranchImm(pc);
 			else

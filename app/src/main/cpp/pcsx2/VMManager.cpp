@@ -48,6 +48,11 @@
 #include "common/FPControl.h"
 #include "common/ScopedGuard.h"
 #include "common/SettingsWrapper.h"
+
+#ifdef _M_ARM64
+// Include Snapdragon 778G optimizations for enhanced emulation performance
+#include "arm64/ARM64_Snapdragon_Optimizations.h"
+#endif
 #include "common/SmallString.h"
 #include "common/StringUtil.h"
 #include "common/Threading.h"
@@ -2578,6 +2583,11 @@ void VMManager::InitializeCPUProviders()
 //	// of the ring buffer wont match, and various systems in the emulator end up deadlocked.
 //	vu1Thread.Open();
 //#endif
+
+#ifdef _M_ARM64
+	// Initialize ARM64 hardware-specific optimizations
+	ARM64_Snapdragon_Optimizations::InitializeOptimizations();
+#endif
 
 	VifUnpackSSE_Init();
 }

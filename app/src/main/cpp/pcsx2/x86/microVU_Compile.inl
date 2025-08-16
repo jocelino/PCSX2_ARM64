@@ -517,7 +517,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 //	xLoadFarAddr(rax, &mVUpBlock->pState);
     armMoveAddressToReg(RAX, &mVUpBlock->pState);
 //	xCALL((void*)mVU.copyPLState);
-    armEmitCall(reinterpret_cast<void*>(mVU.copyPLState));
+    armEmitCall(mVU.copyPLState);
 
 	if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //        xMOV(ptr32[&mVU.regs().nextBlockCycles], mVUcycles);

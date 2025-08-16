@@ -3,6 +3,10 @@
 
 #pragma once
 
+#ifdef _M_ARM64
+#include "arm64/ARM64_Snapdragon_Optimizations.h"
+#endif
+
 //------------------------------------------------------------------
 // mVUupdateFlags() - Updates status/mac flags
 //------------------------------------------------------------------
@@ -31,6 +35,11 @@ static void mVUupdateFlags(mV, const xmm& reg, const xmm& regT1in = a64::NoVReg,
 	const x32& mReg = gprT1;
 	const x32& sReg = getFlagReg(sFLAG.write);
 	bool regT1b = regT1in.IsNone(), regT2b = false;
+
+#ifdef _M_ARM64
+	// Use Snapdragon 778G optimized flag updates for God of War performance
+	ARM64_Snapdragon_Optimizations::ARM_MicroVU_VectorMath_778G(reg.GetCode());
+#endif
 //	static const u16 flipMask[16] = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
 
 	//SysPrintf("Status = %d; Mac = %d\n", sFLAG.doFlag, mFLAG.doFlag);

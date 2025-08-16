@@ -107,8 +107,7 @@ alignas(16) extern GPR_reg64 g_cpuConstRegs[32];
 extern u32 g_cpuHasConstReg, g_cpuFlushedConstReg;
 
 // finds where the GPR is stored and moves lower 32 bits to EAX
-void _eeMoveGPRtoR(const a64::WRegister& to, int fromgpr, bool allow_preload = true);
-void _eeMoveGPRtoR(const a64::XRegister& to, int fromgpr, bool allow_preload = true);
+void _eeMoveGPRtoR(const a64::Register& to, int fromgpr, bool allow_preload = true);
 void _eeMoveGPRtoM(uptr to, int fromgpr); // 32-bit only
 
 void _eeFlushAllDirty();

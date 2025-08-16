@@ -47,6 +47,10 @@
 #include <tuple>
 #include <unordered_map>
 
+#ifdef _M_ARM64
+#include "pcsx2/arm64/ARM64_Snapdragon_Optimizations.h"
+#endif
+
 InputRecordingUI::InputRecordingData g_InputRecordingData;
 
 namespace ImGuiManager
@@ -148,6 +152,9 @@ __ri void ImGuiManager::DrawPerformanceOverlay(float& position_y, float scale, f
 					text.append_format("FPS: {:.2f}", PerformanceMetrics::GetFPS());
 					break;
 			}
+//            float current_fps = PerformanceMetrics::GetFPS();
+//            float target_fps = 60.0f; // NTSC target
+//            ARM64_Snapdragon_Optimizations::DynamicPerformance::UpdatePerformanceMetrics(current_fps, target_fps);
 			first = false;
 		}
 

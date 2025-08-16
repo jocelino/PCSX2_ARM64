@@ -9,6 +9,10 @@
 
 #include <thread>
 
+#ifdef _M_ARM64
+#include "arm64/ARM64_Snapdragon_Optimizations.h"
+#endif
+
 VU_Thread vu1Thread;
 
 #define MTVU_ALWAYS_KICK 0
@@ -36,6 +40,12 @@ static void MTVU_Unpack(void* data, VIFregisters& vifRegs)
 {
 	u16 wl = vifRegs.cycle.wl > 0 ? vifRegs.cycle.wl : 256;
 	bool isFill = vifRegs.cycle.cl < wl;
+	
+#ifdef _M_ARM64
+	// Optimize VIF unpacking which contributes to VU bottleneck
+	ARM64_Snapdragon_Optimizations::ARM_VU_FastPath_Bottleneck_Fix(data, wl);
+#endif
+	
 	if (newVifDynaRec)
 		dVifUnpack<1>((u8*)data, isFill);
 	else
@@ -118,8 +128,18 @@ void VU_Thread::Reset()
 	m_write_pos = 0;
 	m_ato_read_pos = 0;
 	m_read_pos = 0;
-	std::memset(&vif, 0, sizeof(vif));
-	std::memset(&vifRegs, 0, sizeof(vifRegs));
+#ifdef _M_ARM64
+	// Use optimized NEON memset for ARM64
+	if (ARM64_Snapdragon_Optimizations::IsOptimizationEnabled()) {
+		ARM64_Snapdragon_Optimizations::NEON_Optimized_Memset(&vif, 0, sizeof(vif));
+		ARM64_Snapdragon_Optimizations::NEON_Optimized_Memset(&vifRegs, 0, sizeof(vifRegs));
+	} else {
+#endif
+		std::memset(&vif, 0, sizeof(vif));
+		std::memset(&vifRegs, 0, sizeof(vifRegs));
+#ifdef _M_ARM64
+	}
+#endif
 	for (size_t i = 0; i < 4; ++i)
 		vu1Thread.vuCycles[i] = 0;
 	vu1Thread.mtvuInterrupts = 0;
@@ -149,6 +169,14 @@ void VU_Thread::ExecuteRingBuffer()
 					vuFBRST = Read();
 					if (addr != -1)
 						VU1.VI[REG_TPC].UL = addr & 0x7FF;
+					
+#ifdef _M_ARM64
+					// CRITICAL OPTIMIZATION: This is the 98% VU bottleneck!
+					// Pre-optimize before the expensive CpuVU1->Execute() call
+					ARM64_Snapdragon_Optimizations::ARM_VU_FastPath_Bottleneck_Fix(
+						VU1.Micro + VU1.VI[REG_TPC].UL, vu1RunCycles);
+#endif
+					
 					CpuVU1->SetStartPC(VU1.VI[REG_TPC].UL << 3);
 					CpuVU1->Execute(vu1RunCycles);
 					gifUnit.gifPath[GIF_PATH_1].FinishGSPacketMTVU();
@@ -297,7 +325,16 @@ __fi u32 VU_Thread::Read()
 
 __fi void VU_Thread::Read(void* dest, u32 size)
 {
-	memcpy(dest, &buffer[m_read_pos], size);
+#ifdef _M_ARM64
+	// Use optimized NEON memcpy for ARM64 - critical for VU performance
+	if (ARM64_Snapdragon_Optimizations::IsOptimizationEnabled() && size >= 64) {
+		ARM64_Snapdragon_Optimizations::NEON_Optimized_Memcpy(dest, &buffer[m_read_pos], size);
+	} else {
+#endif
+		memcpy(dest, &buffer[m_read_pos], size);
+#ifdef _M_ARM64
+	}
+#endif
 	m_read_pos += size_u32(size);
 }
 
@@ -321,7 +358,16 @@ __fi void VU_Thread::Write(u32 val)
 
 __fi void VU_Thread::Write(const void* src, u32 size)
 {
-	memcpy(GetWritePtr(), src, size);
+#ifdef _M_ARM64
+	// Use optimized NEON memcpy for ARM64 - critical for VU data transfers
+	if (ARM64_Snapdragon_Optimizations::IsOptimizationEnabled() && size >= 64) {
+		ARM64_Snapdragon_Optimizations::NEON_Optimized_Memcpy(GetWritePtr(), src, size);
+	} else {
+#endif
+		memcpy(GetWritePtr(), src, size);
+#ifdef _M_ARM64
+	}
+#endif
 	m_write_pos += size_u32(size);
 }
 

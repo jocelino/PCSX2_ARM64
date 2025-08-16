@@ -1,0 +1,8 @@
+Checks: >
+  performance-*,
+  modernize-*,
+  bugprone-*,
+  readability-*
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(pcsx2|common|extern/simde)/'
+FormatStyle: file

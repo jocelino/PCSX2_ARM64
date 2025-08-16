@@ -280,7 +280,6 @@ bool GSDeviceOGL::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 		m_vertex_stream_buffer->Bind();
 		m_index_stream_buffer->Bind();
 
-		// ARM64 optimization: Combine cache clearing operations for better performance
 		// Force UBOs to be uploaded on first use.
 		std::memset(&m_vs_cb_cache, 0xFF, sizeof(m_vs_cb_cache));
 		std::memset(&m_ps_cb_cache, 0xFF, sizeof(m_ps_cb_cache));

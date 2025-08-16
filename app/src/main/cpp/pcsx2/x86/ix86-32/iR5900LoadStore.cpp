@@ -81,7 +81,7 @@ static void recLoadQuad(u32 bits, bool sign)
 		// Load ECX with the source memory address that we're reading from.
         _freeX86reg(ECX);
 //		_eeMoveGPRtoR(arg1reg, _Rs_);
-        _eeMoveGPRtoR(a64::XRegister(RCX), _Rs_);
+        _eeMoveGPRtoR(RCX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -123,7 +123,7 @@ static void recLoad(u32 bits, bool sign)
 		// Load arg1 with the source memory address that we're reading from.
 		_freeX86reg(ECX);
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -177,7 +177,7 @@ static void recStore(u32 bits)
 		{
 			// TODO(Stenzek): Preload Rs when it's live. Turn into LEA.
 //			_eeMoveGPRtoR(arg1regd, _Rs_);
-            _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+            _eeMoveGPRtoR(ECX, _Rs_);
 			if (_Imm_ != 0) {
 //                xADD(arg1regd, _Imm_);
                 armAsm->Add(ECX, ECX, _Imm_);
@@ -287,7 +287,8 @@ void recLWL()
 
 	const a64::WRegister temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
 
-	_eeMoveGPRtoR(arg1regd, _Rs_);
+//	_eeMoveGPRtoR(arg1regd, _Rs_);
+    _eeMoveGPRtoR(ECX, _Rs_);
 	if (_Imm_ != 0) {
 //        xADD(arg1regd, _Imm_);
         armAsm->Add(ECX, ECX, _Imm_);
@@ -364,7 +365,7 @@ void recLWR()
     const a64::WRegister temp(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
 
 //	_eeMoveGPRtoR(arg1regd, _Rs_);
-    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+    _eeMoveGPRtoR(ECX, _Rs_);
 	if (_Imm_ != 0) {
 //        xADD(arg1regd, _Imm_);
         armAsm->Add(ECX, ECX, _Imm_);
@@ -459,7 +460,7 @@ void recSWL()
 //	_freeX86reg(arg2regd);
 
 //	_eeMoveGPRtoR(arg1regd, _Rs_);
-    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+    _eeMoveGPRtoR(ECX, _Rs_);
 	if (_Imm_ != 0) {
 //        xADD(arg1regd, _Imm_);
         armAsm->Add(ECX, ECX, _Imm_);
@@ -506,7 +507,7 @@ void recSWL()
 //		xADD(ecx, 24);
         armAsm->Add(ECX, ECX, 24);
 //		_eeMoveGPRtoR(eax, _Rt_, false);
-        _eeMoveGPRtoR(a64::WRegister(EAX), _Rt_, false);
+        _eeMoveGPRtoR(EAX, _Rt_, false);
 //		xSHR(eax, cl);
         armAsm->Lsr(EAX, EAX, ECX);
 //		xOR(arg2regd, eax);
@@ -514,7 +515,7 @@ void recSWL()
 	}
 
 //	_eeMoveGPRtoR(arg1regd, _Rs_, false);
-    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+    _eeMoveGPRtoR(ECX, _Rs_, false);
 	if (_Imm_ != 0) {
 //        xADD(arg1regd, _Imm_);
         armAsm->Add(ECX, ECX, _Imm_);
@@ -528,7 +529,7 @@ void recSWL()
 //	skip.SetTarget();
     armBind(&skip);
 //	_eeMoveGPRtoR(arg2regd, _Rt_, false);
-    _eeMoveGPRtoR(a64::WRegister(EDX), _Rt_, false);
+    _eeMoveGPRtoR(EDX, _Rt_, false);
 //	end.SetTarget();
     armBind(&end);
 
@@ -565,7 +566,7 @@ void recSWR()
 //	_freeX86reg(arg2regd);
 
 //	_eeMoveGPRtoR(arg1regd, _Rs_);
-    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+    _eeMoveGPRtoR(ECX, _Rs_);
 	if (_Imm_ != 0) {
 //        xADD(arg1regd, _Imm_);
         armAsm->Add(ECX, ECX, _Imm_);
@@ -610,7 +611,7 @@ void recSWR()
 //		xMOV(ecx, temp);
         armAsm->Mov(ECX, temp);
 //		_eeMoveGPRtoR(eax, _Rt_, false);
-        _eeMoveGPRtoR(a64::WRegister(EAX), _Rt_, false);
+        _eeMoveGPRtoR(EAX, _Rt_, false);
 //		xSHL(eax, cl);
         armAsm->Lsl(EAX, EAX, ECX);
 //		xOR(arg2regd, eax);
@@ -618,7 +619,7 @@ void recSWR()
 	}
 
 //	_eeMoveGPRtoR(arg1regd, _Rs_, false);
-    _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+    _eeMoveGPRtoR(ECX, _Rs_, false);
 	if (_Imm_ != 0) {
 //        xADD(arg1regd, _Imm_);
         armAsm->Add(ECX, ECX, _Imm_);
@@ -632,7 +633,7 @@ void recSWR()
 //	skip.SetTarget();
     armBind(&skip);
 //	_eeMoveGPRtoR(arg2regd, _Rt_, false);
-    _eeMoveGPRtoR(a64::WRegister(EDX), _Rt_, false);
+    _eeMoveGPRtoR(EDX, _Rt_, false);
 //	end.SetTarget();
     armBind(&end);
 
@@ -708,7 +709,7 @@ static void ldlrhelper_const(int maskamt, const SHIFTV maskshift, int amt, const
 
 /// Masks rt with (0xffffffffffffffff maskshift maskamt), merges with (value shift amt), leaves result in value
 //static void ldlrhelper(const xRegister32& maskamt, const xImpl_Group2& maskshift, const xRegister32& amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
-static void ldlrhelper(const a64::WRegister& maskamt, const SHIFTV maskshift, const a64::WRegister& amt, const SHIFTV shift, const a64::XRegister& value, const a64::XRegister& rt)
+static void ldlrhelper(const a64::Register& maskamt, const SHIFTV maskshift, const a64::Register& amt, const SHIFTV shift, const a64::Register& value, const a64::Register& rt)
 {
 	pxAssert(rt.GetCode() != ECX.GetCode() && amt.GetCode() != ECX.GetCode() && value.GetCode() != ECX.GetCode());
 
@@ -794,7 +795,7 @@ void recLDL()
 //		_freeX86reg(arg1regd);
         _freeX86reg(ECX);
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -847,7 +848,7 @@ void recLDL()
         armAsm->Sub(EDX, EDX, temp1);
 
 //		ldlrhelper(temp1, xSHR, edx, xSHL, rax, treg);
-        ldlrhelper(temp1, SHIFTV::xSHR, a64::WRegister(EDX), SHIFTV::xSHL, a64::XRegister(RAX), treg);
+        ldlrhelper(temp1, SHIFTV::xSHR, EDX, SHIFTV::xSHL, RAX, treg);
 //		skip.SetTarget();
         armBind(&skip);
 	}
@@ -902,7 +903,7 @@ void recLDR()
 //		_freeX86reg(arg1regd);
         _freeX86reg(ECX);
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -951,7 +952,7 @@ void recLDR()
         armAsm->Sub(EDX, EDX, temp1);
 
 //		ldlrhelper(edx, xSHL, temp1, xSHR, rax, treg);
-        ldlrhelper(a64::WRegister(EDX), SHIFTV::xSHL, temp1, SHIFTV::xSHR, a64::XRegister(RAX), treg);
+        ldlrhelper(EDX, SHIFTV::xSHL, temp1, SHIFTV::xSHR, RAX, treg);
 //		skip.SetTarget();
         armBind(&skip);
 	}
@@ -1014,7 +1015,7 @@ static void sdlrhelper_const(int maskamt, const SHIFTV maskshift, int amt, const
 
 /// Masks value with (0xffffffffffffffff maskshift maskamt), merges with (rt shift amt), saves to dummyValue
 //static void sdlrhelper(const xRegister32& maskamt, const xImpl_Group2& maskshift, const xRegister32& amt, const xImpl_Group2& shift, const xRegister64& value, const xRegister64& rt)
-static void sdlrhelper(const a64::WRegister& maskamt, const SHIFTV maskshift, const a64::WRegister& amt, const SHIFTV shift, const a64::XRegister& value, const a64::XRegister& rt)
+static void sdlrhelper(const a64::Register& maskamt, const SHIFTV maskshift, const a64::Register& amt, const SHIFTV shift, const a64::Register& value, const a64::Register& rt)
 {
 	pxAssert(rt.GetCode() != ECX.GetCode() && amt.GetCode() != ECX.GetCode() && value.GetCode() != ECX.GetCode());
 
@@ -1083,12 +1084,13 @@ void recSDL()
 		if (shift == 64)
 		{
 //			_eeMoveGPRtoR(arg2reg, _Rt_);
-            _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+            _eeMoveGPRtoR(RDX, _Rt_);
 		}
 		else
 		{
 			vtlb_DynGenReadNonQuad_Const(64, false, false, aligned, RETURN_READ_IN_RAX);
-			_eeMoveGPRtoR(arg2reg, _Rt_);
+//			_eeMoveGPRtoR(arg2reg, _Rt_);
+            _eeMoveGPRtoR(RDX, _Rt_);
 //			sdlrhelper_const(shift, xSHL, 64 - shift, xSHR, rax, arg2reg);
             sdlrhelper_const(shift, SHIFTV::xSHL, 64 - shift, SHIFTV::xSHR, a64::XRegister(RAX), a64::XRegister(RDX));
 		}
@@ -1103,7 +1105,7 @@ void recSDL()
 //		_freeX86reg(arg1regd);
         _freeX86reg(ECX);
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -1116,7 +1118,7 @@ void recSDL()
         const a64::WRegister temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
         const a64::XRegister temp2(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
 //		_eeMoveGPRtoR(arg2reg, _Rt_);
-        _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+        _eeMoveGPRtoR(RDX, _Rt_);
 
 //		xMOV(temp1, arg1regd);
         armAsm->Mov(temp1, ECX);
@@ -1150,10 +1152,10 @@ void recSDL()
         armAsm->Sub(EDX, EDX, temp1);
 
 //		sdlrhelper(temp1, xSHL, edx, xSHR, rax, temp2);
-        sdlrhelper(temp1, SHIFTV::xSHL, a64::WRegister(EDX), SHIFTV::xSHR, a64::XRegister(RAX), temp2);
+        sdlrhelper(temp1, SHIFTV::xSHL, EDX, SHIFTV::xSHR, RAX, temp2);
 
 //		_eeMoveGPRtoR(arg1regd, _Rs_, false);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+        _eeMoveGPRtoR(ECX, _Rs_, false);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -1197,13 +1199,13 @@ void recSDR()
 		if (shift == 0)
 		{
 //			_eeMoveGPRtoR(arg2reg, _Rt_);
-            _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+            _eeMoveGPRtoR(RDX, _Rt_);
 		}
 		else
 		{
 			vtlb_DynGenReadNonQuad_Const(64, false, false, aligned, RETURN_READ_IN_RAX);
 //			_eeMoveGPRtoR(arg2reg, _Rt_);
-            _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+            _eeMoveGPRtoR(RDX, _Rt_);
 //			sdlrhelper_const(64 - shift, xSHR, shift, xSHL, rax, arg2reg);
             sdlrhelper_const(64 - shift, SHIFTV::xSHR, shift, SHIFTV::xSHL, a64::XRegister(RAX), a64::XRegister(RDX));
 		}
@@ -1217,7 +1219,7 @@ void recSDR()
 
 		// Load ECX with the source memory address that we're reading from.
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -1230,7 +1232,7 @@ void recSDR()
         const a64::WRegister temp1(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
         const a64::XRegister temp2(_allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED));
 //		_eeMoveGPRtoR(arg2reg, _Rt_);
-        _eeMoveGPRtoR(a64::XRegister(RDX), _Rt_);
+        _eeMoveGPRtoR(RDX, _Rt_);
 
 //		xMOV(temp1, arg1regd);
         armAsm->Mov(temp1, ECX);
@@ -1259,10 +1261,10 @@ void recSDR()
         armAsm->Sub(EDX, EDX, temp1);
 
 //		sdlrhelper(edx, xSHR, temp1, xSHL, rax, temp2);
-        sdlrhelper(a64::WRegister(EDX), SHIFTV::xSHR, temp1, SHIFTV::xSHL, a64::XRegister(RAX), temp2);
+        sdlrhelper(EDX, SHIFTV::xSHR, temp1, SHIFTV::xSHL, RAX, temp2);
 
 //		_eeMoveGPRtoR(arg1regd, _Rs_, false);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_, false);
+        _eeMoveGPRtoR(ECX, _Rs_, false);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -1313,7 +1315,7 @@ void recLWC1()
 //		_freeX86reg(arg1regd);
         _freeX86reg(ECX);
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -1344,7 +1346,7 @@ void recSWC1()
 //		_freeX86reg(arg1regd);
         _freeX86reg(ECX);
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);

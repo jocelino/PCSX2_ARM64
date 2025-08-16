@@ -238,6 +238,8 @@ static const void* _DynGen_EnterRecompiledCode()
         armBeginStackFrame();
 #endif
 
+        armMoveAddressToReg(RSTATE_x29, iopMem->Main);
+
 //		xJMP((void*)iopDispatcherReg);
         armEmitJmp(iopDispatcherReg);
 
@@ -1240,7 +1242,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 //		xADD(eax, edx);
         armAsm->Add(EAX, EAX, EDX);
 //		xCMP(eax, ptr32[&psxRegs.iopNextEventCycle]);
-        armLoad(EEX, PTR_CPU(psxRegs.iopNextEventCycle));
+        armLoadsw(EEX, PTR_CPU(psxRegs.iopNextEventCycle));
         armAsm->Cmp(EAX, EEX);
 //		xCMOVNS(eax, ptr32[&psxRegs.iopNextEventCycle]);
         armAsm->Csel(EAX, EEX, EAX, a64::Condition::pl);
@@ -1260,7 +1262,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 		if (newpc != 0xffffffff)
 		{
 //			xCMP(ptr32[&psxRegs.pc], newpc);
-            armAsm->Cmp(armLoad(PTR_CPU(psxRegs.pc)), newpc);
+            armAsm->Cmp(armLoadsw(PTR_CPU(psxRegs.pc)), newpc);
 //			xJNE(iopDispatcherReg);
             armEmitCondBranch(a64::Condition::ne, iopDispatcherReg);
 		}
@@ -1279,7 +1281,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 
 		// check if an event is pending
 //		xSUB(ebx, ptr32[&psxRegs.iopNextEventCycle]);
-        armAsm->Subs(EBX, EBX, armLoad(PTR_CPU(psxRegs.iopNextEventCycle)));
+        armAsm->Subs(EBX, EBX, armLoadsw(PTR_CPU(psxRegs.iopNextEventCycle)));
 //		xForwardJS<u8> nointerruptpending;
         a64::Label nointerruptpending;
         armAsm->B(&nointerruptpending, a64::Condition::mi);
@@ -1290,7 +1292,7 @@ static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 		if (newpc != 0xffffffff)
 		{
 //			xCMP(ptr32[&psxRegs.pc], newpc);
-            armAsm->Cmp(armLoad(PTR_CPU(psxRegs.pc)), newpc);
+            armAsm->Cmp(armLoadsw(PTR_CPU(psxRegs.pc)), newpc);
 //			xJNE(iopDispatcherReg);
             armEmitCondBranch(a64::Condition::ne, iopDispatcherReg);
 		}

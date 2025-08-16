@@ -1362,9 +1362,8 @@ static void rpsxLoad(int size, bool sign)
 //	xTEST(arg1regd, 0x10000000);
 //	xForwardJZ8 is_ram_read;
 
-    armAsm->Tst(EAX, 0x10000000);
     a64::Label is_ram_read;
-    armAsm->B(&is_ram_read, a64::Condition::eq);
+    armAsm->Tbz(EAX, 28, &is_ram_read); // 28 = find_bit_pos(0x10000000)
 
 	switch (size)
 	{
@@ -1404,8 +1403,7 @@ static void rpsxLoad(int size, bool sign)
     armAsm->And(EAX, EAX,  0x1fffff);
 
 //	auto addr = xComplexAddress(rax, iopMem->Main, arg1reg);
-    armMoveAddressToReg(RXVIXLSCRATCH, iopMem->Main);
-    auto addr = a64::MemOperand(RXVIXLSCRATCH, RAX);
+    const auto addr = a64::MemOperand(RSTATE_x29, RAX);
 	switch (size)
 	{
 		case 8:

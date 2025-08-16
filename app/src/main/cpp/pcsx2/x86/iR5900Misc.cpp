@@ -152,7 +152,7 @@ void recMTSAB()
 	}
 	else
 	{
-		_eeMoveGPRtoR(a64::WRegister(EAX), _Rs_);
+		_eeMoveGPRtoR(EAX, _Rs_);
 //		xAND(eax, 0xF);
         armAsm->And(EAX, EAX, 0xF);
 //		xXOR(eax, _Imm_ & 0xf);
@@ -171,7 +171,7 @@ void recMTSAH()
 	}
 	else
 	{
-		_eeMoveGPRtoR(a64::WRegister(EAX), _Rs_);
+		_eeMoveGPRtoR(EAX, _Rs_);
 //		xAND(eax, 0x7);
         armAsm->And(EAX, EAX, 0x7);
 //		xXOR(eax, _Imm_ & 0x7);

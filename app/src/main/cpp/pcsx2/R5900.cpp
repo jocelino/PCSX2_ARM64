@@ -433,23 +433,28 @@ __fi void _cpuEventTest_Shared()
 	CpuVU0->ExecuteBlock();
 	CpuVU1->ExecuteBlock();
 
-	// ---- Schedule Next Event Test --------------
-	const float mutiplier = static_cast<float>(PS2CLK) / static_cast<float>(PSXCLK);
-	const int nextIopEventDeta = ((psxRegs.iopNextEventCycle - psxRegs.cycle) * mutiplier);
-	// 8 or more cycles behind and there's an event scheduled
-	if (EEsCycle >= nextIopEventDeta)
-	{
-		// EE's running way ahead of the IOP still, so we should branch quickly to give the
-		// IOP extra timeslices in short order.
+    // ---- Schedule Next Event Test --------------
+#if defined(ANDROID)
+    const s32 nextIopEventDeta = (psxRegs.iopNextEventCycle - psxRegs.cycle);
+#else
+    const float mutiplier = static_cast<float>(PS2CLK) / static_cast<float>(PSXCLK);
+    const s32 nextIopEventDeta = ((psxRegs.iopNextEventCycle - psxRegs.cycle) * mutiplier);
+#endif
 
-		cpuSetNextEventDelta(48);
-		//Console.Warning( "EE ahead of the IOP -- Rapid Event!  %d", EEsCycle );
-	}
-	else
-	{
-		// Otherwise IOP is caught up/not doing anything so we can wait for the next event.
-		cpuSetNextEventDelta(((psxRegs.iopNextEventCycle - psxRegs.cycle) * mutiplier) - EEsCycle);
-	}
+    // 8 or more cycles behind and there's an event scheduled
+    if (EEsCycle >= nextIopEventDeta)
+    {
+        // EE's running way ahead of the IOP still, so we should branch quickly to give the
+        // IOP extra timeslices in short order.
+
+        cpuSetNextEventDelta(48);
+        //Console.Warning( "EE ahead of the IOP -- Rapid Event!  %d", EEsCycle );
+    }
+    else
+    {
+        // Otherwise IOP is caught up/not doing anything so we can wait for the next event.
+        cpuSetNextEventDelta(nextIopEventDeta - EEsCycle);
+    }
 
 	// Apply vsync and other counter nextCycles
 	cpuSetNextEvent(nextStartCounter, nextDeltaCounter);

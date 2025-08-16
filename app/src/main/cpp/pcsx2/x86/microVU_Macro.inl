@@ -563,7 +563,7 @@ static void recCTC2()
 		case REG_VPU_STAT:
 			break; // Read Only Regs
 		case REG_R:
-			_eeMoveGPRtoR(a64::WRegister(EAX), _Rt_);
+			_eeMoveGPRtoR(EAX, _Rt_);
 //			xAND(eax, 0x7FFFFF);
             armAsm->And(EAX, EAX, 0x7FFFFF);
 //			xOR(eax, 0x3f800000);
@@ -575,7 +575,7 @@ static void recCTC2()
 		{
 			if (_Rt_)
 			{
-				_eeMoveGPRtoR(a64::WRegister(EAX), _Rt_);
+				_eeMoveGPRtoR(EAX, _Rt_);
 //				xAND(eax, 0xFC0);
                 armAsm->And(EAX, EAX, 0xFC0);
 //				xAND(ptr32[&vu0Regs.VI[REG_STATUS_FLAG].UL], 0x3F);
@@ -609,7 +609,7 @@ static void recCTC2()
             armAsm->Mov(EAX, 1);
 //			xFastCall((void*)vu1Finish);
             armEmitCall(reinterpret_cast<const void*>(vu1Finish));
-			_eeMoveGPRtoR(a64::WRegister(EAX), _Rt_);
+			_eeMoveGPRtoR(EAX, _Rt_);
 			iFlushCall(FLUSH_NONE);
 //			xFastCall((void*)vu1ExecMicro);
             armEmitCall(reinterpret_cast<const void*>(vu1ExecMicro));
@@ -708,7 +708,7 @@ static void recCTC2()
 						}
 						else
 						{
-							_eeMoveGPRtoR(a64::WRegister(EAX), _Rt_);
+							_eeMoveGPRtoR(EAX, _Rt_);
 //							xMOV(ptr16[&vu0Regs.VI[_Rd_].US[0]], ax);
 						}
 					}
@@ -960,7 +960,7 @@ void recLQC2()
 	else
 	{
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
@@ -1003,7 +1003,7 @@ void recSQC2()
 	else
 	{
 //		_eeMoveGPRtoR(arg1regd, _Rs_);
-        _eeMoveGPRtoR(a64::WRegister(ECX), _Rs_);
+        _eeMoveGPRtoR(ECX, _Rs_);
 		if (_Imm_ != 0) {
 //            xADD(arg1regd, _Imm_);
             armAsm->Add(ECX, ECX, _Imm_);
