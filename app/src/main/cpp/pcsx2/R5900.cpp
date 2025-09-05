@@ -34,7 +34,7 @@ using namespace R5900;	// for R5900 disasm tools
 s32 EEsCycle;		// used to sync the IOP to the EE
 u32 EEoCycle;
 
-alignas(16) cpuRegistersPack g_cpuRegistersPack;
+alignas(64) cpuRegistersPack g_cpuRegistersPack;
 alignas(16) tlbs tlb[48];
 cachedTlbs_t cachedTlbs;
 
@@ -58,6 +58,10 @@ uptr g_argPtrs[kMaxArgs];
 
 void cpuReset()
 {
+    //// cpuRegistersPack -> VIFregisters
+    g_cpuRegistersPack.vifRegs[0] = vif0Regs;
+    g_cpuRegistersPack.vifRegs[1] = vif1Regs;
+    ////
 	std::memset(&cpuRegs, 0, sizeof(cpuRegs));
 	std::memset(&fpuRegs, 0, sizeof(fpuRegs));
 	std::memset(&tlb, 0, sizeof(tlb));

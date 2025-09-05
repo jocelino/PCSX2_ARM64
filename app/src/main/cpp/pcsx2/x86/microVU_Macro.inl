@@ -5,7 +5,7 @@
 extern void _vu0WaitMicro();
 extern void _vu0FinishMicro();
 
-static VURegs& vu0Regs = g_cpuRegistersPack.vuRegs[0];
+//static VURegs& vu0Regs = g_cpuRegistersPack.vuRegs[0];
 
 //------------------------------------------------------------------
 // Macro VU - Helper Macros / Functions
@@ -72,7 +72,7 @@ void setupMacroOp(int mode, const char* opName)
 			// load denormalized status flag
 			// ideally we'd keep this in a register, but 32-bit...
 //			xMOV(gprF0, ptr32[&vuRegs->VI[REG_STATUS_FLAG].UL]);
-            armAsm->Ldr(gprF0, armMemOperandPtr(&g_cpuRegistersPack.vuRegs->VI[REG_STATUS_FLAG].UL));
+            armAsm->Ldr(gprF0, PTR_CPU(vuRegs[g_cpuRegistersPack.vuRegs->idx].VI[REG_STATUS_FLAG].UL));
 		}
 	}
 }
@@ -101,7 +101,7 @@ void endMacroOp(int mode)
 			// backup denormalized flags for the next instruction
 			// this is fine, because we'll normalize them again before this reg is accessed
 //			xMOV(ptr32[&vuRegs->VI[REG_STATUS_FLAG].UL], gprF0);
-            armAsm->Str(gprF0, armMemOperandPtr(&g_cpuRegistersPack.vuRegs->VI[REG_STATUS_FLAG].UL));
+            armAsm->Str(gprF0, PTR_CPU(vuRegs[g_cpuRegistersPack.vuRegs->idx].VI[REG_STATUS_FLAG].UL));
 		}
 	}
 
@@ -489,13 +489,13 @@ static void recCFC2()
 	}
 
 	const int regt = _allocX86reg(X86TYPE_GPR, _Rt_, MODE_WRITE);
+    auto regT = a64::XRegister(regt);
 	pxAssert(!GPR_IS_CONST1(_Rt_));
 
 	if (_Rd_ == 0) // why would you read vi00?
 	{
 //		xXOR(xRegister32(regt), xRegister32(regt));
-        a64::Register reg32 = a64::WRegister(regt);
-        armAsm->Eor(reg32, reg32, reg32);
+        armAsm->Eor(regT.W(), regT.W(), regT.W());
 	}
 	else if (_Rd_ == REG_I)
 	{
@@ -503,38 +503,38 @@ static void recCFC2()
 		if (xmmreg >= 0)
 		{
 //			xMOVD(xRegister32(regt), xRegisterSSE(xmmreg));
-            armAsm->Fmov(a64::WRegister(regt), a64::QRegister(xmmreg).S());
+            armAsm->Fmov(regT.W(), a64::QRegister(xmmreg).S());
 //			xMOVSX(xRegister64(regt), xRegister32(regt));
-            armAsm->Sxtw(a64::XRegister(regt), a64::WRegister(regt));
+            armAsm->Sxtw(regT.X(), regT.W());
 		}
 		else
 		{
 //			xMOVSX(xRegister64(regt), ptr32[&vu0Regs.VI[_Rd_].UL]);
-            armAsm->Ldrsw(a64::XRegister(regt), PTR_CPU(vuRegs[0].VI[_Rd_].UL));
+            armAsm->Ldrsw(regT.X(), PTR_CPU(vuRegs[0].VI[_Rd_].UL));
 		}
 	}
 	else if (_Rd_ == REG_R)
 	{
 //		xMOVSX(xRegister64(regt), ptr32[&vu0Regs.VI[REG_R].UL]);
-        armAsm->Ldrsw(a64::XRegister(regt), PTR_CPU(vuRegs[0].VI[REG_R].UL));
+        armAsm->Ldrsw(regT.X(), PTR_CPU(vuRegs[0].VI[REG_R].UL));
 //		xAND(xRegister64(regt), 0x7FFFFF);
-        armAsm->And(a64::XRegister(regt), a64::XRegister(regt), 0x7FFFFF);
+        armAsm->And(regT.X(), regT.X(), 0x7FFFFF);
 	}
 	else if (_Rd_ >= REG_STATUS_FLAG) // FixMe: Should R-Reg have upper 9 bits 0?
 	{
 //		xMOVSX(xRegister64(regt), ptr32[&vu0Regs.VI[_Rd_].UL]);
-        armAsm->Ldrsw(a64::XRegister(regt), PTR_CPU(vuRegs[0].VI[_Rd_].UL));
+        armAsm->Ldrsw(regT.X(), PTR_CPU(vuRegs[0].VI[_Rd_].UL));
 	}
 	else
 	{
 		const int vireg = _allocIfUsedVItoX86(_Rd_, MODE_READ);
 		if (vireg >= 0) {
 //            xMOVZX(xRegister32(regt), xRegister16(vireg));
-            armAsm->Uxth(a64::WRegister(regt), a64::WRegister(vireg));
+            armAsm->Uxth(regT.W(), a64::WRegister(vireg));
         }
 		else {
 //            xMOVZX(xRegister32(regt), ptr16[&vu0Regs.VI[_Rd_].UL]);
-            armAsm->Ldrh(a64::WRegister(regt), PTR_CPU(vuRegs[0].VI[_Rd_].UL));
+            armAsm->Ldrh(regT.W(), PTR_CPU(vuRegs[0].VI[_Rd_].UL));
         }
 	}
 }
@@ -589,17 +589,18 @@ static void recCTC2()
             }
 
 			const int xmmtemp = _allocTempXMMreg(XMMT_INT);
+            auto regQ = a64::QRegister(xmmtemp);
 
 			//Need to update the sticky flags for microVU
 //			mVUallocSFLAGd(&vu0Regs.VI[REG_STATUS_FLAG].UL);
             mVUallocSFLAGd(PTR_CPU(vuRegs[0].VI[REG_STATUS_FLAG].UL));
 //			xMOVDZX(xRegisterSSE(xmmtemp), eax); // TODO(Stenzek): This can be a broadcast.
-            armAsm->Fmov(a64::QRegister(xmmtemp).S(), EAX);
+            armAsm->Fmov(regQ.S(), EAX);
 //			xSHUF.PS(xRegisterSSE(xmmtemp), xRegisterSSE(xmmtemp), 0);
-            armSHUFPS(a64::QRegister(xmmtemp), a64::QRegister(xmmtemp), 0);
+            armSHUFPS(regQ, regQ, 0);
 			// Make sure the values are everywhere the need to be
 //			xMOVAPS(ptr128[&vu0Regs.micro_statusflags], xRegisterSSE(xmmtemp));
-            armAsm->Str(a64::QRegister(xmmtemp).Q(), PTR_CPU(vuRegs[0].micro_statusflags));
+            armAsm->Str(regQ.Q(), PTR_CPU(vuRegs[0].micro_statusflags));
 			_freeXMMreg(xmmtemp);
 			break;
 		}
@@ -624,16 +625,17 @@ static void recCTC2()
 				}
 
 				const int flagreg = _allocX86reg(X86TYPE_TEMP, 0, MODE_CALLEESAVED);
-				_eeMoveGPRtoR(a64::WRegister(flagreg), _Rt_);
+                auto regFlag = a64::WRegister(flagreg);
+				_eeMoveGPRtoR(regFlag, _Rt_);
 
 				iFlushCall(FLUSH_FREE_VU0);
 				TEST_FBRST_RESET(flagreg, vu0ResetRegs, 0);
 				TEST_FBRST_RESET(flagreg, vu1ResetRegs, 1);
 
 //				xAND(xRegister32(flagreg), 0x0C0C);
-                armAsm->And(a64::WRegister(flagreg), a64::WRegister(flagreg), 0x0C0C);
+                armAsm->And(regFlag, regFlag, 0x0C0C);
 //				xMOV(ptr32[&vu0Regs.VI[REG_FBRST].UL], xRegister32(flagreg));
-                armAsm->Str(a64::WRegister(flagreg), PTR_CPU(vuRegs[0].VI[REG_FBRST].UL));
+                armAsm->Str(regFlag, PTR_CPU(vuRegs[0].VI[REG_FBRST].UL));
 				_freeX86reg(flagreg);
 			}
 			break;
@@ -754,7 +756,7 @@ static void recCTC2()
 				}
 				else
 				{
-					_eeMoveGPRtoM((uptr)&vu0Regs.VI[_Rd_].UL, _Rt_);
+                    _eeMoveGPRtoM(PTR_CPU(vuRegs[0].VI[_Rd_].UL), _Rt_);
 				}
 			}
 			break;

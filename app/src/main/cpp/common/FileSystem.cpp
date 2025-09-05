@@ -998,7 +998,16 @@ std::FILE* FileSystem::OpenCFile(const char* filename, const char* mode, Error* 
 
 	return fp;
 #else
-	std::FILE* fp = std::fopen(filename, mode);
+
+	std::FILE* fp;
+    ////
+    std::string _filename(filename);
+    if (_filename.rfind("content://", 0) == 0) {
+        fp = fdopen(FileSystem::OpenFDFileContent(_filename.c_str()), "rb");
+    } else {
+        fp = std::fopen(_filename.c_str(), mode);
+    }
+    ////
 	if (!fp)
 		Error::SetErrno(error, errno);
 	return fp;
@@ -1010,7 +1019,15 @@ std::FILE* FileSystem::OpenCFileTryIgnoreCase(const char* filename, const char* 
 #if defined(_WIN32) || defined(__APPLE__)
 	return OpenCFile(filename, mode, error);
 #else
-	std::FILE* fp = std::fopen(filename, mode);
+	std::FILE* fp;
+    ////
+    std::string _filename(filename);
+    if (_filename.rfind("content://", 0) == 0) {
+        fp = fdopen(FileSystem::OpenFDFileContent(_filename.c_str()), "rb");
+    } else {
+        fp = std::fopen(_filename.c_str(), mode);
+    }
+    ////
 	const auto cur_errno = errno;
 
 	if (!fp)
@@ -1023,7 +1040,13 @@ std::FILE* FileSystem::OpenCFileTryIgnoreCase(const char* filename, const char* 
 			{
 				if (StringUtil::compareNoCase(file.FileName, filename))
 				{
-					fp = std::fopen(file.FileName.c_str(), mode);
+                    ////
+                    if (file.FileName.rfind("content://", 0) == 0) {
+                        fp = fdopen(FileSystem::OpenFDFileContent(file.FileName.c_str()), "rb");
+                    } else {
+                        fp = std::fopen(file.FileName.c_str(), mode);
+                    }
+                    ////
 					break;
 				}
 			}
@@ -1045,7 +1068,16 @@ int FileSystem::OpenFDFile(const char* filename, int flags, int mode, Error* err
 
 	return -1;
 #else
-	const int fd = open(filename, flags, mode);
+
+    int fd;
+    ////
+    std::string _filename(filename);
+    if (_filename.rfind("content://", 0) == 0) {
+        fd = FileSystem::OpenFDFileContent(_filename.c_str());
+    } else {
+        fd = open(_filename.c_str(), flags, mode);
+    }
+    ////
 	if (fd < 0)
 		Error::SetErrno(error, errno);
 	return fd;
@@ -1095,7 +1127,16 @@ std::FILE* FileSystem::OpenSharedCFile(const char* filename, const char* mode, F
 	Error::SetErrno(error, errno);
 	return nullptr;
 #else
-	std::FILE* fp = std::fopen(filename, mode);
+
+    std::FILE* fp;
+    ////
+    std::string _filename(filename);
+    if (_filename.rfind("content://", 0) == 0) {
+        fp = fdopen(FileSystem::OpenFDFileContent(_filename.c_str()), "rb");
+    } else {
+        fp = std::fopen(_filename.c_str(), mode);
+    }
+    ////
 	if (!fp)
 		Error::SetErrno(error, errno);
 	return fp;

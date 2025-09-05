@@ -44,7 +44,7 @@ using namespace vtlb_private;
 
 namespace vtlb_private
 {
-	alignas(64) MapData vtlbdata;
+    MapData& vtlbdata = g_cpuRegistersPack.vtlbdata;
 } // namespace vtlb_private
 
 static vtlbHandler vtlbHandlerCount = 0;

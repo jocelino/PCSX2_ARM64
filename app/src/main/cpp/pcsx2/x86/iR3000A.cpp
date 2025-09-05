@@ -47,7 +47,7 @@ extern void psxBREAK();
 
 u32 g_psxMaxRecMem = 0;
 
-uptr psxRecLUT[0x10000];
+alignas(16) uptr psxRecLUT[0x10000];
 u32 psxhwLUT[0x10000];
 
 static __fi u32 HWADDR(u32 mem) { return psxhwLUT[mem >> 16] + mem; }
@@ -183,12 +183,13 @@ static const void* _DynGen_JITCompile()
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
     armLoad(EAX, PTR_CPU(psxRegs.pc));
-    armMoveAddressToReg(RDX, &psxRecLUT);
-    armAsm->Lsr(ECX, EAX, 16);
-    armAsm->Lsr(EAX, EAX, 2);
-    armAsm->Ldr(RCX, a64::MemOperand(RDX, RCX, a64::LSL, 3));
     ////
+    armAsm->Lsr(ECX, EAX, 16);
+    armAsm->Ldr(RCX, a64::MemOperand(RSTATE_x29, RCX, a64::LSL, 3));
+    ////
+    armAsm->Lsr(EAX, EAX, 2);
     armAsm->Ldr(RAX, a64::MemOperand(RCX, RAX, a64::LSL, 3));
+    ////
     armAsm->Br(RAX);
 
 	return retval;
@@ -207,12 +208,13 @@ static const void* _DynGen_DispatcherReg()
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
     armLoad(EAX, PTR_CPU(psxRegs.pc));
-    armMoveAddressToReg(RDX, &psxRecLUT);
-    armAsm->Lsr(ECX, EAX, 16);
-    armAsm->Lsr(EAX, EAX, 2);
-    armAsm->Ldr(RCX, a64::MemOperand(RDX, RCX, a64::LSL, 3));
     ////
+    armAsm->Lsr(ECX, EAX, 16);
+    armAsm->Ldr(RCX, a64::MemOperand(RSTATE_x29, RCX, a64::LSL, 3));
+    ////
+    armAsm->Lsr(EAX, EAX, 2);
     armAsm->Ldr(RAX, a64::MemOperand(RCX, RAX, a64::LSL, 3));
+    ////
     armAsm->Br(RAX);
 
 	return retval;
@@ -237,8 +239,8 @@ static const void* _DynGen_EnterRecompiledCode()
 //		xScopedStackFrame frame(false, true);
         armBeginStackFrame();
 #endif
-
-        armMoveAddressToReg(RSTATE_x29, iopMem->Main);
+        armMoveAddressToReg(RSTATE_x26, iopMem->Main);
+        armMoveAddressToReg(RSTATE_x29, &psxRecLUT);
 
 //		xJMP((void*)iopDispatcherReg);
         armEmitJmp(iopDispatcherReg);

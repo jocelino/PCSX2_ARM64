@@ -8,21 +8,6 @@ if(ANDROID)
 		"PCSX2_CORE=1"
 		"DISABLE_RECORDING"
 	)
-	
-	# Snapdragon optimizations flags (optional)
-	option(ENABLE_SNAPDRAGON_OPTIMIZATIONS "Enable Snapdragon 7 series optimizations" OFF)
-	if(ENABLE_SNAPDRAGON_OPTIMIZATIONS)
-		set(SNAPDRAGON_TARGET "generic" CACHE STRING "Target Snapdragon processor: 7325, 778G, or generic")
-		target_compile_definitions(PCSX2_FLAGS INTERFACE 
-			"PCSX2_ENABLE_SNAPDRAGON_OPTIMIZATIONS=1"
-			"PCSX2_SNAPDRAGON_TARGET=\"${SNAPDRAGON_TARGET}\""
-		)
-		message(STATUS "Snapdragon optimizations enabled for: ${SNAPDRAGON_TARGET}")
-	else()
-		target_compile_definitions(PCSX2_FLAGS INTERFACE 
-			"PCSX2_ENABLE_SNAPDRAGON_OPTIMIZATIONS=0"
-		)
-	endif()
 else()
 	if(DISABLE_ADVANCE_SIMD OR LTO_PCSX2_CORE)
 		# Fixes issues with some compiler + linker combinations
@@ -1071,18 +1056,12 @@ set(pcsx2x86Headers
 set(pcsx2arm64Sources
 	arm64/Vif_Dynarec.cpp
 	arm64/Vif_UnpackNEON.cpp
-#	arm64/AsmHelpers.cpp
+	arm64/VixlHelpers.cpp
 #	arm64/RecStubs.cpp
-	# Snapdragon Optimizations
-	arm64/ARM64_Snapdragon_Optimizations.cpp
-	arm64/ARM64_NEON_Operations.cpp
 	)
 
 set(pcsx2arm64Headers
-	arm64/Vif_UnpackNEON.h
-	# Snapdragon Headers
-	arm64/ARM64_Snapdragon_Optimizations.h
-#	arm64/AsmHelpers.h
+	arm64/VixlHelpers.h
 )
 
 # These ones benefit a lot from LTO

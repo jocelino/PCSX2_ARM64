@@ -168,7 +168,7 @@ void recJALR()
 		}
 		else
 		{
-			_eeMoveGPRtoM((uptr)&cpuRegs.pc, _Rs_);
+            _eeMoveGPRtoM(PTR_CPU(cpuRegs.pc), _Rs_);
 		}
 	}
 

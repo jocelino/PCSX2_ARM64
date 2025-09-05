@@ -3,7 +3,6 @@
 
 #include "Vif_UnpackNEON.h"
 #include "common/Perf.h"
-#include "ARM64_Snapdragon_Optimizations.h"
 
 namespace a64 = vixl::aarch64;
 
@@ -256,16 +255,7 @@ void VifUnpackNEON_Base::xUPK_V4_32() const
 	if (IsInputMasked())
 		return;
 
-	// Snapdragon 778G optimization: Use prefetch for texture streaming
-	ARM64_Snapdragon_Optimizations::ARM_PrefetchForAdreno642L(
-		reinterpret_cast<const void*>(srcIndirect.GetBaseRegister().GetCode()), 16);
-	
-	// Use optimized NEON load with potential parallel processing
 	armAsm->Ldr(destReg.Q(), a64::MemOperand(srcIndirect));
-	
-	// Snapdragon 778G: Post-process with NEON optimizations for God of War textures
-	ARM64_Snapdragon_Optimizations::ARM_TexturePrefetch_Adreno642L(
-		reinterpret_cast<const void*>(srcIndirect.GetBaseRegister().GetCode()), 64, 64);
 }
 
 void VifUnpackNEON_Base::xUPK_V4_16() const

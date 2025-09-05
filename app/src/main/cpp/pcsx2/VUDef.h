@@ -170,4 +170,128 @@ struct alignas(16) VURegs
     }
 };
 
+struct mVU_Globals
+{
+#define __four(val) { val, val, val, val }
+    u32   absclip [4] = __four(0x7fffffff);
+    u32   signbit [4] = __four(0x80000000);
+    u32   minvals [4] = __four(0xff7fffff);
+    u32   maxvals [4] = __four(0x7f7fffff);
+    u32   exponent[4] = __four(0x7f800000);
+    u32   one     [4] = __four(0x3f800000);
+    u32   Pi4     [4] = __four(0x3f490fdb);
+    u32   T1      [4] = __four(0x3f7ffff5);
+    u32   T5      [4] = __four(0xbeaaa61c);
+    u32   T2      [4] = __four(0x3e4c40a6);
+    u32   T3      [4] = __four(0xbe0e6c63);
+    u32   T4      [4] = __four(0x3dc577df);
+    u32   T6      [4] = __four(0xbd6501c4);
+    u32   T7      [4] = __four(0x3cb31652);
+    u32   T8      [4] = __four(0xbb84d7e7);
+    u32   S2      [4] = __four(0xbe2aaaa4);
+    u32   S3      [4] = __four(0x3c08873e);
+    u32   S4      [4] = __four(0xb94fb21f);
+    u32   S5      [4] = __four(0x362e9c14);
+    u32   E1      [4] = __four(0x3e7fffa8);
+    u32   E2      [4] = __four(0x3d0007f4);
+    u32   E3      [4] = __four(0x3b29d3ff);
+    u32   E4      [4] = __four(0x3933e553);
+    u32   E5      [4] = __four(0x36b63510);
+    u32   E6      [4] = __four(0x353961ac);
+    u32   I32MAXF [4] = __four(0x4effffff);
+    float FTOI_4  [4] = __four(16.0);
+    float FTOI_12 [4] = __four(4096.0);
+    float FTOI_15 [4] = __four(32768.0);
+    float ITOF_4  [4] = __four(0.0625f);
+    float ITOF_12 [4] = __four(0.000244140625);
+    float ITOF_15 [4] = __four(0.000030517578125);
+#undef __four
+};
+
+#define SINGLE(sign, exp, mant) (((u32)(sign) << 31) | ((u32)(exp) << 23) | (u32)(mant))
+#define DOUBLE(sign, exp, mant) (((sign##ULL) << 63) | ((exp##ULL) << 52) | (mant##ULL))
+
+struct FPUd_Globals
+{
+    u32 neg[4], pos[4];
+
+    u32 pos_inf[4], neg_inf[4],
+            one_exp[4];
+
+    u64 dbl_one_exp[2];
+
+    u64 dbl_cvt_overflow, // needs special code if above or equal
+    dbl_ps2_overflow, // overflow & clamp if above or equal
+    dbl_underflow;    // underflow if below
+
+    u64 padding;
+
+    u64 dbl_s_pos[2];
+    //u64		dlb_s_neg[2];
+};
+
+struct SSEMasks
+{
+    u32 MIN_MAX_1[4], MIN_MAX_2[4], ADD_SS[4];
+};
+
+struct mVU_SSE4
+{
+    u32 sse4_minvals[2][4] = {
+        {0xff7fffff, 0xffffffff, 0xffffffff, 0xffffffff}, //1000
+        {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff}, //1111
+    };
+    u32 sse4_maxvals[2][4] = {
+        {0x7f7fffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1000
+        {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
+    };
+    ////
+    u32 sse4_compvals[2][4] = {
+        {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
+        {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1111
+    };
+    ////
+    u32 s_neg[4] = {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff};
+    u32 s_pos[4] = {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+    ////
+    u32 g_minvals[4] = {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff};
+    u32 g_maxvals[4] = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
+    ////
+    u32 result[4] = { 0x3f490fda };
+    ////
+    u32 minmax_mask[8] =
+    {
+        0xffffffff, 0x80000000, 0, 0,
+        0,          0x40000000, 0, 0,
+    };
+    ////
+    FPUd_Globals s_const =
+    {
+        {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff},
+        {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff},
+
+        {SINGLE(0, 0xff, 0), 0, 0, 0},
+        {SINGLE(1, 0xff, 0), 0, 0, 0},
+        {SINGLE(0,    1, 0), 0, 0, 0},
+
+        {DOUBLE(0, 1, 0), 0},
+
+        DOUBLE(0, 1151, 0), // cvt_overflow
+        DOUBLE(0, 1152, 0), // ps2_overflow
+        DOUBLE(0,  897, 0), // underflow
+
+        0,                  // Padding!!
+
+        {0x7fffffffffffffffULL, 0},
+        //{0x8000000000000000ULL, 0},
+    };
+    ////
+    SSEMasks sseMasks =
+    {
+        {0xffffffff, 0x80000000, 0xffffffff, 0x80000000},
+        {0x00000000, 0x40000000, 0x00000000, 0x40000000},
+        {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff},
+    };
+};
+
 #endif //PCSX2_VUDEF_H

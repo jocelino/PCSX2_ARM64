@@ -7,7 +7,8 @@
 #include "common/Perf.h"
 #include "common/StringUtil.h"
 
-alignas(16) vuRegistersPack g_vuRegistersPack;
+alignas(64) vuRegistersPack g_vuRegistersPack;
+VU_Thread& vu1Thread = g_vuRegistersPack.vu1Thread;
 
 //------------------------------------------------------------------
 // Micro VU - Main Functions
@@ -27,14 +28,7 @@ void mVUinit(microVU& mVU, uint vuIndex)
 	mVU.cache        = vuIndex ? SysMemory::GetVU1Rec() : SysMemory::GetVU0Rec();
 	mVU.prog.x86end  = (vuIndex ? SysMemory::GetVU1RecEnd() : SysMemory::GetVU0RecEnd()) - (mVUcacheSafeZone * _1mb);
 
-#ifdef _M_ARM64
-	// ARM64: Pre-allocate register allocator to avoid runtime allocations
-	if (!mVU.regAlloc) {
-		mVU.regAlloc.reset(new microRegAlloc(mVU.index));
-	}
-#else
 	mVU.regAlloc.reset(new microRegAlloc(mVU.index));
-#endif
 }
 
 // Resets Rec Data
@@ -77,15 +71,6 @@ void mVUreset(microVU& mVU, bool resetReserve)
 	mVU.prog.x86ptr   = mVU.prog.x86start;
 
     u32 i, e = (mVU.progSize >> 1); // mVU.progSize / 2
-	
-#ifdef _M_ARM64
-	// ARM64: Optimize loop with prefetching for better cache usage
-	if (e > 0) {
-		__builtin_prefetch(&mVU.prog.prog[0], 1, 3);
-		if (e > 16) __builtin_prefetch(&mVU.prog.prog[16], 1, 3);
-	}
-#endif
-	
 	for ( i = 0; i < e; ++i)
 	{
 		if (!mVU.prog.prog[i])

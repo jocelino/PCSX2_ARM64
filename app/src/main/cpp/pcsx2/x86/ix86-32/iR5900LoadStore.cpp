@@ -389,11 +389,11 @@ void recLWR()
     auto reg32 = a64::WRegister(treg);
 
 //	xAND(temp, 3);
-    armAsm->Ands(temp, temp, 3);
+    armAsm->And(temp, temp, 3);
 
 //	xForwardJE8 nomask;
     a64::Label nomask;
-    armAsm->B(&nomask, a64::Condition::eq);
+    armAsm->Cbz(temp, &nomask);
 //	xSHL(temp, 3);
     armAsm->Lsl(temp, temp, 3);
 	// mask off bytes loaded
@@ -576,7 +576,7 @@ void recSWR()
 //	xMOV(temp, arg1regd);
     armAsm->Mov(temp, ECX);
 //	xAND(arg1regd, ~3);
-    armAsm->And(ECX, ECX, ~3);
+    armAsm->Ands(ECX, ECX, ~3);
 //	xAND(temp, 3);
     armAsm->Ands(temp, temp, 3);
 
@@ -1239,7 +1239,7 @@ void recSDR()
 //		xMOV(temp2, arg2reg);
         armAsm->Mov(temp2, RDX);
 //		xAND(arg1regd, ~0x07);
-        armAsm->And(ECX, ECX, ~0x07);
+        armAsm->Ands(ECX, ECX, ~0x07);
 //		xAND(temp1, 0x7);
         armAsm->Ands(temp1, temp1, 0x7);
 

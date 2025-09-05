@@ -72,17 +72,6 @@ public class NativeApp {
 	public static native boolean loadStateFromSlot(int slot);
 	public static native String getGamePathSlot(int slot);
 	public static native byte[] getImageSlot(int slot);
-	
-	// Snapdragon Optimizations
-	public static native void setOptimizationsEnabled(boolean enabled);
-	public static native boolean isOptimizationsEnabled();
-	public static native String getDetectedProcessor();
-	public static native void initializeOptimizations();
-	
-	// Force functions for testing aggressive optimizations
-	public static native void forceEmergencyMode(boolean enable);
-	public static native void forceGodOfWarMode(boolean enable);
-	public static native void dumpCurrentSettings();
 
 	// Call jni
 	public static int openContentUri(String uriString) {

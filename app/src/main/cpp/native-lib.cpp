@@ -24,12 +24,6 @@
 #include "MTGS.h"
 #include "SDL3/SDL.h"
 #include <future>
-#include <thread>
-#include <chrono>
-
-#ifdef _M_ARM64
-#include "pcsx2/arm64/ARM64_Snapdragon_Optimizations.h"
-#endif
 
 
 bool s_execute_exit;
@@ -431,12 +425,6 @@ Java_kr_co_iefriends_pcsx2_NativeApp_runVMThread(JNIEnv *env, jclass clazz,
 
     if (VMManager::Initialize(boot_params))
     {
-#ifdef _M_ARM64
-        // Apply game-specific optimizations
-        std::string game_serial = VMManager::GetDiscSerial();
-        ARM64_Snapdragon_Optimizations::DynamicPerformance::ApplyGameSpecificHacks(game_serial);
-#endif
-        
         VMState _vmState = VMState::Running;
         VMManager::SetState(_vmState);
         ////
@@ -448,13 +436,6 @@ Java_kr_co_iefriends_pcsx2_NativeApp_runVMThread(JNIEnv *env, jclass clazz,
                 s_execute_exit = false;
                 VMManager::Execute();
                 s_execute_exit = true;
-                
-#ifdef _M_ARM64
-                // Update performance metrics for dynamic optimizations
-//                float current_fps = PerformanceMetrics::GetFPS();
-//                float target_fps = 60.0f; // NTSC target
-//                ARM64_Snapdragon_Optimizations::DynamicPerformance::UpdatePerformanceMetrics(current_fps, target_fps);
-#endif
             } else {
                 usleep(250000);
             }
@@ -711,43 +692,14 @@ void Host::OnVMResumed()
 
 void Host::OnPerformanceMetricsUpdated()
 {
-#ifdef _M_ARM64
-    // More efficient: Only update when PCSX2 updates its metrics
-    float current_fps = PerformanceMetrics::GetFPS();
-    float target_fps = 60.0f; // NTSC target
-    
-    // Only update if we have valid FPS data
-    if (current_fps > 0.0f) {
-        ARM64_Snapdragon_Optimizations::DynamicPerformance::UpdatePerformanceMetrics(current_fps, target_fps);
-    }
-#endif
 }
 
 void Host::OnSaveStateLoading(const std::string_view filename)
 {
-#ifdef _M_ARM64
-    // Temporarily disable optimizations during save state loading
-    Console.WriteLn("ARM64: Save state loading - temporarily disabling optimizations");
-    ARM64_Snapdragon_Optimizations::SetOptimizationEnabled(false);
-#endif
 }
 
 void Host::OnSaveStateLoaded(const std::string_view filename, bool was_successful)
 {
-#ifdef _M_ARM64
-    if (was_successful) {
-        Console.WriteLn("ARM64: Save state loaded successfully - re-enabling optimizations in 3 seconds");
-        // Re-enable after a delay to allow game to stabilize
-        std::thread([]() {
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-            ARM64_Snapdragon_Optimizations::SetOptimizationEnabled(true);
-            Console.WriteLn("ARM64: Optimizations re-enabled after save state load");
-        }).detach();
-    } else {
-        Console.WriteLn("ARM64: Save state load failed - re-enabling optimizations immediately");
-        ARM64_Snapdragon_Optimizations::SetOptimizationEnabled(true);
-    }
-#endif
 }
 
 void Host::OnSaveStateSaved(const std::string_view filename)
@@ -894,69 +846,4 @@ bool Host::LocaleCircleConfirm()
 bool Host::InNoGUIMode()
 {
     return false;
-}
-
-// Snapdragon Optimization JNI Functions
-extern "C"
-JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_setOptimizationsEnabled(JNIEnv *env, jclass clazz, jboolean enabled) {
-#ifdef _M_ARM64
-    ARM64_Snapdragon_Optimizations::SetOptimizationEnabled(enabled);
-#endif
-}
-
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_isOptimizationsEnabled(JNIEnv *env, jclass clazz) {
-#ifdef _M_ARM64
-    return ARM64_Snapdragon_Optimizations::IsOptimizationEnabled();
-#else
-    return false;
-#endif
-}
-
-extern "C"
-JNIEXPORT jstring JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getDetectedProcessor(JNIEnv *env, jclass clazz) {
-#ifdef _M_ARM64
-    const char* processor = ARM64_Snapdragon_Optimizations::GetTargetProcessor();
-    return env->NewStringUTF(processor);
-#else
-    return env->NewStringUTF("Not ARM64");
-#endif
-}
-
-extern "C"
-JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_initializeOptimizations(JNIEnv *env, jclass clazz) {
-#ifdef _M_ARM64
-    ARM64_Snapdragon_Optimizations::InitializeOptimizations();
-#endif
-}
-
-// Force Emergency Mode for manual testing
-extern "C"
-JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_forceEmergencyMode(JNIEnv *env, jclass clazz, jboolean enable) {
-#ifdef _M_ARM64
-    ARM64_Snapdragon_Optimizations::ForceEmergencyMode(enable);
-#endif
-}
-
-// Force God of War Mode for testing
-extern "C"
-JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_forceGodOfWarMode(JNIEnv *env, jclass clazz, jboolean enable) {
-#ifdef _M_ARM64
-    ARM64_Snapdragon_Optimizations::ForceGodOfWarMode(enable);
-#endif
-}
-
-// Dump current PCSX2 settings for debugging
-extern "C"
-JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_dumpCurrentSettings(JNIEnv *env, jclass clazz) {
-#ifdef _M_ARM64
-    ARM64_Snapdragon_Optimizations::DumpCurrentSettings();
-#endif
 }

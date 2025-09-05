@@ -7,7 +7,7 @@
 #include <map>
 
 #include "common/Assertions.h"
-#include "common/arm64/AsmHelpers.h"
+#include "arm64/VixlHelpers.h"
 
 // Every potential jump point in the PS2's addressable memory has a BASEBLOCK
 // associated with it. So that means a BASEBLOCK for every 4 bytes of PS2
@@ -229,7 +229,7 @@ public:
 	}
 };
 
-#define PC_GETBLOCK_(x, reclut) ((BASEBLOCK*)(reclut[((u32)(x)) >> 16] + (x) * (sizeof(BASEBLOCK) / 4)))
+#define PC_GETBLOCK_(x, reclut) ((BASEBLOCK*)(reclut[((u32)(x)) >> 16] + (x) * (sizeof(BASEBLOCK) >> 2))) // (sizeof(BASEBLOCK) / 4)
 
 /**
  * Add a page to the recompiler lookup table

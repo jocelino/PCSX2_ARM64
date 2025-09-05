@@ -137,7 +137,7 @@ void doIbit(mV)
 		if (EmuConfig.Gamefixes.IbitHack)
 		{
 //			xMOV(gprT1, ptr32[&curI]);
-            armAsm->Ldr(gprT1, armMemOperandPtr(&curI));
+            armAsm->Ldr(gprT1, armOffsetMemOperand(PTR_CPU(vuRegs[mVU.index].Micro), mVU.prog.IRinfo.curPC));
 //			xMOV(ptr32[&mVU.getVI(REG_I)], gprT1);
             armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_I]));
 		}
@@ -597,7 +597,7 @@ void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
 {
 	if (mVU.index && THREAD_VU1) {
 //        xTEST(ptr32[&vu1Thread.vuFBRST], (isVU1 ? 0x400 : 0x4));
-        armAsm->Tst(armLoadPtr(&vu1Thread.vuFBRST), (isVU1 ? 0x400 : 0x4));
+        armAsm->Tst(armLoadPtr(PTR_MVU(vu1Thread.vuFBRST)), (isVU1 ? 0x400 : 0x4));
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x400 : 0x4));
@@ -624,7 +624,7 @@ void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
 {
 	if (mVU.index && THREAD_VU1) {
 //        xTEST(ptr32[&vu1Thread.vuFBRST], (isVU1 ? 0x800 : 0x8));
-        armAsm->Tst(armLoadPtr(&vu1Thread.vuFBRST), (isVU1 ? 0x800 : 0x8));
+        armAsm->Tst(armLoadPtr(PTR_MVU(vu1Thread.vuFBRST)), (isVU1 ? 0x800 : 0x8));
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x800 : 0x8));
