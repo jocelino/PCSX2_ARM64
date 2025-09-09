@@ -1076,13 +1076,13 @@ set(pcsx2LTOSources
 	${pcsx2GSHeaders}
 )
 
-#if(_M_X86)
+if(_M_X86)
 	list(APPEND pcsx2LTOSources ${pcsx2x86Sources} ${pcsx2x86Headers})
-#	target_link_libraries(PCSX2_FLAGS INTERFACE zydis)
-#elseif(_M_ARM64)
-	list(APPEND pcsx2LTOSources ${pcsx2arm64Sources} ${pcsx2arm64Headers})
+	target_link_libraries(PCSX2_FLAGS INTERFACE zydis)
+elseif(_M_ARM64)
+	list(APPEND pcsx2LTOSources ${pcsx2x86Sources} ${pcsx2x86Headers} ${pcsx2arm64Sources} ${pcsx2arm64Headers})
 	target_link_libraries(PCSX2_FLAGS INTERFACE vixl)
-#endif()
+endif()
 
 if(LTO_PCSX2_CORE)
 	add_library(PCSX2_LTO ${pcsx2LTOSources})
